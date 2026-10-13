@@ -3,6 +3,7 @@ import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { MembersPanel, type PendingInvitation } from "@/components/trees/members-panel";
+import { ResetLinkButton } from "@/components/trees/reset-link-button";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { listMembers, listPendingInvitations } from "@/lib/invitations";
@@ -67,9 +68,14 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                                     {member.email}
                                 </span>
                             </div>
-                            <span className="badge badge-soft">
-                                {t(`enums.member_role.${member.role}`)}
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <span className="badge badge-soft">
+                                    {t(`enums.member_role.${member.role}`)}
+                                </span>
+                                {canInvite && member.userId !== user.id && (
+                                    <ResetLinkButton slug={slug} email={member.email} />
+                                )}
+                            </div>
                         </li>
                     ))}
                 </ul>
