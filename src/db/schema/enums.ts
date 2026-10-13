@@ -20,13 +20,7 @@ export const familee = pgSchema("familee");
 
 export const appRoleEnum = familee.enum("app_role", ["admin", "editor", "viewer"]);
 
-export const memberRoleEnum = familee.enum("member_role", [
-    "owner",
-    "admin",
-    "editor",
-    "contributor",
-    "viewer",
-]);
+export const memberRoleEnum = familee.enum("member_role", ["owner", "admin", "editor", "viewer"]);
 
 export const privacyLevelEnum = familee.enum("privacy_level", ["public", "members", "private"]);
 

@@ -111,7 +111,7 @@ the administrator; the page answers 404 from then on. Everyone else receives an 
 an owner or administrator of a tree. The link is valid for 7 days and works once; the token is shown
 only at creation and stored as a hash.
 
-Roles are granted per tree: owner, administrator, editor, contributor, viewer. An invitation can grant
+Roles are granted per tree: owner, administrator, co-author (the `editor` role), viewer. An invitation can grant
 any role except owner.
 
 `BETTER_AUTH_URL` must be the address the browser uses, port included (for example

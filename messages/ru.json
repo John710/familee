@@ -538,8 +538,7 @@
         "member_role": {
             "owner": "Владелец",
             "admin": "Администратор",
-            "editor": "Редактор",
-            "contributor": "Соавтор",
+            "editor": "Соавтор",
             "viewer": "Читатель"
         },
         "privacy_level": {

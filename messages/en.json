@@ -538,8 +538,7 @@
         "member_role": {
             "owner": "Owner",
             "admin": "Administrator",
-            "editor": "Editor",
-            "contributor": "Contributor",
+            "editor": "Co-author",
             "viewer": "Viewer"
         },
         "privacy_level": {
