@@ -10,14 +10,7 @@
  */
 
 import { sql } from "drizzle-orm";
-import {
-    boolean,
-    check,
-    index,
-    text,
-    timestamp,
-    unique,
-} from "drizzle-orm/pg-core";
+import { boolean, check, index, text, timestamp, unique } from "drizzle-orm/pg-core";
 
 import { appRoleEnum, familee } from "./enums";
 
@@ -49,10 +42,7 @@ export const users = familee.table(
     },
     (t) => [
         unique("users_email_key").on(t.email),
-        check(
-            "users_locale_format",
-            sql`${t.locale} ~ '^[a-z]{2}(-[A-Za-z0-9]{2,8})?$'`,
-        ),
+        check("users_locale_format", sql`${t.locale} ~ '^[a-z]{2}(-[A-Za-z0-9]{2,8})?$'`),
     ],
 );
 

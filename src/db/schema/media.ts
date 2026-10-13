@@ -72,12 +72,8 @@ export const media = familee.table(
         }),
 
         /** When it was taken - a fuzzy date as well. */
-        takenQualifier: dateQualifierEnum("taken_qualifier")
-            .notNull()
-            .default("exact"),
-        takenPrecision: datePrecisionEnum("taken_precision")
-            .notNull()
-            .default("day"),
+        takenQualifier: dateQualifierEnum("taken_qualifier").notNull().default("exact"),
+        takenPrecision: datePrecisionEnum("taken_precision").notNull().default("day"),
         takenStart: date("taken_start", { mode: "string" }),
         takenEnd: date("taken_end", { mode: "string" }),
         takenOriginal: text("taken_original"),
@@ -99,10 +95,7 @@ export const media = familee.table(
         unique("media_checksum_key").on(t.treeId, t.checksumSha256),
         unique("media_storage_key_key").on(t.storageKey),
         check("media_byte_size_positive", sql`${t.byteSize} > 0`),
-        check(
-            "media_checksum_format",
-            sql`${t.checksumSha256} ~ '^[0-9a-f]{64}$'`,
-        ),
+        check("media_checksum_format", sql`${t.checksumSha256} ~ '^[0-9a-f]{64}$'`),
         check(
             "media_dimensions_positive",
             sql`(${t.width} is null or ${t.width} > 0) and (${t.height} is null or ${t.height} > 0)`,

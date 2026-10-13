@@ -18,11 +18,7 @@ export const familee = pgSchema("familee");
 // Access
 // ---------------------------------------------------------------------
 
-export const appRoleEnum = familee.enum("app_role", [
-    "admin",
-    "editor",
-    "viewer",
-]);
+export const appRoleEnum = familee.enum("app_role", ["admin", "editor", "viewer"]);
 
 export const memberRoleEnum = familee.enum("member_role", [
     "owner",
@@ -32,22 +28,13 @@ export const memberRoleEnum = familee.enum("member_role", [
     "viewer",
 ]);
 
-export const privacyLevelEnum = familee.enum("privacy_level", [
-    "public",
-    "members",
-    "private",
-]);
+export const privacyLevelEnum = familee.enum("privacy_level", ["public", "members", "private"]);
 
 // ---------------------------------------------------------------------
 // Persons and names
 // ---------------------------------------------------------------------
 
-export const sexEnum = familee.enum("sex", [
-    "male",
-    "female",
-    "other",
-    "unknown",
-]);
+export const sexEnum = familee.enum("sex", ["male", "female", "other", "unknown"]);
 
 export const nameTypeEnum = familee.enum("name_type", [
     "birth",
@@ -136,11 +123,7 @@ export const calendarEnum = familee.enum("calendar", [
 // Events and places
 // ---------------------------------------------------------------------
 
-export const eventScopeEnum = familee.enum("event_scope", [
-    "person",
-    "family",
-    "both",
-]);
+export const eventScopeEnum = familee.enum("event_scope", ["person", "family", "both"]);
 
 export const placeKindEnum = familee.enum("place_kind", [
     "country",

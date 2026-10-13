@@ -12,15 +12,7 @@
  */
 
 import { sql } from "drizzle-orm";
-import {
-    boolean,
-    check,
-    integer,
-    text,
-    timestamp,
-    unique,
-    uuid,
-} from "drizzle-orm/pg-core";
+import { boolean, check, integer, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
 import { users } from "./auth";
 import { familee } from "./enums";
@@ -31,9 +23,7 @@ import { familee } from "./enums";
  */
 export const schemaMigrations = familee.table("schema_migrations", {
     version: text("version").primaryKey(),
-    appliedAt: timestamp("applied_at", { withTimezone: true, mode: "date" })
-        .notNull()
-        .defaultNow(),
+    appliedAt: timestamp("applied_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });
 
 export const trees = familee.table(
@@ -71,10 +61,7 @@ export const trees = familee.table(
     (t) => [
         unique("trees_slug_key").on(t.slug),
         check("trees_slug_format", sql`${t.slug} ~ '^[a-z0-9][a-z0-9-]{0,62}$'`),
-        check(
-            "trees_cutoff_sane",
-            sql`${t.livingCutoffYears} between 1 and 200`,
-        ),
+        check("trees_cutoff_sane", sql`${t.livingCutoffYears} between 1 and 200`),
     ],
 );
 

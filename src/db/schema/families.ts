@@ -28,12 +28,12 @@ import {
 
 import { users } from "./auth";
 import {
+    type ChildRelation,
     childRelationEnum,
     familee,
     familyStatusEnum,
     familyTypeEnum,
     partnerRoleEnum,
-    type ChildRelation,
 } from "./enums";
 import { persons } from "./persons";
 import { trees } from "./trees";

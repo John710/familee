@@ -47,6 +47,11 @@ export async function generateMetadata({
     params: Promise<LocaleParams>;
 }): Promise<Metadata> {
     const { locale } = await params;
+
+    if (!hasLocale(routing.locales, locale)) {
+        notFound();
+    }
+
     const t = await getTranslations({ locale, namespace: "app" });
 
     return {
@@ -90,9 +95,11 @@ export default async function LocaleLayout({
                     <ThemeProvider>
                         <SiteHeader />
 
-                        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+                        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+                            {children}
+                        </main>
 
-                        <footer className="border-base-300 text-base-content/60 border-t px-4 py-6 text-center text-xs">
+                        <footer className="border-base-300 border-t px-4 py-6 text-center text-base-content/60 text-xs">
                             {t("footer")}
                         </footer>
                     </ThemeProvider>

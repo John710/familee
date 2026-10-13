@@ -8,9 +8,9 @@
 #   docker compose run --rm migrate     # apply the familee schema
 #   docker compose up -d
 #
-# If postgres and redis live in ONE Docker network, keep only DATA_NETWORK
-# in .env and remove the `cache` network below - both from the networks
-# block of the app service and from the networks section at the bottom.
+# Postgres and Redis share one Docker network (db-network) on the server, so
+# the application needs a single data network: DATA_NETWORK. The application
+# is reached only through traefik over HTTPS (see the labels of the app service).
 
 name: familee
 
@@ -27,7 +27,7 @@ services:
             NODE_ENV: production
             PORT: "3000"
             HOSTNAME: 0.0.0.0
-            TZ: ${APP_TIME_ZONE:-Europe/Moscow}
+            TZ: ${APP_TIME_ZONE:-Asia/Vladivostok}
 
         volumes:
             # The original photographs and the previews generated ahead of time.
@@ -38,7 +38,6 @@ services:
         networks:
             - proxy
             - data
-            - cache
 
         labels:
             traefik.enable: "true"
@@ -94,12 +93,6 @@ networks:
     data:
         external: true
         name: ${DATA_NETWORK:-postgres}
-
-    # The network redis already runs in. If it shares the network with
-    # postgres, delete this block and the mention of `cache` above.
-    cache:
-        external: true
-        name: ${CACHE_NETWORK:-redis}
 
 volumes:
     media:

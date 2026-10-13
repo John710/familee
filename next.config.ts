@@ -20,7 +20,7 @@ const nextConfig = {
      * A .next/standalone build: the Docker image receives only the server
      * bundle and the modules it needs, without dev dependencies.
      */
-    output: "standalone",
+    output: "standalone" as const,
 
     /** There is no need to advertise the Next.js version in the headers. */
     poweredByHeader: false,
@@ -51,7 +51,7 @@ const nextConfig = {
              * files too: the default 1 MB is far too little for a scan of a
              * document.
              */
-            bodySizeLimit: "25mb",
+            bodySizeLimit: "25MB" as const,
         },
     },
 

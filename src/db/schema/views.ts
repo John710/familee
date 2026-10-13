@@ -111,9 +111,7 @@ export const personCards = familee
         cropH: numeric("crop_h", { precision: 6, scale: 5, mode: "number" }),
 
         /** {"thumb.avif": "<storage_key>", "medium.webp": "..."} */
-        portraitVariants: jsonb("portrait_variants").$type<
-            Record<string, string>
-        >(),
+        portraitVariants: jsonb("portrait_variants").$type<Record<string, string>>(),
 
         updatedAt: timestamp("updated_at", {
             withTimezone: true,

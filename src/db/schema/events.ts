@@ -29,8 +29,8 @@ import {
 import { users } from "./auth";
 import {
     calendarEnum,
-    dateQualifierEnum,
     datePrecisionEnum,
+    dateQualifierEnum,
     eventScopeEnum,
     familee,
 } from "./enums";
@@ -65,12 +65,7 @@ export const eventTypes = familee.table(
             .notNull()
             .defaultNow(),
     },
-    (t) => [
-        check(
-            "event_types_code_format",
-            sql`${t.code} ~ '^[a-z][a-z0-9_]{0,48}$'`,
-        ),
-    ],
+    (t) => [check("event_types_code_format", sql`${t.code} ~ '^[a-z][a-z0-9_]{0,48}$'`)],
 );
 
 export const events = familee.table(
@@ -99,9 +94,7 @@ export const events = familee.table(
         /** The age as the source puts it: "45 years", "a year and a half". */
         ageText: text("age_text"),
 
-        dateQualifier: dateQualifierEnum("date_qualifier")
-            .notNull()
-            .default("exact"),
+        dateQualifier: dateQualifierEnum("date_qualifier").notNull().default("exact"),
         datePrecision: datePrecisionEnum("date_precision").notNull().default("day"),
         calendar: calendarEnum("calendar").notNull().default("gregorian"),
 
@@ -168,10 +161,7 @@ export const events = familee.table(
 
         index("events_person_type_idx").on(t.personId, t.typeCode),
         index("events_family_type_idx").on(t.familyId, t.typeCode),
-        index("events_tree_sort_date_idx").on(
-            t.treeId,
-            t.sortDate.asc().nullsLast(),
-        ),
+        index("events_tree_sort_date_idx").on(t.treeId, t.sortDate.asc().nullsLast()),
         index("events_place_idx").on(t.placeId),
 
         /** At most one primary event of each type. */

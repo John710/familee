@@ -54,8 +54,25 @@ psql "$DATABASE_URL" --no-psqlrc --tuples-only --command \
     "select version || '  ' || to_char(applied_at, 'YYYY-MM-DD HH24:MI')
        from familee.schema_migrations order by version;"
 
-if [ "${1:-}" = "seed" ]; then
-    echo
-    echo "-> seed.sql (recreates the 'demo' tree)"
-    run_sql "$dir/seed.sql"
-fi
+# "test" runs the smoke tests from db/tests/smoke.sql. They run in a transaction
+# that is rolled back, so they never change the data. Run them after "seed",
+# because they expect the demo tree to exist:
+#   docker compose run --rm migrate seed test
+for arg in "$@"; do
+    case "$arg" in
+        seed)
+            echo
+            echo "-> seed.sql (recreates the 'demo' tree)"
+            run_sql "$dir/seed.sql"
+            ;;
+        test)
+            echo
+            echo "-> tests/smoke.sql (rolled back)"
+            run_sql "$dir/tests/smoke.sql"
+            ;;
+        *)
+            echo "Unknown argument: $arg (expected seed or test)" >&2
+            exit 1
+            ;;
+    esac
+done

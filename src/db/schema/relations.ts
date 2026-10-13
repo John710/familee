@@ -14,9 +14,8 @@
  */
 
 import { relations } from "drizzle-orm";
-
-import { accounts, sessions, users } from "./auth";
 import { auditLog } from "./audit";
+import { accounts, sessions, users } from "./auth";
 import { events, eventTypes } from "./events";
 import { families, familyChildren, familyPartners } from "./families";
 import { media, mediaLinks, mediaVariants } from "./media";
@@ -307,16 +306,13 @@ export const mediaLinksRelations = relations(mediaLinks, ({ one }) => ({
  *  Sources
  * ------------------------------------------------------------------ */
 
-export const repositoriesRelations = relations(
-    repositories,
-    ({ one, many }) => ({
-        tree: one(trees, {
-            fields: [repositories.treeId],
-            references: [trees.id],
-        }),
-        sources: many(sources),
+export const repositoriesRelations = relations(repositories, ({ one, many }) => ({
+    tree: one(trees, {
+        fields: [repositories.treeId],
+        references: [trees.id],
     }),
-);
+    sources: many(sources),
+}));
 
 export const sourcesRelations = relations(sources, ({ one, many }) => ({
     tree: one(trees, {

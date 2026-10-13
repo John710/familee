@@ -16,13 +16,13 @@ export async function SiteHeader() {
     const t = await getTranslations();
 
     return (
-        <header className="bg-base-100/85 border-base-300 sticky top-0 z-20 border-b backdrop-blur">
+        <header className="sticky top-0 z-20 border-base-300 border-b bg-base-100/85 backdrop-blur">
             <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4">
                 <Link
                     href="/"
-                    className="group flex items-center gap-2.5 rounded-field px-1 py-1 font-serif text-lg leading-none font-semibold"
+                    className="group flex items-center gap-2.5 rounded-field px-1 py-1 font-semibold font-serif text-lg leading-none"
                 >
-                    <TreeDeciduous className="text-primary size-5 transition-transform group-hover:-rotate-6" />
+                    <TreeDeciduous className="size-5 text-primary transition-transform group-hover:-rotate-6" />
                     {t("app.title")}
                 </Link>
 

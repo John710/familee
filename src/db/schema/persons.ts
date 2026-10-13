@@ -21,9 +21,8 @@ import {
     uniqueIndex,
     uuid,
 } from "drizzle-orm/pg-core";
-
-import { users } from "./auth";
 import { tsvector } from "./_custom";
+import { users } from "./auth";
 import { familee, nameTypeEnum, privacyLevelEnum, sexEnum } from "./enums";
 import { trees } from "./trees";
 
@@ -144,21 +143,13 @@ export const personNames = familee.table(
         index("person_names_person_id_idx").on(t.personId),
 
         /** Exactly one primary name per person. */
-        uniqueIndex("person_names_primary_key")
-            .on(t.personId)
-            .where(sql`is_primary`),
+        uniqueIndex("person_names_primary_key").on(t.personId).where(sql`is_primary`),
 
         index("person_names_search_idx").using("gin", t.searchVector),
 
         /** Search that survives typos: "Ivannov" still finds "Ivanov". */
-        index("person_names_surname_trgm_idx").using(
-            "gin",
-            t.surname.op("gin_trgm_ops"),
-        ),
-        index("person_names_display_trgm_idx").using(
-            "gin",
-            t.display.op("gin_trgm_ops"),
-        ),
+        index("person_names_surname_trgm_idx").using("gin", t.surname.op("gin_trgm_ops")),
+        index("person_names_display_trgm_idx").using("gin", t.display.op("gin_trgm_ops")),
     ],
 );
 

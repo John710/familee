@@ -54,8 +54,7 @@ function createClient(url: string): Client {
     });
 }
 
-export const client: Client =
-    globalForDb.famileeClient ?? createClient(connectionString);
+export const client: Client = globalForDb.famileeClient ?? createClient(connectionString);
 
 if (!isProduction) {
     globalForDb.famileeClient = client;
@@ -69,5 +68,5 @@ export const db = drizzle(client, {
 
 export type Database = typeof db;
 
-export { schema };
 export * from "./schema";
+export { schema };

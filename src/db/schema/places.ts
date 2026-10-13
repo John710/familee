@@ -11,13 +11,13 @@
 
 import { sql } from "drizzle-orm";
 import {
+    type AnyPgColumn,
     check,
     index,
     numeric,
     text,
     timestamp,
     uuid,
-    type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 import { familee, placeKindEnum } from "./enums";
@@ -50,10 +50,7 @@ export const places = familee.table(
         }),
 
         /** Historical names: Saint Petersburg / Petrograd / Leningrad. */
-        formerNames: text("former_names")
-            .array()
-            .notNull()
-            .default(sql`'{}'::text[]`),
+        formerNames: text("former_names").array().notNull().default(sql`'{}'::text[]`),
 
         notes: text("notes"),
         createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
@@ -64,15 +61,9 @@ export const places = familee.table(
             .defaultNow(),
     },
     (t) => [
-        check(
-            "places_no_self_parent",
-            sql`${t.parentId} is null or ${t.parentId} <> ${t.id}`,
-        ),
+        check("places_no_self_parent", sql`${t.parentId} is null or ${t.parentId} <> ${t.id}`),
         check("places_name_not_empty", sql`btrim(${t.name}) <> ''`),
-        check(
-            "places_lat_range",
-            sql`${t.latitude} is null or ${t.latitude} between -90 and 90`,
-        ),
+        check("places_lat_range", sql`${t.latitude} is null or ${t.latitude} between -90 and 90`),
         check(
             "places_lon_range",
             sql`${t.longitude} is null or ${t.longitude} between -180 and 180`,

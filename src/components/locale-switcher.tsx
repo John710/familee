@@ -5,6 +5,9 @@
  *
  * The list of languages comes from src/i18n/routing.ts, so a new language
  * appears here by itself, without editing this file.
+ *
+ * The dropdown is a native <details> element: the browser handles the keyboard
+ * and the focus itself, so no tabIndex or ARIA role is needed on a plain div.
  */
 
 import { Check, Languages } from "lucide-react";
@@ -21,7 +24,8 @@ export function LocaleSwitcher() {
     const pathname = usePathname();
     const [isPending, startTransition] = useTransition();
 
-    function switchTo(locale: (typeof locales)[number]) {
+    function switchTo(locale: (typeof locales)[number], menu: HTMLDetailsElement) {
+        menu.open = false;
         if (locale === activeLocale) return;
 
         startTransition(() => {
@@ -31,29 +35,29 @@ export function LocaleSwitcher() {
     }
 
     return (
-        <div className="dropdown dropdown-end">
-            <div
-                tabIndex={0}
-                role="button"
+        <details className="dropdown dropdown-end">
+            <summary
                 className={cn("btn btn-ghost btn-sm gap-2", isPending && "pointer-events-none")}
                 aria-label={t("label")}
                 title={t("label")}
             >
                 <Languages className="size-4" />
-                <span className="hidden text-xs font-medium tracking-wide uppercase sm:inline">
+                <span className="hidden font-medium text-xs uppercase tracking-wide sm:inline">
                     {activeLocale}
                 </span>
-            </div>
+            </summary>
 
-            <ul
-                tabIndex={0}
-                className="dropdown-content menu rounded-box bg-base-100 ring-base-300 z-30 mt-2 w-48 p-2 shadow-lg ring-1"
-            >
+            <ul className="dropdown-content menu z-30 mt-2 w-48 rounded-box bg-base-100 p-2 shadow-lg ring-1 ring-base-300">
                 {locales.map((locale) => (
                     <li key={locale}>
                         <button
                             type="button"
-                            onClick={() => switchTo(locale)}
+                            onClick={(event) =>
+                                switchTo(
+                                    locale,
+                                    event.currentTarget.closest("details") as HTMLDetailsElement,
+                                )
+                            }
                             className="flex items-center justify-between gap-2"
                             aria-current={locale === activeLocale ? "true" : undefined}
                         >
@@ -63,6 +67,6 @@ export function LocaleSwitcher() {
                     </li>
                 ))}
             </ul>
-        </div>
+        </details>
     );
 }

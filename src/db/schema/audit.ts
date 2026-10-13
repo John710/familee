@@ -22,9 +22,7 @@ export type AuditChange = { from: unknown; to: unknown };
 export const auditLog = familee.table(
     "audit_log",
     {
-        id: bigint("id", { mode: "number" })
-            .generatedAlwaysAsIdentity()
-            .primaryKey(),
+        id: bigint("id", { mode: "number" }).generatedAlwaysAsIdentity().primaryKey(),
 
         /** null - an action outside a tree: a sign-up, a role change. */
         treeId: uuid("tree_id").references(() => trees.id, {
