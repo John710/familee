@@ -522,7 +522,7 @@
     },
     "gedcom": {
         "import": "Import",
-        "importHint": "A .ged file from another genealogy program (GEDCOM 5.5.1 or 7.0)",
+        "importHint": "A .ged file from another genealogy program (any version of GEDCOM)",
         "export": "Export",
         "exportHint": "A GEDCOM 7.0 file that opens in any genealogy program",
         "dryRun": "Preview what would be added first",
