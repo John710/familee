@@ -7,7 +7,7 @@
  * tree and be in the person's album; the checks are repeated here, not only in the page.
  */
 
-import { removePersonPhoto, setMainPhoto } from "@/lib/photos";
+import { removePersonPhoto, removePhotoLink, setMainPhoto } from "@/lib/photos";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -63,6 +63,26 @@ export async function removePersonPhotoAction(input: {
     const result = await removePersonPhoto({
         treeId: access.treeId,
         personId: input.personId,
+        mediaId: input.mediaId,
+        userId: access.userId,
+    });
+    return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+export async function removeEventPhotoAction(input: {
+    slug: string;
+    eventId: string;
+    mediaId: string;
+}): Promise<PhotoResult> {
+    if (!UUID.test(input.eventId) || !UUID.test(input.mediaId)) {
+        return { ok: false, error: "media.errors.failed" };
+    }
+    const access = await editorAccess(input.slug);
+    if (!access.ok) return access;
+
+    const result = await removePhotoLink({
+        treeId: access.treeId,
+        target: { eventId: input.eventId },
         mediaId: input.mediaId,
         userId: access.userId,
     });

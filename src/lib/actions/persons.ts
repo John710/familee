@@ -14,8 +14,9 @@
 import { and, eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { writeAudit } from "@/lib/audit";
+import { diffFields, writeAudit } from "@/lib/audit";
 import { type ParsedDate, parseFuzzyDate } from "@/lib/fuzzy-date";
+import { getPersonForEdit } from "@/lib/people";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -84,6 +85,9 @@ async function savePerson(
 
     const notes = input.notes.trim() === "" ? null : input.notes.trim();
 
+    // The values before the edit, for the diff in the audit log (an update only).
+    const before = existingId === null ? null : await getPersonForEdit(access.treeId, existingId);
+
     const personId = await db.transaction(async (tx) => {
         let id: string;
 
@@ -140,13 +144,47 @@ async function savePerson(
         return id;
     });
 
-    await writeAudit({
-        treeId: access.treeId,
-        userId: user.id,
-        action: existingId === null ? "create" : "update",
-        entityType: "person",
-        entityId: personId,
-    });
+    if (before === null) {
+        await writeAudit({
+            treeId: access.treeId,
+            userId: user.id,
+            action: "create",
+            entityType: "person",
+            entityId: personId,
+        });
+    } else {
+        const changes = diffFields(
+            {
+                surname: before.surname,
+                given: before.given,
+                patronymic: before.patronymic,
+                sex: before.sex,
+                birth: before.birthOriginal,
+                death: before.deathOriginal,
+                notes: before.notes,
+            },
+            {
+                surname,
+                given,
+                patronymic,
+                sex: input.sex,
+                birth: input.birth.trim(),
+                death: input.death.trim(),
+                notes,
+            },
+        );
+        // Saving without a change leaves no trace in the log.
+        if (changes) {
+            await writeAudit({
+                treeId: access.treeId,
+                userId: user.id,
+                action: "update",
+                entityType: "person",
+                entityId: personId,
+                changes,
+            });
+        }
+    }
 
     return { ok: true, personId };
 }

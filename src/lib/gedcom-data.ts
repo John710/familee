@@ -65,6 +65,30 @@ export async function loadTreeForExport(treeId: string): Promise<{
         xrefOf.set(card.personId, `@I${index + 1}@`);
     });
 
+    // The other events of the persons: every event that is not the primary birth or death.
+    const eventRows = await db
+        .select({
+            personId: schema.events.personId,
+            typeCode: schema.events.typeCode,
+            value: schema.events.value,
+            description: schema.events.description,
+            dateStart: schema.events.dateStart,
+            dateEnd: schema.events.dateEnd,
+            qualifier: schema.events.dateQualifier,
+            precision: schema.events.datePrecision,
+            gedcomTag: schema.eventTypes.gedcomTag,
+        })
+        .from(schema.events)
+        .innerJoin(schema.eventTypes, eq(schema.eventTypes.code, schema.events.typeCode))
+        .where(
+            and(
+                eq(schema.events.treeId, treeId),
+                isNotNull(schema.events.personId),
+                eq(schema.events.isPrimary, false),
+            ),
+        )
+        .orderBy(asc(schema.events.sortDate), asc(schema.events.createdAt));
+
     const persons: ExportPerson[] = cards.map((card) => ({
         xref: xrefOf.get(card.personId) ?? "@I0@",
         surname: card.surname ?? "",
@@ -74,6 +98,15 @@ export async function loadTreeForExport(treeId: string): Promise<{
         birth: dateOf(card.birthDate, card.birthDateEnd, card.birthQualifier, card.birthPrecision),
         death: dateOf(card.deathDate, card.deathDateEnd, card.deathQualifier, card.deathPrecision),
         notes: notesOf.get(card.personId) ?? "",
+        events: eventRows
+            .filter((row) => row.personId === card.personId)
+            .map((row) => ({
+                tag: row.gedcomTag,
+                typeCode: row.typeCode,
+                value: row.value,
+                description: row.description ?? "",
+                date: dateOf(row.dateStart, row.dateEnd, row.qualifier, row.precision),
+            })),
     }));
 
     const sexOf = new Map(cards.map((card) => [card.personId, card.sex]));

@@ -20,6 +20,7 @@ const STATUS: Record<PhotoError, number> = {
     "media.errors.duplicate": 409,
     "members.notMember": 403,
     "person.notFound": 404,
+    "event.notFound": 404,
 };
 
 function reply(status: number, error: string, extra: Record<string, unknown> = {}): Response {

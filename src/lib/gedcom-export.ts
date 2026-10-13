@@ -29,6 +29,18 @@ export type GedDate = {
     end: string | null;
 };
 
+/**
+ * An event other than the birth and the death. `tag` is its GEDCOM tag ("OCCU", "RESI"...);
+ * an event type without one is written as EVEN with the type code in TYPE.
+ */
+export type ExportEvent = {
+    tag: string | null;
+    typeCode: string;
+    value: string | null;
+    description: string;
+    date: GedDate | null;
+};
+
 export type ExportPerson = {
     xref: string;
     surname: string;
@@ -38,6 +50,7 @@ export type ExportPerson = {
     birth: GedDate | null;
     death: GedDate | null;
     notes: string;
+    events: ExportEvent[];
 };
 
 export type ExportUnion = {
@@ -168,6 +181,17 @@ export function writeGedcom7(input: {
         if (person.death) {
             lines.push({ level: 1, tag: "DEAT" });
             lines.push({ level: 2, tag: "DATE", value: gedcomDate(person.death) });
+        }
+        for (const event of person.events) {
+            const value = event.value ? escapeValue(event.value) : undefined;
+            if (event.tag) {
+                lines.push({ level: 1, tag: event.tag, value });
+            } else {
+                lines.push({ level: 1, tag: "EVEN", value });
+                lines.push({ level: 2, tag: "TYPE", value: escapeValue(event.typeCode) });
+            }
+            if (event.date) lines.push({ level: 2, tag: "DATE", value: gedcomDate(event.date) });
+            if (event.description) lines.push(...textLines(2, "NOTE", event.description));
         }
         if (person.notes) lines.push(...textLines(1, "NOTE", person.notes));
 

@@ -91,6 +91,14 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                             {t("gedcom.import")}
                         </Link>
                     )}
+                    <Link href={`/trees/${slug}/gallery`} className="btn btn-sm">
+                        {t("gallery.title")}
+                    </Link>
+                    {canInvite && (
+                        <Link href={`/trees/${slug}/history`} className="btn btn-sm">
+                            {t("history.title")}
+                        </Link>
+                    )}
                 </div>
             </header>
 

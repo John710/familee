@@ -56,3 +56,36 @@ export async function getPersonForEdit(treeId: string, personId: string) {
 
     return { ...card, notes: person?.notes ?? "" };
 }
+
+/** The additional names of a person: every name except the primary one (edited on the form). */
+export async function listAdditionalNames(personId: string) {
+    return db
+        .select({
+            id: schema.personNames.id,
+            type: schema.personNames.type,
+            surname: schema.personNames.surname,
+            given: schema.personNames.given,
+            patronymic: schema.personNames.patronymic,
+            nickname: schema.personNames.nickname,
+        })
+        .from(schema.personNames)
+        .where(
+            and(eq(schema.personNames.personId, personId), eq(schema.personNames.isPrimary, false)),
+        )
+        .orderBy(asc(schema.personNames.createdAt));
+}
+
+/** The events of a person other than the primary birth and death (edited on the form). */
+export async function listOtherEvents(personId: string) {
+    return db
+        .select({
+            id: schema.events.id,
+            typeCode: schema.events.typeCode,
+            value: schema.events.value,
+            description: schema.events.description,
+            dateOriginal: schema.events.dateOriginal,
+        })
+        .from(schema.events)
+        .where(and(eq(schema.events.personId, personId), eq(schema.events.isPrimary, false)))
+        .orderBy(asc(schema.events.sortDate), asc(schema.events.createdAt));
+}

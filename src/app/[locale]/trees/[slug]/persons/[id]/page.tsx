@@ -5,10 +5,12 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { FamilyPanel } from "@/components/persons/family-panel";
 import { PersonForm } from "@/components/persons/person-form";
 import { PhotoAlbum } from "@/components/persons/photo-album";
+import { RecordsPanel } from "@/components/persons/records-panel";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
-import { getPersonForEdit } from "@/lib/people";
-import { listPersonPhotos } from "@/lib/photos";
+import { listOtherEventTypes } from "@/lib/actions/records";
+import { getPersonForEdit, listAdditionalNames, listOtherEvents } from "@/lib/people";
+import { listEventPhotos, listPersonPhotos } from "@/lib/photos";
 import { atLeast } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -33,6 +35,16 @@ export default async function PersonPage({ params }: { params: Promise<Params> }
         mediaId: photo.mediaId,
         isPrimary: photo.isPrimary,
     }));
+    const names = await listAdditionalNames(id);
+    const events = await Promise.all(
+        (await listOtherEvents(id)).map(async (event) => ({
+            ...event,
+            photos: (await listEventPhotos(access.treeId, event.id)).map((photo) => ({
+                mediaId: photo.mediaId,
+            })),
+        })),
+    );
+    const eventTypes = await listOtherEventTypes();
     const unions = await listUnionsForPerson(access.treeId, id);
     const options = (await listPersonOptions(access.treeId))
         .filter((option) => option.personId !== id)
@@ -61,6 +73,20 @@ export default async function PersonPage({ params }: { params: Promise<Params> }
                         slug={slug}
                         personId={person.personId}
                         photos={photos}
+                        canEdit={canEdit}
+                    />
+                </div>
+            </section>
+
+            <section className="card card-border bg-base-100">
+                <div className="card-body gap-5">
+                    <h2 className="font-semibold text-lg">{t("person.otherEvents")}</h2>
+                    <RecordsPanel
+                        slug={slug}
+                        personId={person.personId}
+                        names={names}
+                        events={events}
+                        eventTypes={eventTypes}
                         canEdit={canEdit}
                     />
                 </div>

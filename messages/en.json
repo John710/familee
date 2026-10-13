@@ -93,6 +93,7 @@
         "rememberMe": "Remember me",
         "forgotPassword": "Forgot your password?",
         "invalidCredentials": "Wrong email or password",
+        "tooManyAttempts": "Too many attempts for this account. Try again in about fifteen minutes.",
         "emailOrUsername": "E-mail or user name",
         "accountBanned": "Access to the archive is closed",
         "accountBannedUntil": "Access is closed until {date}",
@@ -205,6 +206,16 @@
         "deceased": "Deceased",
         "deleteWarning": "The person will be deleted along with their events, names and links. Photographs stay in the archive.",
         "dateHint": "Write a full date as 12.04.1921 or 1921-04-12, a month as 04.1921, or just a year as 1921. In front of a date: “c. ” (about), “est. ” (estimated), “calc. ” (calculated), “before ” or “after ”. Ranges: “between 1915 and 1918”, “from 1915 to 1918” or “1915 – 1918”. A death date marks the person as deceased.",
+        "additionalNames": "Other names",
+        "addName": "Add a name",
+        "noAdditionalNames": "No other names",
+        "removeNameTitle": "Remove this name?",
+        "removeNameConfirm": "The name is removed from the person. The primary name is not affected.",
+        "otherEvents": "Other events",
+        "addEvent": "Add an event",
+        "noOtherEvents": "No other events yet",
+        "removeEventTitle": "Remove this event?",
+        "removeEventConfirm": "The event is removed from the person, with its photographs' links.",
         "notFound": "This person is not in the tree",
         "tabs": {
             "overview": "Overview",
@@ -235,6 +246,9 @@
             "gedcomXref": "GEDCOM identifier",
             "isLiving": "Living",
             "isLivingAuto": "Determined automatically",
+            "eventType": "Event",
+            "date": "Date",
+            "eventValue": "Value",
             "birth": "Birth",
             "death": "Death",
             "notes": "Notes"
@@ -328,6 +342,7 @@
         "hint": "The main photograph is the one shown on the card in the tree. Click a picture to open the original.",
         "remove": "Remove from this person",
         "removeTitle": "Remove this photograph?",
+        "addToEvent": "Add a photograph",
         "previous": "Previous photograph",
         "next": "Next photograph",
         "counter": "{current} of {total}",
@@ -442,6 +457,13 @@
         "cannotManageOwner": "The owner's access cannot be changed",
         "cannotManageAdmin": "Only the owner can change an administrator"
     },
+    "gallery": {
+        "title": "Gallery",
+        "hint": "Every photograph of the archive. A click opens it; the names under a picture lead to the people it shows.",
+        "empty": "No photographs in the archive yet",
+        "unattached": "Not attached to anybody",
+        "eventsCount": "{count, plural, one {# event} other {# events}}"
+    },
     "search": {
         "title": "Search the archive",
         "placeholder": "Name, surname, place, year",
@@ -550,7 +572,24 @@
         "changedFields": "Changed: {fields}",
         "from": "was",
         "to": "now",
-        "byUnknown": "unknown user"
+        "byUnknown": "unknown user",
+        "actions": {
+            "create": "added",
+            "update": "changed",
+            "delete": "removed"
+        },
+        "entities": {
+            "person": "a person",
+            "person_name": "a name of a person",
+            "event": "an event",
+            "person_photo": "the photographs of a person",
+            "media": "a photograph",
+            "family": "a union",
+            "tree_member": "a member",
+            "invitation": "an invitation",
+            "tree": "the tree",
+            "password_reset": "a password reset link"
+        }
     },
     "gedcom": {
         "import": "Import",

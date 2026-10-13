@@ -35,7 +35,12 @@ export function SignInForm({ next }: { next: string }) {
                 ? await authClient.signIn.email({ email: identifier, password })
                 : await authClient.signIn.username({ username: identifier, password });
             if (result.error) {
-                setError(t("auth.invalidCredentials"));
+                // A refused attempt says so; the wrong-password text stays generic on purpose.
+                setError(
+                    result.error.status === 429
+                        ? t("auth.tooManyAttempts")
+                        : t("auth.invalidCredentials"),
+                );
                 return;
             }
             router.replace(next);
