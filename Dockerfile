@@ -49,6 +49,9 @@ COPY . .
 # that the variable is present on import - hence a deliberately fake value
 # so that `next build` does not fail. At run time the real one comes from .env.
 ENV DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build
+ENV REDIS_URL=redis://127.0.0.1:6379/0
+ENV BETTER_AUTH_SECRET=build-time-placeholder-not-used-at-runtime
+ENV BETTER_AUTH_URL=https://build.invalid
 ENV NODE_ENV=production
 
 RUN npm run build

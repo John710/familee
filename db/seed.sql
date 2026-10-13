@@ -26,15 +26,13 @@ delete from familee.trees where slug = 'demo';
 
 -- ─── The tree ───────────────────────────────────────────────────────
 insert into familee.trees (
-    id, slug, title, description, default_locale, hide_living, living_cutoff_years
+    id, slug, title, description, default_locale
 ) values (
     '11111111-1111-4111-8111-111111111111',
     'demo',
     'Демонстрационное дерево',
     'Вымышленная семья Ивановых из Тулы: три поколения, повторный брак, пасынок.',
-    'ru',
-    true,
-    100
+    'ru'
 );
 
 -- ─── Places ─────────────────────────────────────────────────────────

@@ -37,9 +37,9 @@ export const persons = familee.table(
         sex: sexEnum("sex").notNull().default("unknown"),
 
         /**
-         * null = unknown. The application can derive the value from the birth
-         * date and trees.living_cutoff_years, but an explicit setting wins:
-         * see familee.derive_is_living() in 0001_functions.sql.
+         * null = derive it: a person is living unless a death event with a date
+         * exists. An explicit value wins: see familee.derive_is_living() in
+         * 0001_functions.sql.
          */
         isLiving: boolean("is_living"),
 

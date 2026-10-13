@@ -110,14 +110,12 @@ comment on function familee.tree_of(text, uuid) is
     'tree_id of an entity given its kind and id; null when p_id is null';
 
 
--- Whether a person is alive. Priority: the explicit persons.is_living, then
--- the presence of a death event, then the age relative to
--- trees.living_cutoff_years. null means unknown.
+-- Whether a person is alive. The owner's rule has no age cutoff: a person is
+-- deceased when a death event with a date exists, and living otherwise.
+-- An explicit persons.is_living value wins over the rule.
 create or replace function familee.derive_is_living(
-    p_explicit     boolean,
-    p_birth        date,
-    p_has_death    boolean,
-    p_cutoff_years int
+    p_explicit      boolean,
+    p_has_dated_death boolean
 )
 returns boolean
 language sql
@@ -126,15 +124,13 @@ parallel safe
 as $$
     select case
         when p_explicit is not null then p_explicit
-        when p_has_death           then false
-        when p_birth is not null and p_cutoff_years is not null
-             then p_birth > (current_date - make_interval(years => p_cutoff_years))
-        else null
+        when p_has_dated_death      then false
+        else true
     end;
 $$;
 
-comment on function familee.derive_is_living(boolean, date, boolean, int) is
-    'Derives the "living" flag used to hide data about living people';
+comment on function familee.derive_is_living(boolean, boolean) is
+    'Living unless a death event with a date exists (or the flag is set by hand)';
 
 
 -- Validates the relation_by_partner map: the keys are partner uuids, the
@@ -891,7 +887,9 @@ comment on view familee.parent_child is
 -- The data behind a tree card: the full name, the life years, the portrait.
 -- Every caption (sex, event type, "unknown") is produced by the application
 -- from the keys in messages/<locale>.json; here there are codes and dates.
-create or replace view familee.person_cards as
+drop view if exists familee.person_cards;
+
+create view familee.person_cards as
 select
     p.id        as person_id,
     p.tree_id,
@@ -928,12 +926,8 @@ select
 
     familee.derive_is_living(
         p.is_living,
-        birth.date_start,
-        death.id is not null,
-        t.living_cutoff_years
+        death.date_start is not null
     ) as is_living,
-
-    t.hide_living,
 
     ml.media_id          as portrait_media_id,
     m.storage_key        as portrait_storage_key,
@@ -947,8 +941,6 @@ select
 
     p.updated_at
 from familee.persons p
-join familee.trees t
-  on t.id = p.tree_id
 left join familee.person_names n
   on n.person_id = p.id and n.is_primary
 left join familee.events birth

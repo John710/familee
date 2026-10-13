@@ -12,7 +12,7 @@
  */
 
 import { sql } from "drizzle-orm";
-import { boolean, check, integer, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { check, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
 import { users } from "./auth";
 import { familee } from "./enums";
@@ -39,15 +39,6 @@ export const trees = familee.table(
         /** The default language of the tree when the user has none of their own. */
         defaultLocale: text("default_locale").notNull().default("ru"),
 
-        /** Hide the details about living people from outsiders. */
-        hideLiving: boolean("hide_living").notNull().default(true),
-
-        /**
-         * For how many years a person counts as living when no death date is known.
-         * Used by familee.derive_is_living() (0001_functions.sql).
-         */
-        livingCutoffYears: integer("living_cutoff_years").notNull().default(100),
-
         createdBy: text("created_by").references(() => users.id, {
             onDelete: "set null",
         }),
@@ -61,7 +52,6 @@ export const trees = familee.table(
     (t) => [
         unique("trees_slug_key").on(t.slug),
         check("trees_slug_format", sql`${t.slug} ~ '^[a-z0-9][a-z0-9-]{0,62}$'`),
-        check("trees_cutoff_sane", sql`${t.livingCutoffYears} between 1 and 200`),
     ],
 );
 

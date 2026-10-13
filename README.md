@@ -15,8 +15,8 @@ Project history is in [CHANGELOG.md](CHANGELOG.md); the open work is in [TODO.md
 ## What is inside
 
 Next.js 16.4 (App Router, server actions) on React 19.3 and TypeScript 7. Data lives in Postgres and
-is queried through Drizzle ORM over the postgres.js driver. Sessions are planned in Redis (ioredis)
-and sign-in with better-auth; neither is wired up yet. Styling is Tailwind CSS 4 together with
+is queried through Drizzle ORM over the postgres.js driver. Sign-in is handled by better-auth:
+sessions live in Postgres and are cached in Redis (ioredis). Styling is Tailwind CSS 4 together with
 daisyUI 5 and shadcn/ui components built on radix-ui. Translations are next-intl. Linting and
 formatting are Biome. The tree will be rendered by @xyflow/react and laid out by d3-hierarchy, and
 photo previews will be produced by sharp.
@@ -100,6 +100,20 @@ docker compose --profile tools run --rm migrate seed
 
 The script deletes the tree with the slug `demo` in full and recreates it on every run. Real trees
 are left alone.
+
+## Accounts and access
+
+Public sign-up is closed. The first person opens `https://<FAMILEE_HOST>:444/setup` once and creates
+the administrator; the page answers 404 from then on. Everyone else receives an invitation link from
+an owner or administrator of a tree. The link is valid for 7 days and works once; the token is shown
+only at creation and stored as a hash.
+
+Roles are granted per tree: owner, administrator, editor, contributor, viewer. An invitation can grant
+any role except owner.
+
+`BETTER_AUTH_URL` must be the address the browser uses, port included (for example
+`https://familee.john710.ru:444`). Otherwise better-auth rejects the requests as coming from another
+origin.
 
 ## Time zone
 

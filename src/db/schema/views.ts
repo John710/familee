@@ -95,11 +95,9 @@ export const personCards = familee
 
         /**
          * The result of familee.derive_is_living(): the explicit value of the
-         * person, otherwise derived from the birth date and
-         * trees.living_cutoff_years. null - it could not be determined.
+         * person, otherwise living unless a death event with a date exists.
          */
         isLiving: boolean("is_living"),
-        hideLiving: boolean("hide_living").notNull(),
 
         portraitMediaId: uuid("portrait_media_id"),
         portraitStorageKey: text("portrait_storage_key"),

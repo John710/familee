@@ -2,6 +2,7 @@ import { ImagePlus, TreeDeciduous, Users } from "lucide-react";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 
 type LocaleParams = { locale: string };
@@ -54,9 +55,9 @@ export default async function HomePage({ params }: { params: Promise<LocaleParam
 
             <section className="rounded-box border border-base-300 border-dashed p-6">
                 <p className="text-base-content/70 text-sm">{t("noTrees")}</p>
-                <button type="button" className="btn btn-primary btn-sm mt-4" disabled>
-                    {t("createTree")}
-                </button>
+                <Link href="/trees" className="btn btn-primary btn-sm mt-4">
+                    {t("openTree")}
+                </Link>
             </section>
         </div>
     );

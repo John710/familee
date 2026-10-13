@@ -101,12 +101,29 @@
         "noPermission": "You do not have permission for this action",
         "signedInAs": "Signed in as {name}",
         "invite": "Invite",
-        "inviteSent": "Invitation sent"
+        "inviteSent": "Invitation sent",
+        "setupTitle": "Set up the archive",
+        "setupSubtitle": "Create the administrator account. This page closes after the first account is made.",
+        "setupClosed": "The archive is already set up. Ask an administrator for an invitation.",
+        "createAccount": "Create account",
+        "accountExists": "An account with this email already exists. Sign in, then open the invitation link again.",
+        "invitationInvalid": "This invitation link is not valid",
+        "invitationUsed": "This invitation has already been used",
+        "invitationRevoked": "This invitation was cancelled",
+        "invitationExpired": "This invitation has expired. Ask for a new one.",
+        "invitationEmailMismatch": "This invitation was sent to another email address. Sign out and sign in with the right one.",
+        "invitationTitle": "You are invited to “{tree}”",
+        "invitationRole": "You will join as {role}",
+        "acceptInvitation": "Accept the invitation",
+        "passwordTooShort": "The password is shorter than 12 characters",
+        "passwordTooLong": "The password is longer than 128 characters"
     },
     "tree": {
         "one": "Tree",
         "many": "Trees",
         "create": "New tree",
+        "invalidSlug": "The address may use lowercase latin letters, digits and hyphens, and must start with a letter or digit",
+        "slugTaken": "A tree with this address already exists",
         "empty": "This tree is still empty. Add the first person — everyone else can be linked to them.",
         "addFirstPerson": "Add the first person",
         "fields": {
@@ -115,9 +132,6 @@
             "slugHint": "Lowercase latin letters, digits and hyphens only",
             "description": "Description",
             "defaultLocale": "Default language",
-            "hideLiving": "Hide details of living people",
-            "hideLivingHint": "Outsiders will see only a name, without dates or photographs",
-            "livingCutoffYears": "Treat as living if younger than (years)",
             "rootPerson": "Root person"
         },
         "view": {
@@ -149,7 +163,6 @@
         "noPhoto": "No photograph",
         "living": "Living",
         "deceased": "Deceased",
-        "hiddenLiving": "Details are hidden because this person is probably still living",
         "deleteWarning": "The person will be deleted along with their events, names and links. Photographs stay in the archive.",
         "tabs": {
             "overview": "Overview",
@@ -348,7 +361,20 @@
         "invitedBy": "Invited by",
         "joinedAt": "Joined",
         "remove": "Revoke access",
-        "empty": "Nobody but you has access"
+        "empty": "Nobody but you has access",
+        "members": "Members",
+        "inviteEmail": "Email of the person",
+        "inviteRole": "Role",
+        "inviteSend": "Create invitation",
+        "inviteLinkTitle": "Invitation link is ready",
+        "inviteLinkHint": "Send this link to the person. It is shown only now and works for 7 days.",
+        "pending": "Pending invitations",
+        "noPending": "No pending invitations",
+        "expiresOn": "valid until {date}",
+        "cancelInvitation": "Cancel",
+        "alreadyMember": "This person already has access to the tree",
+        "invalidRole": "This role cannot be given by invitation",
+        "invitationNotFound": "The invitation is not pending any more"
     },
     "search": {
         "title": "Search the archive",

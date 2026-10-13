@@ -76,6 +76,28 @@ begin
         raise exception 'smoke: the cycle guard failed with an unexpected message: %', v_message;
     end if;
 
+    -- 5. The living rule: no age cutoff, a person is deceased only with a dated death.
+    if familee.derive_is_living(null, false) is not true
+       or familee.derive_is_living(null, true) is not false
+       or familee.derive_is_living(true, true) is not true then
+        raise exception 'smoke: derive_is_living does not follow the death-date rule';
+    end if;
+
+    -- 6. An invitation can never grant the owner role.
+    v_message := '';
+    begin
+        insert into familee.invitations (tree_id, email, role, token_hash, expires_at)
+        values (v_tree, 'owner-test@example.com', 'owner', 'smoke-owner-hash', now() + interval '1 day');
+        raise exception 'smoke: an invitation granted the owner role';
+    exception
+        when others then
+            v_message := sqlerrm;
+    end;
+
+    if v_message not like '%invitations_role_not_owner%' then
+        raise exception 'smoke: owner invitation failed with an unexpected message: %', v_message;
+    end if;
+
     raise notice 'smoke: all checks passed (persons=%, kinship=%/%)',
         v_persons, v_kinship_a, v_kinship_b;
 end;

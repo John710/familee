@@ -14,6 +14,7 @@ export * from "./auth";
 export * from "./enums";
 export * from "./events";
 export * from "./families";
+export * from "./invitations";
 export * from "./media";
 export * from "./members";
 export * from "./notes";
