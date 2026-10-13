@@ -156,9 +156,6 @@ export function planImport(text: string): ImportPlan {
     if (file.skippedLines > 0) {
         warnings.push({ xref: "file", message: `${file.skippedLines} lines do not follow the GEDCOM grammar and were skipped` });
     }
-    if (file.encoding !== "" && file.encoding !== "UTF-8" && file.encoding !== "UTF8") {
-        warnings.push({ xref: "file", message: `the file declares the character set ${file.encoding}: the names may be garbled` });
-    }
 
     for (const record of records) {
         if (record.tag !== "INDI" || !record.xref) continue;

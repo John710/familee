@@ -145,7 +145,6 @@
         "one": "Tree",
         "many": "Trees",
         "create": "New tree",
-        "noLogo": "No logo",
         "changeLogo": "Change logo",
         "removeLogo": "Remove logo",
         "invalidSlug": "The address may use lowercase latin letters, digits and hyphens, and must start with a letter or digit",

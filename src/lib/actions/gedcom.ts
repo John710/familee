@@ -3,10 +3,13 @@
 /**
  * Familee - server actions of the GEDCOM import
  *
- * Two steps: the preview reads the file and writes nothing; the import writes the
- * same plan. Both need the editor role or higher in the tree.
+ * The browser sends the bytes of the file (base64); the server decodes them by the
+ * character set of the file (src/lib/gedcom-text.ts) and reads the records.
+ * Two steps: the preview writes nothing; the import writes the same plan. Both need
+ * the editor role or higher in the tree.
  */
 
+import { decodeGedcomBytes } from "@/lib/gedcom-text";
 import { importIntoTree } from "@/lib/gedcom-import";
 import { planImport } from "@/lib/gedcom-plan";
 import { atLeast, type MemberRole } from "@/lib/roles";
@@ -44,31 +47,45 @@ async function accessFor(slug: string): Promise<Access> {
     return { user, access };
 }
 
-export async function previewGedcomAction(input: { slug: string; text: string }): Promise<PreviewResult> {
+/** The file as text, with the note of the decoding; error is set when the file is refused. */
+function readFile(base64: string): { error: string | null; text: string; note: string | null } {
+    if (base64.length > Math.ceil((MAX_BYTES * 4) / 3)) {
+        return { error: "gedcom.tooLarge", text: "", note: null };
+    }
+    const decoded = decodeGedcomBytes(Buffer.from(base64, "base64"));
+    return { error: null, text: decoded.text, note: decoded.note };
+}
+
+export async function previewGedcomAction(input: { slug: string; bytes: string }): Promise<PreviewResult> {
     const check = await accessFor(input.slug);
     if (check.error !== undefined) return { ok: false, error: check.error };
-    if (input.text.length > MAX_BYTES) return { ok: false, error: "gedcom.tooLarge" };
 
-    const plan = planImport(input.text);
+    const file = readFile(input.bytes);
+    if (file.error !== null) return { ok: false, error: file.error };
+
+    const plan = planImport(file.text);
     if (plan.persons.length === 0) return { ok: false, error: "gedcom.empty" };
 
     const children = plan.unions.reduce((total, union) => total + union.children.length, 0);
+    const notes = file.note ? [{ xref: "file", message: file.note }] : [];
     return {
         ok: true,
         version: plan.version,
         persons: plan.persons.length,
         unions: plan.unions.length,
         children,
-        warnings: plan.warnings.slice(0, 200),
+        warnings: [...notes, ...plan.warnings].slice(0, 200),
     };
 }
 
-export async function commitGedcomAction(input: { slug: string; text: string }): Promise<CommitResult> {
+export async function commitGedcomAction(input: { slug: string; bytes: string }): Promise<CommitResult> {
     const check = await accessFor(input.slug);
     if (check.error !== undefined) return { ok: false, error: check.error };
-    if (input.text.length > MAX_BYTES) return { ok: false, error: "gedcom.tooLarge" };
 
-    const plan = planImport(input.text);
+    const file = readFile(input.bytes);
+    if (file.error !== null) return { ok: false, error: file.error };
+
+    const plan = planImport(file.text);
     if (plan.persons.length === 0) return { ok: false, error: "gedcom.empty" };
 
     const result = await importIntoTree({

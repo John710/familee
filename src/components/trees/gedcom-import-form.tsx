@@ -16,6 +16,20 @@ import { Link } from "@/i18n/navigation";
 import { commitGedcomAction, previewGedcomAction } from "@/lib/actions/gedcom";
 import type { CommitResult, PreviewResult } from "@/lib/actions/gedcom";
 
+/**
+ * The file as base64, byte for byte: the server decodes it by the character set in
+ * the file itself (UTF-8, UNICODE, ANSI, ASCII), so the browser must not decode it.
+ */
+async function toBase64(file: File): Promise<string> {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+}
+
 export function GedcomImportForm({ slug, personsHref }: { slug: string; personsHref: string }) {
     const t = useTranslations();
     const [text, setText] = useState<string | null>(null);
@@ -35,7 +49,7 @@ export function GedcomImportForm({ slug, personsHref }: { slug: string; personsH
             return;
         }
         setFileName(file.name);
-        setText(await file.text());
+        setText(await toBase64(file));
     }
 
     function onPreview() {
@@ -43,7 +57,7 @@ export function GedcomImportForm({ slug, personsHref }: { slug: string; personsH
         setError(null);
         setDone(null);
         startTransition(async () => {
-            const result = await previewGedcomAction({ slug, text });
+            const result = await previewGedcomAction({ slug, bytes: text });
             if (!result.ok) {
                 setPreview(null);
                 setError(t(result.error as Parameters<typeof t>[0]));
@@ -57,7 +71,7 @@ export function GedcomImportForm({ slug, personsHref }: { slug: string; personsH
         if (text === null) return;
         setError(null);
         startTransition(async () => {
-            const result = await commitGedcomAction({ slug, text });
+            const result = await commitGedcomAction({ slug, bytes: text });
             if (!result.ok) {
                 setError(t(result.error as Parameters<typeof t>[0]));
                 return;
