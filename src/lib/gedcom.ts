@@ -29,15 +29,18 @@ export function parseGedcom(text: string): GedRecord[] {
     // CONT and CONC continue the value of the previous line.
     let previous: GedLine | null = null;
 
-    for (const raw of text.split(/\r?\n/)) {
+    // The line ends with CR, LF, or both (GEDCOM 5.4, chapter 1).
+    for (const raw of text.split(/\r\n|\r|\n/)) {
         const line = raw.replace(/^﻿/, "");
         if (line.trim() === "") continue;
 
         const match = /^(\d+)\s+(?:(@[^@]+@)\s+)?(\S+)(?: (.*))?$/.exec(line);
         if (!match) continue;
 
-        const [, levelText, xref, tag, value = ""] = match;
+        const [, levelText = "", xref, tagText = "", valueText] = match;
         const level = Number(levelText);
+        const tag = tagText;
+        const value = valueText ?? "";
 
         if (tag === "CONT" && previous) {
             previous.value += `\n${value}`;

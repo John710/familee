@@ -8,6 +8,7 @@
  * and is listed as a warning.
  */
 
+import { parseFuzzyDate } from "@/lib/fuzzy-date";
 import { child, childrenOf, type GedRecord, parseGedcom } from "@/lib/gedcom";
 
 export type PlannedPerson = {
@@ -39,36 +40,68 @@ const MONTHS: Record<string, string> = {
     JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12",
 };
 
-const GEDCOM_DATE = /^(?:(ABT|EST|CAL)\s+)?(?:(\d{1,2})\s+)?(?:([A-Z]{3})\s+)?(\d{4})$/i;
+const SINGLE_DATE = /^(?:(\d{1,2})\s+)?(?:([A-Za-z]{3})\s+)?(\d{4})$/;
 
 /**
- * A GEDCOM date as the person editor takes it, or null with the reason.
- * "27 JAN 1963" -> "1963-01-27"; "MAY 1963" -> "1963-05"; "1921" -> "1921";
- * "ABT 1920" -> "ок. 1920". BEF, AFT, BET and the rest are not read.
+ * One GEDCOM date without a modifier, in the form the editor takes:
+ * "27 JAN 1963" -> "1963-01-27"; "MAY 1963" -> "1963-05"; "1921" -> "1921".
+ */
+function singleDate(text: string): string | null {
+    const match = SINGLE_DATE.exec(text.trim());
+    if (!match) return null;
+    const [, dayText, monthText, yearText] = match;
+    if (monthText === undefined) return yearText ?? null;
+    const month = MONTHS[monthText.toUpperCase()];
+    if (!month) return null;
+    if (dayText === undefined) return `${yearText}-${month}`;
+    return `${yearText}-${month}-${dayText.padStart(2, "0")}`;
+}
+
+/**
+ * A GEDCOM date as the person editor takes it, or null when it is not read.
+ * The modifiers of the GEDCOM standard (5.4 and 5.5, DATE_APPROXIMATE and
+ * DATE_RANGE / DATE_PERIOD) map onto the qualifiers of the editor:
+ *   ABT x          -> ок. x      (about)
+ *   EST x          -> оц. x      (estimated)
+ *   CAL x          -> выч. x     (calculated)
+ *   BEF x          -> до x       (before)
+ *   AFT x          -> после x    (after)
+ *   BET x AND y    -> между x и y (between)
+ *   FROM x TO y    -> с x по y   (from_to)
+ * A date phrase in brackets, "(…)", is not a date and is not read.
  */
 export function gedcomDateToInput(value: string): { ok: true; input: string } | { ok: false } {
+    const converted = convertGedcomDate(value);
+    if (!converted.ok) return converted;
+    // A date the editor would refuse (32 JAN, 30 FEB) is not read either: the import must
+    // not stop on it later.
+    return parseFuzzyDate(converted.input).ok ? converted : { ok: false };
+}
+
+function convertGedcomDate(value: string): { ok: true; input: string } | { ok: false } {
     const text = value.trim().replace(/\s+/g, " ");
     if (text === "") return { ok: false };
 
-    const match = GEDCOM_DATE.exec(text);
-    if (!match) return { ok: false };
+    const modified: [RegExp, (parts: string[]) => string][] = [
+        [/^BET (.+) AND (.+)$/i, ([a, b]) => `между ${a} и ${b}`],
+        [/^FROM (.+) TO (.+)$/i, ([a, b]) => `с ${a} по ${b}`],
+        [/^ABT (.+)$/i, ([a]) => `ок. ${a}`],
+        [/^EST (.+)$/i, ([a]) => `оц. ${a}`],
+        [/^CAL (.+)$/i, ([a]) => `выч. ${a}`],
+        [/^BEF (.+)$/i, ([a]) => `до ${a}`],
+        [/^AFT (.+)$/i, ([a]) => `после ${a}`],
+    ];
 
-    const [, approx, dayText, monthText, yearText] = match;
-    const prefix = approx ? "ок. " : "";
-
-    if (monthText === undefined) {
-        return { ok: true, input: `${prefix}${yearText}` };
+    for (const [pattern, build] of modified) {
+        const match = pattern.exec(text);
+        if (!match) continue;
+        const parts = match.slice(1).map((part) => singleDate(part ?? ""));
+        if (parts.some((part) => part === null)) return { ok: false };
+        return { ok: true, input: build(parts as string[]) };
     }
-    const month = MONTHS[monthText.toUpperCase()];
-    if (!month) return { ok: false };
 
-    if (dayText === undefined) {
-        return { ok: true, input: `${prefix}${yearText}-${month}` };
-    }
-    return {
-        ok: true,
-        input: `${prefix}${yearText}-${month}-${dayText.padStart(2, "0")}`,
-    };
+    const plain = singleDate(text);
+    return plain === null ? { ok: false } : { ok: true, input: plain };
 }
 
 /** Splits a name into surname, given name and patronymic, with the file's own fields first. */
@@ -89,8 +122,10 @@ function splitName(record: GedRecord): { surname: string; given: string; patrony
         given = raw.replace(/\/[^/]*\/.*$/, "").trim();
     }
 
-    // Two words in the given name: the first is the given name, the rest the patronymic
-    // ("Сергей Михайлович"). This is how the file writes the patronymic.
+    // The standard separates several given names with a comma (GEDCOM 5.4, NAME_PIECE_GIVEN).
+    // The MyHeritage export writes the patronymic after a space instead: "Сергей Михайлович".
+    // Here the first word is the given name and the rest the patronymic. Other programs
+    // may write a comma-separated list, which is kept as a single given name.
     const words = given.split(/\s+/).filter(Boolean);
     const patronymic = words.length > 1 ? words.slice(1).join(" ") : "";
     const firstName = words[0] ?? "";

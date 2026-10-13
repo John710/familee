@@ -4,6 +4,8 @@ import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
+import { listTreesForUser } from "@/lib/invitations";
+import { getCurrentUser } from "@/lib/session";
 
 type LocaleParams = { locale: string };
 
@@ -17,6 +19,12 @@ export default async function HomePage({ params }: { params: Promise<LocaleParam
     setRequestLocale(locale);
 
     const t = await getTranslations("home");
+    const tTrees = await getTranslations("tree");
+    const tEnums = await getTranslations("enums");
+    const tAuth = await getTranslations("auth");
+
+    const user = await getCurrentUser();
+    const trees = user ? await listTreesForUser(user.id) : [];
 
     const steps = [
         { key: "one" as const, Icon: TreeDeciduous },
@@ -53,12 +61,46 @@ export default async function HomePage({ params }: { params: Promise<LocaleParam
                 </ol>
             </section>
 
-            <section className="rounded-box border border-base-300 border-dashed p-6">
-                <p className="text-base-content/70 text-sm">{t("noTrees")}</p>
-                <Link href="/trees" className="btn btn-primary btn-sm mt-4">
-                    {t("openTree")}
-                </Link>
-            </section>
+            {user ? (
+                trees.length > 0 ? (
+                    <section className="flex flex-col gap-3">
+                        <h2 className="font-semibold text-base-content/70 text-sm uppercase tracking-wide">
+                            {tTrees("many")}
+                        </h2>
+                        <ul className="grid gap-3 sm:grid-cols-2">
+                            {trees.map((tree) => (
+                                <li key={tree.slug}>
+                                    <Link
+                                        href={`/trees/${tree.slug}/members`}
+                                        className="card card-border bg-base-100 transition-colors hover:border-primary"
+                                    >
+                                        <div className="card-body p-4">
+                                            <span className="font-semibold">{tree.title}</span>
+                                            <span className="text-base-content/60 text-xs">
+                                                {tEnums(`member_role.${tree.role}`)}
+                                            </span>
+                                        </div>
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                ) : (
+                    <section className="rounded-box border border-base-300 border-dashed p-6">
+                        <p className="text-base-content/70 text-sm">{t("noTrees")}</p>
+                        <Link href="/trees" className="btn btn-primary btn-sm mt-4">
+                            {t("openTree")}
+                        </Link>
+                    </section>
+                )
+            ) : (
+                <section className="rounded-box border border-base-300 border-dashed p-6">
+                    <p className="text-base-content/70 text-sm">{t("signInHint")}</p>
+                    <Link href="/sign-in" className="btn btn-primary btn-sm mt-4">
+                        {tAuth("signIn")}
+                    </Link>
+                </section>
+            )}
         </div>
     );
 }
