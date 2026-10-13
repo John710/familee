@@ -34,7 +34,11 @@ export default async function GalleryPage({ params }: { params: Promise<Params> 
         return {
             mediaId: row.mediaId,
             people: [...people.values()],
-            eventCount: row.links.filter((link) => link.eventId !== null).length,
+            events: row.links.flatMap((link) =>
+                link.eventId && link.eventType
+                    ? [{ type: link.eventType, value: link.eventValue }]
+                    : [],
+            ),
         };
     });
 

@@ -53,9 +53,29 @@ function identifierOf(body: unknown): string | null {
     return value?.trim() ? value : null;
 }
 
+/**
+ * The proxies in front of the archive, from TRUSTED_PROXIES (comma-separated addresses or
+ * CIDR ranges): in the Traefik mode the network Traefik shares with the app. Without it,
+ * better-auth reads the client address from X-Forwarded-For only when there is a single
+ * address in it; with it, the proxies are skipped and the client is the first address that is
+ * not one of them. Empty in the address-and-port mode, where there is no proxy.
+ */
+function trustedProxies(): string[] {
+    return (process.env.TRUSTED_PROXIES ?? "")
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry !== "");
+}
+
 export const auth = betterAuth({
     baseURL: process.env.BETTER_AUTH_URL,
     secret: process.env.BETTER_AUTH_SECRET,
+
+    advanced: {
+        ipAddress: {
+            trustedProxies: trustedProxies(),
+        },
+    },
 
     database: drizzleAdapter(db, {
         provider: "pg",

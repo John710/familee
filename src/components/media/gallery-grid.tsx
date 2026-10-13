@@ -16,7 +16,8 @@ import { Link } from "@/i18n/navigation";
 export type GalleryPhoto = {
     mediaId: string;
     people: { personId: string; name: string }[];
-    eventCount: number;
+    /** The events the photograph is attached to: their type and value, shown as captions. */
+    events: { type: string; value: string | null }[];
 };
 
 export function GalleryGrid({ slug, photos }: { slug: string; photos: GalleryPhoto[] }) {
@@ -45,7 +46,7 @@ export function GalleryGrid({ slug, photos }: { slug: string; photos: GalleryPho
                             />
                         </button>
                         <div className="flex flex-col gap-1 p-2 text-xs">
-                            {photo.people.length === 0 && photo.eventCount === 0 && (
+                            {photo.people.length === 0 && photo.events.length === 0 && (
                                 <span className="text-base-content/60">
                                     {t("gallery.unattached")}
                                 </span>
@@ -59,11 +60,15 @@ export function GalleryGrid({ slug, photos }: { slug: string; photos: GalleryPho
                                     {person.name || t("common.unknown")}
                                 </Link>
                             ))}
-                            {photo.eventCount > 0 && (
-                                <span className="text-base-content/60">
-                                    {t("gallery.eventsCount", { count: photo.eventCount })}
+                            {photo.events.map((event) => (
+                                <span
+                                    key={`${event.type}:${event.value ?? ""}`}
+                                    className="truncate text-base-content/70"
+                                >
+                                    {t(`events.${event.type}` as "events.birth")}
+                                    {event.value ? ` · ${event.value}` : ""}
                                 </span>
-                            )}
+                            ))}
                         </div>
                     </li>
                 ))}

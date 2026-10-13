@@ -72,6 +72,8 @@ create extension if not exists btree_gin;
   COMPOSE_FILE=docker-compose.yml:docker-compose.traefik.yml
   ```
 
+  В `TRUSTED_PROXIES` укажите подсеть этой сети (например `192.168.90.0/24`), чтобы лимит входов видел
+  собственный адрес клиента. В режиме адрес и порт оставьте пустым.
   Оверрайд подключает сеть прокси `TRAEFIK_NETWORK`, добавляет метки маршрута для домена и убирает
   опубликованный порт, поэтому приложение доступно только через Traefik. Точку входа и резолвер
   сертификатов задают `TRAEFIK_ENTRYPOINT` и `TRAEFIK_CERTRESOLVER`.

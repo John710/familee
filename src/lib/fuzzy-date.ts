@@ -137,7 +137,8 @@ function range(
 
 /** One date without any qualifier: 1921, 1921-04, 1921-04-12, 04.1921 or 12.04.1921. */
 function readSingle(text: string): Single | null {
-    const value = text.trim();
+    // Russian sources write the year with its word: "около 1901 года", "1901 г.".
+    const value = text.trim().replace(/\s*(?:года|год|г\.?)$/i, "");
 
     const dotted = DOTTED_DAY.exec(value);
     if (dotted) {

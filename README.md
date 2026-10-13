@@ -73,6 +73,8 @@ the schema can just as well be created inside an existing database. In that case
   COMPOSE_FILE=docker-compose.yml:docker-compose.traefik.yml
   ```
 
+  Set `TRUSTED_PROXIES` to the subnet of that network (for example `192.168.90.0/24`), so the
+  sign-in limit sees the client's own address. Leave it empty in the address-and-port mode.
   The overlay joins the proxy network `TRAEFIK_NETWORK`, adds the routing labels for the domain, and
   removes the published port, so the application is reachable only through Traefik. The entrypoint and
   the certificate resolver are set by `TRAEFIK_ENTRYPOINT` and `TRAEFIK_CERTRESOLVER`.

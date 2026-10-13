@@ -37,6 +37,7 @@ import {
 
 import { Link } from "@/i18n/navigation";
 import { cropStyle } from "@/lib/photo-crop";
+import { focusedNodeIds } from "@/lib/tree-focus";
 import { CARD_HEIGHT, CARD_WIDTH } from "@/lib/tree-layout";
 import type { FlowEdge, FlowNode, PersonNodeData } from "@/lib/tree-view";
 
@@ -88,8 +89,11 @@ function sexBorder(sex: string): string {
 type PersonFlowData = PersonNodeData & {
     selected: boolean;
     highlighted: boolean;
+    /** Outside the focus: the card stays on the canvas, but dimmed. */
+    dimmed: boolean;
     canEdit: boolean;
     onClose: () => void;
+    onFocus: () => void;
 };
 
 function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
@@ -107,7 +111,7 @@ function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
                 aria-label={label}
                 data-selected={data.selected ? "true" : "false"}
                 data-match={data.highlighted ? "true" : "false"}
-                className={`person-card nodrag flex h-full w-full overflow-hidden text-start ${sexBorder(data.sex)}`}
+                className={`person-card nodrag flex h-full w-full overflow-hidden text-start transition-opacity ${sexBorder(data.sex)} ${data.dimmed ? "opacity-25" : ""}`}
             >
                 <span
                     aria-hidden="true"
@@ -146,9 +150,12 @@ function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
     );
 }
 
-function UnionDot() {
+function UnionDot({ data }: NodeProps<Node<{ dimmed: boolean }, "union">>) {
     return (
-        <div className="rounded-full bg-base-content/40" style={{ width: 12, height: 12 }}>
+        <div
+            className={`rounded-full bg-base-content/40 transition-opacity ${data.dimmed ? "opacity-20" : ""}`}
+            style={{ width: 12, height: 12 }}
+        >
             <Sides />
         </div>
     );
@@ -195,10 +202,55 @@ function PersonPanel({ data }: { data: PersonFlowData }) {
                         </span>
                     )}
                 </div>
-                <Link href={data.href} className="btn btn-primary btn-sm self-start">
-                    {data.canEdit ? t("person.edit") : t("person.openCard")}
-                </Link>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Link href={data.href} className="btn btn-primary btn-sm">
+                        {data.canEdit ? t("person.edit") : t("person.openCard")}
+                    </Link>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={data.onFocus}>
+                        {t("tree.view.focus.enable")}
+                    </button>
+                </div>
             </div>
+        </div>
+    );
+}
+
+/** The focus bar: whose ancestors and descendants are shown, and how many generations. */
+function FocusBar({
+    name,
+    depth,
+    onDepth,
+    onOff,
+}: {
+    name: string;
+    depth: number;
+    onDepth: (depth: number) => void;
+    onOff: () => void;
+}) {
+    const t = useTranslations();
+    return (
+        <div className="card card-border absolute top-3 right-3 z-10 flex-row flex-wrap items-center gap-3 bg-base-100 p-2 shadow-md">
+            <div className="flex min-w-0 flex-col">
+                <span className="text-base-content/60 text-xs">{t("tree.view.focus.title")}</span>
+                <span className="max-w-48 truncate font-medium text-sm">{name}</span>
+            </div>
+            <label className="flex items-center gap-2 text-xs">
+                <span>{t("tree.view.focus.generations")}</span>
+                <select
+                    className="select select-sm w-auto"
+                    value={depth}
+                    onChange={(event) => onDepth(Number(event.target.value))}
+                >
+                    {[1, 2, 3, 4, 5].map((value) => (
+                        <option key={value} value={value}>
+                            {value}
+                        </option>
+                    ))}
+                </select>
+            </label>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onOff}>
+                {t("tree.view.focus.off")}
+            </button>
         </div>
     );
 }
@@ -284,7 +336,30 @@ function TreeCanvasInner({
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [query, setQuery] = useState("");
     const [cursor, setCursor] = useState(0);
+    const [focus, setFocus] = useState<{ nodeId: string; depth: number } | null>(null);
     const close = () => setSelectedId(null);
+
+    // In the focus mode the cards outside the person's ancestors and descendants are dimmed.
+    const focusKeep = useMemo(
+        () => (focus ? focusedNodeIds(edges, focus.nodeId, focus.depth) : null),
+        [focus, edges],
+    );
+    const focusName = useMemo(() => {
+        const node = nodes.find((candidate) => candidate.id === focus?.nodeId);
+        return node?.type === "person" ? node.data.name || t("common.unknown") : "";
+    }, [nodes, focus, t]);
+
+    // Entering the focus centres the canvas on the person; changing the depth does not move it.
+    const focusNodeId = focus?.nodeId ?? null;
+    useEffect(() => {
+        if (!focusNodeId) return;
+        const node = latestNodes.current.find((candidate) => candidate.id === focusNodeId);
+        if (!node) return;
+        void setCenter(node.position.x + CARD_WIDTH / 2, node.position.y + CARD_HEIGHT / 2, {
+            zoom: Math.max(getZoom(), 0.9),
+            duration: 400,
+        });
+    }, [focusNodeId, setCenter, getZoom]);
 
     // The people whose name contains the query, in the order of the tree.
     const matches = useMemo(() => {
@@ -320,31 +395,46 @@ function TreeCanvasInner({
     const matchSet = useMemo(() => new Set(matches), [matches]);
 
     // The open card is raised above its neighbours, so its panel is not hidden by them.
-    const flowNodes = nodes.map((node) =>
-        node.type === "person"
-            ? {
-                  ...node,
-                  zIndex: node.id === selectedId ? 1000 : 0,
-                  data: {
-                      ...node.data,
-                      selected: node.id === selectedId,
-                      highlighted: matchSet.has(node.id),
-                      canEdit,
-                      onClose: close,
-                  },
-              }
-            : node,
-    ) as Node[];
+    const flowNodes = nodes.map((node) => {
+        const dimmed = focusKeep !== null && !focusKeep.has(node.id);
+        if (node.type === "person") {
+            return {
+                ...node,
+                zIndex: node.id === selectedId ? 1000 : 0,
+                data: {
+                    ...node.data,
+                    selected: node.id === selectedId,
+                    highlighted: matchSet.has(node.id),
+                    dimmed,
+                    canEdit,
+                    onClose: close,
+                    onFocus: () => {
+                        setFocus((current) => ({
+                            nodeId: node.id,
+                            depth: current?.depth ?? 3,
+                        }));
+                        close();
+                    },
+                },
+            };
+        }
+        return { ...node, data: { ...node.data, dimmed } };
+    }) as Node[];
 
-    const flowEdges: Edge[] = edges.map((edge) => ({
-        ...edge,
-        selectable: false,
-        focusable: false,
-        style: {
-            stroke: "color-mix(in oklab, var(--color-base-content) 45%, transparent)",
-            strokeWidth: 1.5,
-        },
-    }));
+    const flowEdges: Edge[] = edges.map((edge) => {
+        const outside =
+            focusKeep !== null && !(focusKeep.has(edge.source) && focusKeep.has(edge.target));
+        return {
+            ...edge,
+            selectable: false,
+            focusable: false,
+            style: {
+                stroke: "color-mix(in oklab, var(--color-base-content) 45%, transparent)",
+                strokeWidth: 1.5,
+                opacity: outside ? 0.12 : 1,
+            },
+        };
+    });
 
     function step(delta: number) {
         if (matches.length === 0) return;
@@ -363,6 +453,14 @@ function TreeCanvasInner({
                 }}
                 onStep={step}
             />
+            {focus && (
+                <FocusBar
+                    name={focusName}
+                    depth={focus.depth}
+                    onDepth={(depth) => setFocus({ ...focus, depth })}
+                    onOff={() => setFocus(null)}
+                />
+            )}
             <ReactFlow
                 className="tree-canvas"
                 nodes={flowNodes}

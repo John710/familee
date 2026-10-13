@@ -44,7 +44,14 @@ export type TreePhoto = {
     width: number | null;
     height: number | null;
     /** The people and the events the photograph is attached to, by their names. */
-    links: { personId: string | null; personName: string | null; eventId: string | null }[];
+    links: {
+        personId: string | null;
+        personName: string | null;
+        eventId: string | null;
+        /** The event's type code and its value, for the caption ("birth", "occupation"...). */
+        eventType: string | null;
+        eventValue: string | null;
+    }[];
 };
 
 /** The photographs of a person, the main one first. */
@@ -169,10 +176,13 @@ export async function listTreePhotos(treeId: string): Promise<TreePhoto[]> {
             personId: schema.mediaLinks.personId,
             eventId: schema.mediaLinks.eventId,
             personName: schema.personCards.fullName,
+            eventType: schema.events.typeCode,
+            eventValue: schema.events.value,
         })
         .from(schema.media)
         .leftJoin(schema.mediaLinks, eq(schema.mediaLinks.mediaId, schema.media.id))
         .leftJoin(schema.personCards, eq(schema.personCards.personId, schema.mediaLinks.personId))
+        .leftJoin(schema.events, eq(schema.events.id, schema.mediaLinks.eventId))
         .where(eq(schema.media.treeId, treeId))
         .orderBy(desc(schema.media.createdAt));
 
@@ -188,6 +198,8 @@ export async function listTreePhotos(treeId: string): Promise<TreePhoto[]> {
                 personId: row.personId,
                 personName: row.personName,
                 eventId: row.eventId,
+                eventType: row.eventType,
+                eventValue: row.eventValue,
             });
         }
     }

@@ -190,6 +190,12 @@
             "searchCount": "{current} of {total}",
             "searchPrevious": "Previous match",
             "searchNext": "Next match",
+            "focus": {
+                "enable": "Focus on this person",
+                "title": "Focus on",
+                "generations": "Generations",
+                "off": "Show the whole tree"
+            },
             "hint": "Drag to move, scroll or pinch to zoom, click a card to open the person.",
             "layoutVertical": "Top to bottom",
             "layoutHorizontal": "Left to right",

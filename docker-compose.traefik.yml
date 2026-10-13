@@ -22,6 +22,12 @@ services:
             - proxy
             - data
 
+        environment:
+            # The proxies in front of the archive: the subnet of the proxy network (see .env.example).
+            # Passed here explicitly, so the overlay sets it even when .env comes from an older example.
+            # Compose cannot read the subnet of an external network itself, so it is written once in .env.
+            TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+
         labels:
             traefik.enable: "true"
             # Traefik may be on several networks: name the one it should use.
