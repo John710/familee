@@ -32,6 +32,9 @@ export default async function PersonsPage({ params }: { params: Promise<Params> 
                     {access.title}
                 </Link>
                 <h1 className="font-semibold font-serif text-3xl">{t("person.many")}</h1>
+                <Link href={`/trees/${slug}/tree`} className="text-primary text-sm">
+                    {t("tree.view.open")}
+                </Link>
             </header>
 
             <section className="flex flex-col gap-3">

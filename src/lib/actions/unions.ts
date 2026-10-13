@@ -157,7 +157,6 @@ export async function addChildAction(input: {
 function partnerRoleFor(sex: string): "husband" | "wife" | "partner" | "unknown" {
     if (sex === "male") return "husband";
     if (sex === "female") return "wife";
-    if (sex === "other") return "partner";
     return "unknown";
 }
 

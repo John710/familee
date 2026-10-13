@@ -34,7 +34,7 @@ export type ExportPerson = {
     surname: string;
     given: string;
     patronymic: string;
-    sex: "male" | "female" | "other" | "unknown";
+    sex: "male" | "female" | "unknown";
     birth: GedDate | null;
     death: GedDate | null;
     notes: string;
@@ -208,5 +208,5 @@ export function writeGedcom7(input: {
 }
 
 function sexCode(sex: ExportPerson["sex"]): string {
-    return sex === "male" ? "M" : sex === "female" ? "F" : sex === "other" ? "X" : "U";
+    return sex === "male" ? "M" : sex === "female" ? "F" : "U";
 }

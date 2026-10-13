@@ -183,6 +183,8 @@
             "zoomIn": "Zoom in",
             "zoomOut": "Zoom out",
             "fitView": "Fit to screen",
+            "open": "Family tree",
+            "hint": "Drag to move, scroll or pinch to zoom, click a card to open the person.",
             "layoutVertical": "Top to bottom",
             "layoutHorizontal": "Left to right",
             "showPhotos": "Photographs",
@@ -610,7 +612,6 @@
         "sex": {
             "male": "Male",
             "female": "Female",
-            "other": "Other",
             "unknown": "Unknown"
         },
         "name_type": {

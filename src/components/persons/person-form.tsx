@@ -20,13 +20,13 @@ export type PersonFormValues = {
     surname: string;
     given: string;
     patronymic: string;
-    sex: "male" | "female" | "other" | "unknown";
+    sex: "male" | "female" | "unknown";
     birth: string;
     death: string;
     notes: string;
 };
 
-const SEX_OPTIONS = ["unknown", "male", "female", "other"] as const;
+const SEX_OPTIONS = ["unknown", "male", "female"] as const;
 
 export function PersonForm({
     slug,

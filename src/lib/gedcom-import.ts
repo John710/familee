@@ -198,7 +198,6 @@ function dateFields(value: ParsedDate) {
 function partnerRole(sex: string): "husband" | "wife" | "partner" | "unknown" {
     if (sex === "male") return "husband";
     if (sex === "female") return "wife";
-    if (sex === "other") return "partner";
     return "unknown";
 }
 

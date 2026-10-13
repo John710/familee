@@ -28,7 +28,7 @@ export const privacyLevelEnum = familee.enum("privacy_level", ["public", "member
 // Persons and names
 // ---------------------------------------------------------------------
 
-export const sexEnum = familee.enum("sex", ["male", "female", "other", "unknown"]);
+export const sexEnum = familee.enum("sex", ["male", "female", "unknown"]);
 
 export const nameTypeEnum = familee.enum("name_type", [
     "birth",

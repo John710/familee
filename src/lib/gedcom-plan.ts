@@ -15,7 +15,7 @@ export type PlannedPerson = {
     surname: string;
     given: string;
     patronymic: string;
-    sex: "male" | "female" | "other" | "unknown";
+    sex: "male" | "female" | "unknown";
     birth: string;
     death: string;
     notes: string;
@@ -233,16 +233,10 @@ export function planImport(text: string): ImportPlan {
             }
         }
 
-        // M and F are the sexes; X (7.0, intersex) and U (unknown) are kept as "other" and "unknown".
+        // M and F are the sexes. X (intersex, 7.0) and U are not known sexes for the archive,
+        // so both are read as unknown.
         const sexValue = child(record, "SEX")?.value.trim().toUpperCase() ?? "U";
-        const sex =
-            sexValue === "M"
-                ? "male"
-                : sexValue === "F"
-                  ? "female"
-                  : sexValue === "X"
-                    ? "other"
-                    : "unknown";
+        const sex = sexValue === "M" ? "male" : sexValue === "F" ? "female" : "unknown";
 
         persons.push({
             xref,

@@ -77,6 +77,9 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                     {t("members.title")} · {t(`enums.member_role.${access.role}`)}
                 </p>
                 <div className="flex flex-wrap gap-2">
+                    <Link href={`/trees/${slug}/tree`} className="btn btn-sm">
+                        {t("tree.view.open")}
+                    </Link>
                     <Link href={`/trees/${slug}/persons`} className="btn btn-sm">
                         {t("person.many")}
                     </Link>

@@ -230,6 +230,6 @@ docker run --rm -v familee_media:/data:ro -v "$PWD:/backup" alpine \
 
 ## What comes next
 
-See [TODO.md](TODO.md). In short: sign-in and roles (better-auth with sessions in Redis), the visual
-tree on @xyflow/react with photo cards, opening a card for editing, photo upload with sharp-generated
-previews, and GEDCOM import and export.
+See [TODO.md](TODO.md). In short: the visual tree already draws every card and the lines between them,
+and a click on a card opens its panel. Still to come: search and focus mode, and photo upload with
+sharp-generated previews (the cards show initials for now, no photographs).

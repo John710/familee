@@ -31,13 +31,13 @@ export type PersonInput = {
     surname: string;
     given: string;
     patronymic: string;
-    sex: "male" | "female" | "other" | "unknown";
+    sex: "male" | "female" | "unknown";
     birth: string;
     death: string;
     notes: string;
 };
 
-const SEXES = ["male", "female", "other", "unknown"] as const;
+const SEXES = ["male", "female", "unknown"] as const;
 
 export async function createPersonAction(
     input: Omit<PersonInput, "personId">,

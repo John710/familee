@@ -257,8 +257,8 @@
     }
 
     /**
-     * A person's card in the tree. The photograph on top, the full name and
-     * the years below; on hover the card lifts a little.
+     * A person's card in the tree. The photograph is a square on the left, the
+     * full name and the years on the right; on hover the card lifts a little.
      */
     .person-card {
         border-radius: var(--radius-box);
