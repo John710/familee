@@ -93,6 +93,8 @@
         "rememberMe": "Remember me",
         "forgotPassword": "Forgot your password?",
         "invalidCredentials": "Wrong email or password",
+        "emailOrUsername": "E-mail or user name",
+        "newPassword": "New password",
         "accountBanned": "Access to the archive is closed",
         "accountBannedUntil": "Access is closed until {date}",
         "sessionExpired": "Your session has expired, please sign in again",
@@ -117,6 +119,23 @@
         "acceptInvitation": "Accept the invitation",
         "passwordTooShort": "The password is shorter than 12 characters",
         "passwordTooLong": "The password is longer than 128 characters"
+    },
+    "profile": {
+        "title": "Profile",
+        "details": "Name and user name",
+        "username": "User name",
+        "usernameHint": "Used to sign in, in addition to the e-mail. Latin letters, digits and underscores.",
+        "password": "Password",
+        "currentPassword": "Current password",
+        "changePassword": "Change password",
+        "passwordChanged": "The password is changed. Other sessions are signed out.",
+        "passwordFailed": "The password could not be changed. Check the current password.",
+        "saveFailed": "The changes could not be saved",
+        "whoAmITitle": "Who you are in each tree",
+        "whoAmIHint": "Choose yourself among the people of the tree. The app will then show how you are related to the others.",
+        "whoAmI": "Who you are",
+        "notChosen": "Not chosen",
+        "personTaken": "Another member has already chosen this person"
     },
     "tree": {
         "one": "Tree",

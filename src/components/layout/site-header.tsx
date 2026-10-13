@@ -36,6 +36,9 @@ export async function SiteHeader() {
                         <Link href="/trees" className="btn btn-ghost btn-sm">
                             {t("tree.many")}
                         </Link>
+                        <Link href="/profile" className="btn btn-ghost btn-sm">
+                            {t("profile.title")}
+                        </Link>
                     </nav>
                 )}
 

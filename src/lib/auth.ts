@@ -16,6 +16,7 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
+import { username } from "better-auth/plugins";
 
 import { db, schema } from "@/db";
 import { redis } from "@/lib/redis";
@@ -52,7 +53,11 @@ export const auth = betterAuth({
     },
 
     /** Lets server actions set the session cookie. */
-    plugins: [nextCookies()],
+    plugins: [
+        /** Sign-in by username as well as by e-mail; see the profile page. */
+        username(),
+        nextCookies(),
+    ],
 });
 
 export type Auth = typeof auth;

@@ -25,12 +25,15 @@ export function SignInForm({ next }: { next: string }) {
     function onSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         const form = new FormData(event.currentTarget);
-        const email = String(form.get("email") ?? "");
+        const identifier = String(form.get("email") ?? "").trim();
         const password = String(form.get("password") ?? "");
 
         setError(null);
         startTransition(async () => {
-            const result = await authClient.signIn.email({ email, password });
+            // An address goes to the e-mail sign-in, anything else is a user name.
+            const result = identifier.includes("@")
+                ? await authClient.signIn.email({ email: identifier, password })
+                : await authClient.signIn.username({ username: identifier, password });
             if (result.error) {
                 setError(t("auth.invalidCredentials"));
                 return;
@@ -47,10 +50,10 @@ export function SignInForm({ next }: { next: string }) {
                 <p className="text-base-content/70 text-sm">{t("auth.signInSubtitle")}</p>
 
                 <label className="flex flex-col gap-1.5">
-                    <span className="font-medium text-sm">{t("auth.email")}</span>
+                    <span className="font-medium text-sm">{t("auth.emailOrUsername")}</span>
                     <input
                         name="email"
-                        type="email"
+                        type="text"
                         autoComplete="username"
                         required
                         className="input w-full"

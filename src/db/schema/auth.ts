@@ -10,7 +10,7 @@
  */
 
 import { sql } from "drizzle-orm";
-import { boolean, check, index, text, timestamp, unique } from "drizzle-orm/pg-core";
+import { boolean, check, index, text, timestamp, unique, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { appRoleEnum, familee } from "./enums";
 
@@ -22,6 +22,11 @@ export const users = familee.table(
         email: text("email").notNull(),
         emailVerified: boolean("email_verified").notNull().default(false),
         image: text("image"),
+
+        /** The login name of the username plugin (lower case, unique); optional. */
+        username: text("username"),
+        /** The name as the person typed it. */
+        displayUsername: text("display_username"),
 
         /** The global role. Rights on a given tree live in tree_members. */
         role: appRoleEnum("role").notNull().default("viewer"),
@@ -42,6 +47,7 @@ export const users = familee.table(
     },
     (t) => [
         unique("users_email_key").on(t.email),
+        uniqueIndex("users_username_key").on(t.username),
         check("users_locale_format", sql`${t.locale} ~ '^[a-z]{2}(-[A-Za-z0-9]{2,8})?$'`),
     ],
 );
