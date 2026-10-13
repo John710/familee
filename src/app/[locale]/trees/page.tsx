@@ -1,4 +1,4 @@
-import { TreePine } from "lucide-react";
+import { TreeLogo } from "@/components/trees/tree-logo";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -36,7 +36,7 @@ export default async function TreesPage({ params }: { params: Promise<Params> })
                                     className="card card-border bg-base-100 transition-colors hover:border-primary"
                                 >
                                     <div className="card-body flex-row items-center gap-3 p-4">
-                                        <TreePine className="size-5 text-primary" />
+                                        <TreeLogo logoData={tree.logoData} title={tree.title} size="sm" />
                                         <div className="flex flex-col">
                                             <span className="font-semibold">{tree.title}</span>
                                             <span className="text-base-content/60 text-xs">

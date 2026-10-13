@@ -4,6 +4,7 @@ import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
+import { TreeLogo } from "@/components/trees/tree-logo";
 import { listTreesForUser } from "@/lib/invitations";
 import { getCurrentUser } from "@/lib/session";
 
@@ -74,11 +75,14 @@ export default async function HomePage({ params }: { params: Promise<LocaleParam
                                         href={`/trees/${tree.slug}/members`}
                                         className="card card-border bg-base-100 transition-colors hover:border-primary"
                                     >
-                                        <div className="card-body p-4">
-                                            <span className="font-semibold">{tree.title}</span>
-                                            <span className="text-base-content/60 text-xs">
-                                                {tEnums(`member_role.${tree.role}`)}
-                                            </span>
+                                        <div className="card-body flex-row items-center gap-3 p-4">
+                                            <TreeLogo logoData={tree.logoData} title={tree.title} size="sm" />
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold">{tree.title}</span>
+                                                <span className="text-base-content/60 text-xs">
+                                                    {tEnums(`member_role.${tree.role}`)}
+                                                </span>
+                                            </div>
                                         </div>
                                     </Link>
                                 </li>

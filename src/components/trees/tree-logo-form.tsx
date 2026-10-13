@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { TreeLogo } from "@/components/trees/tree-logo";
 import { setTreeLogoAction } from "@/lib/actions/logo";
 
 export function TreeLogoForm({ slug, logoData, title }: { slug: string; logoData: string | null; title: string }) {
@@ -44,14 +45,7 @@ export function TreeLogoForm({ slug, logoData, title }: { slug: string; logoData
 
     return (
         <div className="flex flex-wrap items-center gap-4">
-            <div className="flex size-16 items-center justify-center overflow-hidden rounded-box bg-base-200">
-                {logoData ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={logoData} alt={title} className="size-full object-cover" />
-                ) : (
-                    <span className="text-base-content/40 text-xs">{t("tree.noLogo")}</span>
-                )}
-            </div>
+            <TreeLogo logoData={logoData} title={title} size="lg" />
 
             <label className="btn btn-sm cursor-pointer">
                 <ImagePlus className="size-4" />

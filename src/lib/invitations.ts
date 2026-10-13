@@ -54,6 +54,7 @@ export async function listTreesForUser(userId: string) {
             slug: schema.trees.slug,
             title: schema.trees.title,
             role: schema.treeMembers.role,
+            logoData: schema.trees.logoData,
         })
         .from(schema.treeMembers)
         .innerJoin(schema.trees, eq(schema.trees.id, schema.treeMembers.treeId))
