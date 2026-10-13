@@ -362,6 +362,7 @@
         "cropPreview": "On the card",
         "cropReset": "Show the whole picture",
         "cropSave": "Save",
+        "cropSaved": "Saved. The card shows this part of the photograph now.",
         "gallery": "Gallery",
         "peopleOnPhoto": "People in this photograph",
         "tagPerson": "Tag a person",
@@ -577,6 +578,17 @@
     },
     "history": {
         "title": "Change history",
+        "hint": "Who changed what, and when. Open an entry to see the fields, the names and the photographs it touched.",
+        "showDetails": "Show details",
+        "hideDetails": "Hide details",
+        "noDetails": "No details were recorded for this entry",
+        "photoGone": "photograph removed from the archive",
+        "labels": {
+            "photo": "Photograph",
+            "main": "Main photograph",
+            "crop": "Crop on the card",
+            "file": "File"
+        },
         "empty": "No changes yet",
         "entry": "{user} {action} {entity} — {date}",
         "changedFields": "Changed: {fields}",

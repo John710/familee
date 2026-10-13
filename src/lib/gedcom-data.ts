@@ -7,7 +7,7 @@
  * keys are not written to the file.
  */
 
-import { and, asc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, notInArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import type { ExportPerson, ExportUnion, GedDate } from "@/lib/gedcom-export";
@@ -84,7 +84,7 @@ export async function loadTreeForExport(treeId: string): Promise<{
             and(
                 eq(schema.events.treeId, treeId),
                 isNotNull(schema.events.personId),
-                eq(schema.events.isPrimary, false),
+                notInArray(schema.events.typeCode, ["birth", "death"]),
             ),
         )
         .orderBy(asc(schema.events.sortDate), asc(schema.events.createdAt));

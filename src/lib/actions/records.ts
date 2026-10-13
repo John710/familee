@@ -12,7 +12,7 @@
 import { and, asc, eq, notInArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { diffFields, writeAudit } from "@/lib/audit";
+import { clearedFields, diffFields, writeAudit } from "@/lib/audit";
 import { parseFuzzyDate } from "@/lib/fuzzy-date";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
@@ -147,6 +147,16 @@ export async function saveNameAction(input: NameInput): Promise<RecordResult<{ n
         action: "create",
         entityType: "person_name",
         entityId: created.id,
+        changes: diffFields(
+            {},
+            {
+                type: values.type,
+                surname: values.surname,
+                given: values.given,
+                patronymic: values.patronymic,
+                nickname: values.nickname,
+            },
+        ),
     });
     return { ok: true, nameId: created.id };
 }
@@ -169,8 +179,16 @@ export async function deleteNameAction(input: {
                 eq(schema.personNames.isPrimary, false),
             ),
         )
-        .returning({ id: schema.personNames.id });
-    if (deleted.length === 0) return { ok: false, error: "person.notFound" };
+        .returning({
+            id: schema.personNames.id,
+            type: schema.personNames.type,
+            surname: schema.personNames.surname,
+            given: schema.personNames.given,
+            patronymic: schema.personNames.patronymic,
+            nickname: schema.personNames.nickname,
+        });
+    const [removed] = deleted;
+    if (!removed) return { ok: false, error: "person.notFound" };
 
     await writeAudit({
         treeId: access.treeId,
@@ -178,6 +196,13 @@ export async function deleteNameAction(input: {
         action: "delete",
         entityType: "person_name",
         entityId: input.nameId,
+        changes: clearedFields({
+            type: removed.type,
+            surname: removed.surname,
+            given: removed.given,
+            patronymic: removed.patronymic,
+            nickname: removed.nickname,
+        }),
     });
     return { ok: true };
 }
@@ -243,7 +268,7 @@ export async function saveEventAction(
                 and(
                     eq(schema.events.id, input.eventId),
                     eq(schema.events.personId, input.personId),
-                    eq(schema.events.isPrimary, false),
+                    notInArray(schema.events.typeCode, [...FORM_EVENTS]),
                 ),
             )
             .limit(1);
@@ -296,6 +321,15 @@ export async function saveEventAction(
         action: "create",
         entityType: "event",
         entityId: created.id,
+        changes: diffFields(
+            {},
+            {
+                typeCode: values.typeCode,
+                value: values.value,
+                description: values.description,
+                date: values.dateOriginal,
+            },
+        ),
     });
     return { ok: true, eventId: created.id };
 }
@@ -315,11 +349,18 @@ export async function deleteEventAction(input: {
             and(
                 eq(schema.events.id, input.eventId),
                 eq(schema.events.personId, input.personId),
-                eq(schema.events.isPrimary, false),
+                notInArray(schema.events.typeCode, [...FORM_EVENTS]),
             ),
         )
-        .returning({ id: schema.events.id });
-    if (deleted.length === 0) return { ok: false, error: "person.notFound" };
+        .returning({
+            id: schema.events.id,
+            typeCode: schema.events.typeCode,
+            value: schema.events.value,
+            description: schema.events.description,
+            date: schema.events.dateOriginal,
+        });
+    const [removed] = deleted;
+    if (!removed) return { ok: false, error: "person.notFound" };
 
     await writeAudit({
         treeId: access.treeId,
@@ -327,6 +368,12 @@ export async function deleteEventAction(input: {
         action: "delete",
         entityType: "event",
         entityId: input.eventId,
+        changes: clearedFields({
+            typeCode: removed.typeCode,
+            value: removed.value,
+            description: removed.description,
+            date: removed.date,
+        }),
     });
     return { ok: true };
 }

@@ -151,6 +151,18 @@ async function savePerson(
             action: "create",
             entityType: "person",
             entityId: personId,
+            changes: diffFields(
+                {},
+                {
+                    surname,
+                    given,
+                    patronymic,
+                    sex: input.sex,
+                    birth: input.birth.trim(),
+                    death: input.death.trim(),
+                    notes,
+                },
+            ),
         });
     } else {
         const changes = diffFields(

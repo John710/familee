@@ -94,7 +94,13 @@ export async function setPortraitCrop(input: {
     }
 
     const [link] = await db
-        .select({ id: schema.mediaLinks.id, crop: schema.mediaLinks.cropX })
+        .select({
+            id: schema.mediaLinks.id,
+            cropX: schema.mediaLinks.cropX,
+            cropY: schema.mediaLinks.cropY,
+            cropW: schema.mediaLinks.cropW,
+            cropH: schema.mediaLinks.cropH,
+        })
         .from(schema.mediaLinks)
         .where(
             and(
@@ -122,6 +128,14 @@ export async function setPortraitCrop(input: {
         action: "update",
         entityType: "person_photo",
         entityId: input.personId,
+        changes: {
+            crop: {
+                from: cropText(link.cropX, link.cropY, link.cropW, link.cropH),
+                to: input.crop
+                    ? cropText(input.crop.x, input.crop.y, input.crop.w, input.crop.h)
+                    : null,
+            },
+        },
     });
     return { ok: true };
 }
@@ -321,6 +335,18 @@ export async function addPersonPhoto(input: {
         isPrimary: becomesMain,
     });
 
+    await writeAudit({
+        treeId: input.treeId,
+        userId: input.userId,
+        action: "create",
+        entityType: "person_photo",
+        entityId: input.personId,
+        changes: {
+            photo: { from: null, to: stored.mediaId },
+            file: { from: null, to: input.originalFilename },
+        },
+    });
+
     if (!stored.existed) {
         await writeAudit({
             treeId: input.treeId,
@@ -328,6 +354,7 @@ export async function addPersonPhoto(input: {
             action: "create",
             entityType: "media",
             entityId: stored.mediaId,
+            changes: { file: { from: null, to: input.originalFilename } },
         });
     }
     return { ok: true, mediaId: stored.mediaId };
@@ -367,6 +394,18 @@ export async function addEventPhoto(input: {
         isPrimary: false,
     });
 
+    await writeAudit({
+        treeId: input.treeId,
+        userId: input.userId,
+        action: "create",
+        entityType: "event_photo",
+        entityId: input.eventId,
+        changes: {
+            photo: { from: null, to: stored.mediaId },
+            file: { from: null, to: input.originalFilename },
+        },
+    });
+
     if (!stored.existed) {
         await writeAudit({
             treeId: input.treeId,
@@ -374,6 +413,7 @@ export async function addEventPhoto(input: {
             action: "create",
             entityType: "media",
             entityId: stored.mediaId,
+            changes: { file: { from: null, to: input.originalFilename } },
         });
     }
     return { ok: true, mediaId: stored.mediaId };
@@ -401,7 +441,18 @@ export async function setMainPhoto(input: {
                 ),
             )
             .limit(1);
-        if (!link) return false;
+        if (!link) return null;
+
+        const [previous] = await tx
+            .select({ mediaId: schema.mediaLinks.mediaId })
+            .from(schema.mediaLinks)
+            .where(
+                and(
+                    eq(schema.mediaLinks.personId, input.personId),
+                    eq(schema.mediaLinks.isPrimary, true),
+                ),
+            )
+            .limit(1);
 
         // Clear the old main photograph first: the index allows one per person at a time.
         await tx
@@ -417,7 +468,7 @@ export async function setMainPhoto(input: {
             .update(schema.mediaLinks)
             .set({ isPrimary: true, role: "portrait", updatedAt: new Date() })
             .where(eq(schema.mediaLinks.id, link.id));
-        return true;
+        return { previous: previous?.mediaId ?? null };
     });
 
     if (!updated) return { ok: false, error: "media.errors.failed" };
@@ -428,8 +479,23 @@ export async function setMainPhoto(input: {
         action: "update",
         entityType: "person_photo",
         entityId: input.personId,
+        changes:
+            updated.previous === input.mediaId
+                ? null
+                : { main: { from: updated.previous, to: input.mediaId } },
     });
     return { ok: true };
+}
+
+/** A crop as the audit log shows it: the four fractions, or null when there is no crop. */
+function cropText(
+    x: number | null,
+    y: number | null,
+    w: number | null,
+    h: number | null,
+): string | null {
+    if (x === null || y === null || w === null || h === null) return null;
+    return `${Math.round(x * 100)}% · ${Math.round(y * 100)}% · ${Math.round(w * 100)}% · ${Math.round(h * 100)}%`;
 }
 
 /**
@@ -461,6 +527,14 @@ export async function removePhotoLink(input: {
     } else if (!(await eventInTree(input.treeId, input.target.eventId))) {
         return { ok: false, error: "event.notFound" };
     }
+
+    // The file name is kept for the log: the picture itself may be deleted in a moment.
+    const [photoRow] = await db
+        .select({ name: schema.media.originalFilename })
+        .from(schema.media)
+        .where(eq(schema.media.id, input.mediaId))
+        .limit(1);
+    const fileName = photoRow?.name ?? null;
 
     const orphanKeys = await db.transaction(async (tx) => {
         const [removed] = await tx
@@ -506,8 +580,12 @@ export async function removePhotoLink(input: {
         treeId: input.treeId,
         userId: input.userId,
         action: "delete",
-        entityType: "person_photo",
+        entityType: "personId" in input.target ? "person_photo" : "event_photo",
         entityId: "personId" in input.target ? input.target.personId : input.target.eventId,
+        changes: {
+            photo: { from: input.mediaId, to: null },
+            file: { from: fileName, to: null },
+        },
     });
     return { ok: true };
 }

@@ -6,7 +6,7 @@
  * already computes the display name, the years and the living flag.
  */
 
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, notInArray, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 
@@ -92,6 +92,11 @@ export async function listOtherEvents(personId: string) {
             dateOriginal: schema.events.dateOriginal,
         })
         .from(schema.events)
-        .where(and(eq(schema.events.personId, personId), eq(schema.events.isPrimary, false)))
+        .where(
+            and(
+                eq(schema.events.personId, personId),
+                notInArray(schema.events.typeCode, ["birth", "death"]),
+            ),
+        )
         .orderBy(asc(schema.events.sortDate), asc(schema.events.createdAt));
 }

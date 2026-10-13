@@ -10,7 +10,13 @@
  */
 
 import { useTranslations } from "next-intl";
-import { type PointerEvent as ReactPointerEvent, useRef, useState, useTransition } from "react";
+import {
+    type PointerEvent as ReactPointerEvent,
+    useEffect,
+    useRef,
+    useState,
+    useTransition,
+} from "react";
 
 import { photoUrl } from "@/components/media/lightbox";
 import { useRouter } from "@/i18n/navigation";
@@ -43,6 +49,7 @@ export function CropDialog({
     const router = useRouter();
     const [rect, setRect] = useState<PhotoCrop>(crop ?? defaultCrop(ratio));
     const [error, setError] = useState<string | null>(null);
+    const [saved, setSaved] = useState(false);
     const [pending, startTransition] = useTransition();
     const pictureRef = useRef<HTMLDivElement>(null);
     const drag = useRef<{ pointerX: number; pointerY: number; start: PhotoCrop } | null>(null);
@@ -87,6 +94,7 @@ export function CropDialog({
 
     function save(next: PhotoCrop | null) {
         setError(null);
+        setSaved(false);
         startTransition(async () => {
             const result = await setPortraitCropAction({
                 slug,
@@ -98,10 +106,20 @@ export function CropDialog({
                 setError(t(result.error as Parameters<typeof t>[0]));
                 return;
             }
+            // The window stays open with the confirmation; the card behind is refreshed now.
+            setSaved(true);
             router.refresh();
-            onClose();
         });
     }
+
+    // Escape closes the window, as it does everywhere else in the archive.
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [onClose]);
 
     return (
         <div
@@ -110,7 +128,7 @@ export function CropDialog({
             aria-modal="true"
             aria-labelledby="crop-title"
         >
-            <div className="modal-box flex max-w-4xl flex-col gap-5">
+            <div className="modal-box flex max-h-[92dvh] max-w-4xl flex-col gap-5 overflow-y-auto">
                 <div className="flex flex-col gap-1">
                     <h2 id="crop-title" className="font-semibold text-lg">
                         {t("media.cropTitle")}
@@ -127,7 +145,7 @@ export function CropDialog({
                                     src={photoUrl(slug, mediaId, "medium")}
                                     alt=""
                                     draggable={false}
-                                    className="block max-h-[55dvh] max-w-full"
+                                    className="block max-h-[45dvh] max-w-full"
                                 />
                                 <div
                                     role="presentation"
@@ -187,28 +205,42 @@ export function CropDialog({
                     </p>
                 )}
 
-                <div className="modal-action">
-                    {crop && (
-                        <button
-                            type="button"
-                            className="btn btn-ghost mr-auto"
-                            disabled={pending}
-                            onClick={() => save(null)}
-                        >
-                            {t("media.cropReset")}
+                {saved && (
+                    <p role="status" className="alert alert-success py-2 text-sm">
+                        {t("media.cropSaved")}
+                    </p>
+                )}
+
+                <div className="modal-action sticky bottom-0 mt-0 bg-base-100 pt-3">
+                    {saved ? (
+                        <button type="button" className="btn btn-primary" onClick={onClose}>
+                            {t("common.close")}
                         </button>
+                    ) : (
+                        <>
+                            {crop && (
+                                <button
+                                    type="button"
+                                    className="btn btn-ghost mr-auto"
+                                    disabled={pending}
+                                    onClick={() => save(null)}
+                                >
+                                    {t("media.cropReset")}
+                                </button>
+                            )}
+                            <button type="button" className="btn btn-ghost" onClick={onClose}>
+                                {t("common.cancel")}
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                disabled={pending}
+                                onClick={() => save(rect)}
+                            >
+                                {pending ? t("common.saving") : t("media.cropSave")}
+                            </button>
+                        </>
                     )}
-                    <button type="button" className="btn btn-ghost" onClick={onClose}>
-                        {t("common.cancel")}
-                    </button>
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={pending}
-                        onClick={() => save(rect)}
-                    >
-                        {t("media.cropSave")}
-                    </button>
                 </div>
             </div>
         </div>

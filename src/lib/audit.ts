@@ -30,6 +30,20 @@ export async function writeAudit(entry: {
 }
 
 /**
+ * The fields of a row that is removed: each one goes from its value to nothing. Empty values
+ * are left out, so the log shows only what the row held.
+ */
+export function clearedFields(row: Record<string, unknown>): AuditChanges | null {
+    const changes: AuditChanges = {};
+    for (const [key, value] of Object.entries(row)) {
+        if (value !== null && value !== undefined && value !== "") {
+            changes[key] = { from: value, to: null };
+        }
+    }
+    return Object.keys(changes).length > 0 ? changes : null;
+}
+
+/**
  * The fields that differ between the values before and after an edit. An empty string and a
  * missing value count as the same thing (null), so retyping nothing is not a change.
  * Returns null when nothing changed.
