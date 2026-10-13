@@ -1,8 +1,10 @@
+import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { TreeCanvas } from "@/components/trees/tree-canvas";
+import { db, schema } from "@/db";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { atLeast } from "@/lib/roles";
@@ -21,7 +23,18 @@ export default async function TreePage({ params }: { params: Promise<Params> }) 
     const access = await getTreeAccess(slug, user.id);
     if (!access) notFound();
 
-    const view = await loadTreeView(access.treeId, slug);
+    const [membership] = await db
+        .select({ selfPersonId: schema.treeMembers.selfPersonId })
+        .from(schema.treeMembers)
+        .where(
+            and(
+                eq(schema.treeMembers.treeId, access.treeId),
+                eq(schema.treeMembers.userId, user.id),
+            ),
+        )
+        .limit(1);
+
+    const view = await loadTreeView(access.treeId, slug, membership?.selfPersonId ?? null);
     const t = await getTranslations();
 
     return (

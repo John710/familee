@@ -185,6 +185,10 @@
             "zoomOut": "Zoom out",
             "fitView": "Fit to screen",
             "open": "Family tree",
+            "you": "You",
+            "timeline": "Life events",
+            "noTimeline": "No events recorded yet",
+            "withPartner": "with {name}",
             "searchPlaceholder": "Find a person",
             "searchNone": "Nobody found",
             "searchCount": "{current} of {total}",
@@ -475,8 +479,13 @@
         "cannotManageAdmin": "Only the owner can change an administrator"
     },
     "gallery": {
-        "title": "Gallery",
-        "hint": "Every photograph of the archive. A click opens it; the names under a picture lead to the people it shows.",
+        "title": "Photo album",
+        "hint": "An album for each person who has photographs. The card shows the main photograph; a click opens the album.",
+        "noPeople": "No people in the tree yet",
+        "noPhoto": "No photograph",
+        "albumLink": "Open the album",
+        "openCard": "Open the card",
+        "personEmpty": "No photographs of this person yet",
         "empty": "No photographs in the archive yet",
         "unattached": "Not attached to anybody",
         "eventsCount": "{count, plural, one {# event} other {# events}}"

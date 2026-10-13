@@ -175,16 +175,22 @@ export async function listTreePhotos(treeId: string): Promise<TreePhoto[]> {
             createdAt: schema.media.createdAt,
             personId: schema.mediaLinks.personId,
             eventId: schema.mediaLinks.eventId,
-            personName: schema.personCards.fullName,
             eventType: schema.events.typeCode,
             eventValue: schema.events.value,
+            eventPersonId: schema.events.personId,
         })
         .from(schema.media)
         .leftJoin(schema.mediaLinks, eq(schema.mediaLinks.mediaId, schema.media.id))
-        .leftJoin(schema.personCards, eq(schema.personCards.personId, schema.mediaLinks.personId))
         .leftJoin(schema.events, eq(schema.events.id, schema.mediaLinks.eventId))
         .where(eq(schema.media.treeId, treeId))
         .orderBy(desc(schema.media.createdAt));
+
+    // The names of the people, so that a photograph of an event names the person the event belongs to.
+    const cards = await db
+        .select({ personId: schema.personCards.personId, name: schema.personCards.fullName })
+        .from(schema.personCards)
+        .where(eq(schema.personCards.treeId, treeId));
+    const nameOf = new Map(cards.map((card) => [card.personId, card.name]));
 
     const byId = new Map<string, TreePhoto>();
     for (const row of rows) {
@@ -194,9 +200,11 @@ export async function listTreePhotos(treeId: string): Promise<TreePhoto[]> {
             byId.set(row.mediaId, photo);
         }
         if (row.personId || row.eventId) {
+            // A photograph of an event is attributed to the person the event belongs to.
+            const owner = row.eventId ? row.eventPersonId : row.personId;
             photo.links.push({
-                personId: row.personId,
-                personName: row.personName,
+                personId: owner ?? null,
+                personName: owner ? (nameOf.get(owner) ?? null) : null,
                 eventId: row.eventId,
                 eventType: row.eventType,
                 eventValue: row.eventValue,
@@ -636,4 +644,39 @@ export async function findVariantKey(
         )
         .limit(1);
     return row?.key ?? null;
+}
+
+/**
+ * Everything in a person's album: their own photographs, and the photographs of the events that
+ * belong to them. A photograph can appear twice (once as the person's, once under an event).
+ */
+export async function listPersonAlbum(
+    treeId: string,
+    personId: string,
+): Promise<{ mediaId: string; eventType: string | null; eventValue: string | null }[]> {
+    const own = await listPersonPhotos(treeId, personId);
+    const events = await db
+        .select({
+            id: schema.events.id,
+            typeCode: schema.events.typeCode,
+            value: schema.events.value,
+        })
+        .from(schema.events)
+        .where(and(eq(schema.events.treeId, treeId), eq(schema.events.personId, personId)))
+        .orderBy(asc(schema.events.sortDate), asc(schema.events.createdAt));
+
+    const eventPhotos = await Promise.all(
+        events.map(async (event) =>
+            (await listEventPhotos(treeId, event.id)).map((photo) => ({
+                mediaId: photo.mediaId,
+                eventType: event.typeCode,
+                eventValue: event.value,
+            })),
+        ),
+    );
+
+    return [
+        ...own.map((photo) => ({ mediaId: photo.mediaId, eventType: null, eventValue: null })),
+        ...eventPhotos.flat(),
+    ];
 }

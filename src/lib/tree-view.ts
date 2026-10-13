@@ -6,7 +6,7 @@
  * the canvas itself (components/trees/tree-canvas.tsx) only draws what it receives.
  */
 
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { listPersonCards } from "@/lib/people";
@@ -26,6 +26,32 @@ export type PersonNodeData = {
     photoCrop: { x: number; y: number; w: number; h: number } | null;
     /** Height over width of the photograph, to place a crop on the card. */
     photoRatio: number | null;
+    /** The person the signed-in member chose as themself in this tree. */
+    isSelf: boolean;
+    /** Notes and the timeline of the person, for the panel that opens on a click. */
+    details: PersonDetails;
+    /** The person's photo album. */
+    albumHref: string;
+};
+
+/** One line of the timeline: a life event, or a union the person took part in. */
+export type TimelineItem = {
+    key: string;
+    /** The event type code ("birth", "marriage", "occupation"...). */
+    typeCode: string;
+    value: string | null;
+    description: string;
+    /** The date as it was written in the source. */
+    date: string | null;
+    /** The date to order by (the first day of the period), or null when undated. */
+    sortKey: string | null;
+    /** For a union: the name of the other partner. */
+    partner: string | null;
+};
+
+export type PersonDetails = {
+    notes: string;
+    timeline: TimelineItem[];
 };
 
 export type FlowNode =
@@ -51,7 +77,11 @@ export type TreeView = {
 /** The size of a junction dot; the node is placed by its top-left corner. */
 const JUNCTION_SIZE = 12;
 
-export async function loadTreeView(treeId: string, slug: string): Promise<TreeView> {
+export async function loadTreeView(
+    treeId: string,
+    slug: string,
+    selfPersonId: string | null,
+): Promise<TreeView> {
     const cards = await listPersonCards(treeId);
     if (cards.length === 0) return { nodes: [], edges: [], empty: true };
 
@@ -92,6 +122,88 @@ export async function loadTreeView(treeId: string, slug: string): Promise<TreeVi
         families,
     );
 
+    // The details of the panel: notes, the person's events, and the events of the unions they are in.
+    const noteRows = await db
+        .select({ id: schema.persons.id, notes: schema.persons.notes })
+        .from(schema.persons)
+        .where(eq(schema.persons.treeId, treeId));
+    const notesOf = new Map(noteRows.map((row) => [row.id, row.notes ?? ""]));
+
+    const personEventRows = await db
+        .select({
+            id: schema.events.id,
+            personId: schema.events.personId,
+            typeCode: schema.events.typeCode,
+            value: schema.events.value,
+            description: schema.events.description,
+            dateOriginal: schema.events.dateOriginal,
+            sortDate: schema.events.sortDate,
+        })
+        .from(schema.events)
+        .where(and(eq(schema.events.treeId, treeId), isNotNull(schema.events.personId)));
+
+    const familyEventRows = await db
+        .select({
+            id: schema.events.id,
+            familyId: schema.events.familyId,
+            typeCode: schema.events.typeCode,
+            value: schema.events.value,
+            description: schema.events.description,
+            dateOriginal: schema.events.dateOriginal,
+            sortDate: schema.events.sortDate,
+        })
+        .from(schema.events)
+        .where(and(eq(schema.events.treeId, treeId), isNotNull(schema.events.familyId)));
+
+    const nameOf = new Map(cards.map((card) => [card.personId, card.fullName ?? ""]));
+    const detailsOf = new Map<string, PersonDetails>();
+    const detailsFor = (personId: string): PersonDetails => {
+        const existing = detailsOf.get(personId);
+        if (existing) return existing;
+        const created: PersonDetails = { notes: notesOf.get(personId) ?? "", timeline: [] };
+        detailsOf.set(personId, created);
+        return created;
+    };
+
+    for (const event of personEventRows) {
+        if (!event.personId) continue;
+        detailsFor(event.personId).timeline.push({
+            key: event.id,
+            typeCode: event.typeCode,
+            value: event.value,
+            description: event.description ?? "",
+            date: event.dateOriginal,
+            sortKey: event.sortDate,
+            partner: null,
+        });
+    }
+    // A union's events (the marriage) belong to each of its partners, with the other partner named.
+    for (const family of families) {
+        const events = familyEventRows.filter((row) => row.familyId === family.id);
+        for (const partner of family.partners) {
+            const other = family.partners.find((candidate) => candidate !== partner);
+            for (const event of events) {
+                detailsFor(partner).timeline.push({
+                    key: `${event.id}-${partner}`,
+                    typeCode: event.typeCode,
+                    value: event.value,
+                    description: event.description ?? "",
+                    date: event.dateOriginal,
+                    sortKey: event.sortDate,
+                    partner: other ? (nameOf.get(other) ?? null) : null,
+                });
+            }
+        }
+    }
+    for (const details of detailsOf.values()) {
+        details.timeline.sort((a, b) => {
+            if (a.sortKey === b.sortKey) return 0;
+            if (a.sortKey === null) return 1;
+            if (b.sortKey === null) return -1;
+            return a.sortKey < b.sortKey ? -1 : 1;
+        });
+    }
+
     const nodes: FlowNode[] = [];
     for (const card of cards) {
         const place = layout.persons.get(card.personId);
@@ -118,6 +230,12 @@ export async function loadTreeView(treeId: string, slug: string): Promise<TreeVi
                     card.cropH === null
                         ? null
                         : { x: card.cropX, y: card.cropY, w: card.cropW, h: card.cropH },
+                isSelf: card.personId === selfPersonId,
+                details: detailsOf.get(card.personId) ?? {
+                    notes: notesOf.get(card.personId) ?? "",
+                    timeline: [],
+                },
+                albumHref: `/trees/${slug}/gallery/${card.personId}`,
                 photoRatio:
                     card.portraitWidth && card.portraitHeight
                         ? card.portraitHeight / card.portraitWidth

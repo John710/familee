@@ -25,7 +25,7 @@ import {
     ReactFlowProvider,
     useReactFlow,
 } from "@xyflow/react";
-import { ChevronDown, ChevronUp, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, Images, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
     type KeyboardEvent as ReactKeyboardEvent,
@@ -143,6 +143,11 @@ function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
                     {years && <span className="text-base-content/60 text-xs">{years}</span>}
                 </span>
             </button>
+            {data.isSelf && (
+                <span className="badge badge-primary badge-sm pointer-events-none absolute -top-2 -right-2 z-10 shadow">
+                    {t("tree.view.you")}
+                </span>
+            )}
             <NodeToolbar isVisible={data.selected} position={Position.Right} offset={16}>
                 <PersonPanel data={data} />
             </NodeToolbar>
@@ -183,15 +188,31 @@ function PersonPanel({ data }: { data: PersonFlowData }) {
         return () => window.removeEventListener("keydown", onKey);
     }, [onClose]);
 
+    const { details } = data;
+
     return (
+        // The scrollable panel keeps the wheel for itself: scrolling it does not zoom the canvas.
         <div
             role="dialog"
             aria-label={name}
-            className="card card-border w-72 bg-base-100 shadow-lg"
+            className="card card-border nowheel max-h-[70vh] w-80 overflow-y-auto bg-base-100 shadow-lg"
         >
             <div className="card-body gap-3 p-4">
-                <h2 className="font-semibold text-base leading-snug">{name}</h2>
-                {years && <p className="text-base-content/70 text-sm">{years}</p>}
+                <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 flex-col">
+                        <h2 className="font-semibold text-base leading-snug">{name}</h2>
+                        {years && <p className="text-base-content/70 text-sm">{years}</p>}
+                    </div>
+                    <Link
+                        href={data.albumHref}
+                        aria-label={t("gallery.albumLink")}
+                        title={t("gallery.albumLink")}
+                        className="btn btn-ghost btn-sm btn-square shrink-0"
+                    >
+                        <Images className="size-4" />
+                    </Link>
+                </div>
+
                 <div className="flex flex-wrap gap-2">
                     <span className="badge badge-soft">
                         {t(`enums.sex.${data.sex as "male" | "female" | "unknown"}`)}
@@ -201,7 +222,49 @@ function PersonPanel({ data }: { data: PersonFlowData }) {
                             {data.isLiving ? t("person.living") : t("person.deceased")}
                         </span>
                     )}
+                    {data.isSelf && (
+                        <span className="badge badge-primary">{t("tree.view.you")}</span>
+                    )}
                 </div>
+
+                {details.notes && (
+                    <p className="line-clamp-4 whitespace-pre-line text-base-content/80 text-sm">
+                        {details.notes}
+                    </p>
+                )}
+
+                <section className="flex flex-col gap-2">
+                    <h3 className="font-medium text-base-content/60 text-xs uppercase tracking-wide">
+                        {t("tree.view.timeline")}
+                    </h3>
+                    {details.timeline.length === 0 ? (
+                        <p className="text-base-content/60 text-sm">{t("tree.view.noTimeline")}</p>
+                    ) : (
+                        <ol className="flex flex-col gap-3 border-base-300 border-l pl-4">
+                            {details.timeline.map((item) => (
+                                <li key={item.key} className="relative flex flex-col gap-0.5">
+                                    <span className="absolute top-1.5 -left-[21px] size-2.5 rounded-full bg-primary" />
+                                    <span className="text-base-content/60 text-xs">
+                                        {item.date ?? t("common.none")}
+                                    </span>
+                                    <span className="text-sm">
+                                        {t(`events.${item.typeCode}` as "events.birth")}
+                                        {item.partner
+                                            ? ` · ${t("tree.view.withPartner", { name: item.partner })}`
+                                            : ""}
+                                        {item.value ? ` · ${item.value}` : ""}
+                                    </span>
+                                    {item.description && (
+                                        <span className="whitespace-pre-line text-base-content/70 text-xs">
+                                            {item.description}
+                                        </span>
+                                    )}
+                                </li>
+                            ))}
+                        </ol>
+                    )}
+                </section>
+
                 <div className="flex flex-wrap items-center gap-2">
                     <Link href={data.href} className="btn btn-primary btn-sm">
                         {data.canEdit ? t("person.edit") : t("person.openCard")}
