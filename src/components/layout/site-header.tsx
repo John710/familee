@@ -1,13 +1,12 @@
 /**
  * Familee - the top bar
  *
- * The name of the archive, the link to the trees and the account actions on the
- * left and right; the two switchers stay at the end. A signed-out visitor sees
- * only the name and the sign-in link, so the bar never points to a page that
- * would refuse them.
+ * The name of the archive and the link to the trees on the left. On the right, the
+ * profile: an icon that opens a menu with the profile page and the sign-out button,
+ * then the two switchers. A visitor who is not signed in sees the sign-in link instead.
  */
 
-import { TreeDeciduous } from "lucide-react";
+import { TreeDeciduous, UserRound } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -36,15 +35,29 @@ export async function SiteHeader() {
                         <Link href="/trees" className="btn btn-ghost btn-sm">
                             {t("tree.many")}
                         </Link>
-                        <Link href="/profile" className="btn btn-ghost btn-sm">
-                            {t("profile.title")}
-                        </Link>
                     </nav>
                 )}
 
                 <div className="ml-auto flex items-center gap-1">
                     {user ? (
-                        <SignOutButton />
+                        <details className="dropdown dropdown-end">
+                            <summary
+                                className="btn btn-ghost btn-sm btn-circle"
+                                aria-label={t("profile.title")}
+                                title={user.name || user.email}
+                            >
+                                <UserRound className="size-5" />
+                            </summary>
+                            <ul className="dropdown-content menu rounded-box bg-base-100 ring-base-300 z-30 mt-2 w-56 p-2 shadow-lg ring-1">
+                                <li className="menu-title truncate">{user.name || user.email}</li>
+                                <li>
+                                    <Link href="/profile">{t("profile.title")}</Link>
+                                </li>
+                                <li>
+                                    <SignOutButton />
+                                </li>
+                            </ul>
+                        </details>
                     ) : (
                         <Link href="/sign-in" className="btn btn-ghost btn-sm">
                             {t("auth.signIn")}

@@ -46,9 +46,19 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                 <p className="text-base-content/60 text-sm">
                     {t("members.title")} · {t(`enums.member_role.${access.role}`)}
                 </p>
-                <Link href={`/trees/${slug}/persons`} className="btn btn-sm w-fit">
-                    {t("person.many")}
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                    <Link href={`/trees/${slug}/persons`} className="btn btn-sm">
+                        {t("person.many")}
+                    </Link>
+                    <a href={`/api/trees/${slug}/gedcom`} download className="btn btn-sm">
+                        {t("gedcom.export")}
+                    </a>
+                    {atLeast(access.role, "editor") && (
+                        <Link href={`/trees/${slug}/import`} className="btn btn-sm">
+                            {t("gedcom.import")}
+                        </Link>
+                    )}
+                </div>
             </header>
 
             <section className="flex flex-col gap-3">

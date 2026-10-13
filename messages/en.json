@@ -89,7 +89,7 @@
         "password": "Password",
         "passwordConfirm": "Repeat password",
         "passwordHint": "At least 12 characters",
-        "name": "What should we call you",
+        "name": "Full name",
         "rememberMe": "Remember me",
         "forgotPassword": "Forgot your password?",
         "invalidCredentials": "Wrong email or password",
@@ -122,7 +122,7 @@
     },
     "profile": {
         "title": "Profile",
-        "details": "Name and user name",
+        "details": "Full name and user name",
         "username": "User name",
         "usernameHint": "Used to sign in, in addition to the e-mail. Latin letters, digits and underscores.",
         "password": "Password",
@@ -515,14 +515,23 @@
         "byUnknown": "unknown user"
     },
     "gedcom": {
-        "import": "Import GEDCOM",
-        "importHint": "A .ged file from another genealogy program",
-        "export": "Export GEDCOM",
-        "exportHint": "The file opens in any genealogy program",
+        "import": "Import",
+        "importHint": "A .ged file from another genealogy program (GEDCOM 5.5.1 or 7.0)",
+        "export": "Export",
+        "exportHint": "A GEDCOM 7.0 file that opens in any genealogy program",
         "dryRun": "Preview what would be added first",
-        "summary": "People: {persons}, unions: {families}, events: {events}",
+        "summary": "People: {persons}, unions: {families}, children: {children}",
         "encoding": "Encoding",
-        "unsupportedTag": "Unknown tag {tag} — line skipped"
+        "unsupportedTag": "Unknown tag {tag} — line skipped",
+        "chooseFile": "Choose a .ged file",
+        "preview": "Check",
+        "previewTitle": "What will be added",
+        "versionFound": "File version: {version}",
+        "warnings": "Warnings",
+        "done": "Added: people {persons}, unions {families}, events {events}",
+        "tooLarge": "The file is too large",
+        "empty": "No people were found in the file",
+        "alreadyImported": "These people or unions are already in the tree: the repeated import was stopped"
     },
     "validation": {
         "required": "Please fill this in",
