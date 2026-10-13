@@ -12,6 +12,7 @@ import { Check, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type FormEvent, useState, useTransition } from "react";
 
+import { DateField } from "@/components/date-field";
 import { useRouter } from "@/i18n/navigation";
 import { createPersonAction, updatePersonAction } from "@/lib/actions/persons";
 
@@ -110,14 +111,18 @@ export function PersonForm({
                         ))}
                     </select>
                 </label>
-                <label className="flex flex-col gap-1.5">
-                    <span className="font-medium text-sm">{t("person.fields.birth")}</span>
-                    <input name="birth" defaultValue={initial.birth} placeholder="1921-04-12" className="input w-full" />
-                </label>
-                <label className="flex flex-col gap-1.5">
-                    <span className="font-medium text-sm">{t("person.fields.death")}</span>
-                    <input name="death" defaultValue={initial.death} placeholder="1988" className="input w-full" />
-                </label>
+                <DateField
+                    name="birth"
+                    label={t("person.fields.birth")}
+                    defaultValue={initial.birth}
+                    placeholder="1921-04-12"
+                />
+                <DateField
+                    name="death"
+                    label={t("person.fields.death")}
+                    defaultValue={initial.death}
+                    placeholder="1988"
+                />
             </div>
             <p className="text-base-content/60 text-xs">{t("person.dateHint")}</p>
 

@@ -164,7 +164,7 @@
         "living": "Living",
         "deceased": "Deceased",
         "deleteWarning": "The person will be deleted along with their events, names and links. Photographs stay in the archive.",
-        "dateHint": "Write a date as 1921-04-12, 1921-04 or 1921; put “c. ” in front for an approximate date. A death date marks the person as deceased.",
+        "dateHint": "Write a full date as 12.04.1921 or 1921-04-12, a month as 04.1921 or 1921-04, or just a year as 1921. Put “c. ” in front for an approximate date. A death date marks the person as deceased.",
         "notFound": "This person is not in the tree",
         "tabs": {
             "overview": "Overview",
@@ -406,6 +406,7 @@
     },
     "date": {
         "label": "Date",
+        "pick": "Open the calendar",
         "start": "Date",
         "end": "Second date",
         "original": "As written in the source",
