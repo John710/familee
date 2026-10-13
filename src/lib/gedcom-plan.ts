@@ -3,20 +3,19 @@
  *
  * Takes the records from src/lib/gedcom.ts and says what the import would create:
  * persons with their names, sex and life dates, unions with partners and children.
- * Dates are turned into the form the person editor accepts ("1963-01-27",
- * "1963-05", "1921", "ок. 1920"); everything that cannot be read stays in the notes
- * and is listed as a warning.
+ * Dates are turned into the form the person editor accepts; everything that cannot
+ * be read stays in the notes and is listed as a warning.
  */
 
 import { parseFuzzyDate } from "@/lib/fuzzy-date";
-import { child, childrenOf, type GedRecord, parseGedcom } from "@/lib/gedcom";
+import { child, childrenOf, type GedLine, type GedRecord, parseGedcomFile } from "@/lib/gedcom";
 
 export type PlannedPerson = {
     xref: string;
     surname: string;
     given: string;
     patronymic: string;
-    sex: "male" | "female" | "unknown";
+    sex: "male" | "female" | "other" | "unknown";
     birth: string;
     death: string;
     notes: string;
@@ -30,6 +29,8 @@ export type PlannedUnion = {
 };
 
 export type ImportPlan = {
+    /** The GEDC.VERS of the header: "5.5", "5.5.1", "7.0" or "unknown". */
+    version: string;
     persons: PlannedPerson[];
     unions: PlannedUnion[];
     warnings: { xref: string; message: string }[];
@@ -59,16 +60,16 @@ function singleDate(text: string): string | null {
 
 /**
  * A GEDCOM date as the person editor takes it, or null when it is not read.
- * The modifiers of the GEDCOM standard (5.4 and 5.5, DATE_APPROXIMATE and
- * DATE_RANGE / DATE_PERIOD) map onto the qualifiers of the editor:
- *   ABT x          -> ок. x      (about)
- *   EST x          -> оц. x      (estimated)
- *   CAL x          -> выч. x     (calculated)
- *   BEF x          -> до x       (before)
- *   AFT x          -> после x    (after)
+ * The modifiers of GEDCOM 5.5.1 and 7.0 (DATE_APPROXIMATE, DATE_RANGE, DATE_PERIOD)
+ * map onto the qualifiers of the editor:
+ *   ABT x          -> ок. x       (about)
+ *   EST x          -> оц. x       (estimated)
+ *   CAL x          -> выч. x      (calculated)
+ *   BEF x          -> до x        (before)
+ *   AFT x          -> после x     (after)
  *   BET x AND y    -> между x и y (between)
- *   FROM x TO y    -> с x по y   (from_to)
- * A date phrase in brackets, "(…)", is not a date and is not read.
+ *   FROM x TO y    -> с x по y    (from_to)
+ * Calendars (@#DJULIAN@ …), "FROM x" and "TO y" alone, and date phrases are not read.
  */
 export function gedcomDateToInput(value: string): { ok: true; input: string } | { ok: false } {
     const converted = convertGedcomDate(value);
@@ -104,6 +105,13 @@ function convertGedcomDate(value: string): { ok: true; input: string } | { ok: f
     return plain === null ? { ok: false } : { ok: true, input: plain };
 }
 
+/** The date of an event line and the phrase of the date (GEDCOM 7.0 keeps it in PHRASE). */
+function dateOf(event: GedLine): { date: string; phrase: string } {
+    const dateLine = child(event, "DATE");
+    if (!dateLine) return { date: "", phrase: "" };
+    return { date: dateLine.value, phrase: child(dateLine, "PHRASE")?.value ?? "" };
+}
+
 /** Splits a name into surname, given name and patronymic, with the file's own fields first. */
 function splitName(record: GedRecord): { surname: string; given: string; patronymic: string; suffix: string } {
     const nameLine = child(record, "NAME");
@@ -115,17 +123,17 @@ function splitName(record: GedRecord): { surname: string; given: string; patrony
     let surname = surn.trim();
 
     if (given === "" && surname === "" && nameLine) {
-        // "Given /Surname/": the surname is between the slashes.
+        // "Given /Surname/": the surname is between the slashes (the standard).
         const raw = nameLine.value;
         const slash = /\/([^/]*)\//.exec(raw);
         surname = (slash?.[1] ?? "").trim();
         given = raw.replace(/\/[^/]*\/.*$/, "").trim();
     }
 
-    // The standard separates several given names with a comma (GEDCOM 5.4, NAME_PIECE_GIVEN).
+    // The standard separates several given names with a comma (NAME_PIECE_GIVEN).
     // The MyHeritage export writes the patronymic after a space instead: "Сергей Михайлович".
-    // Here the first word is the given name and the rest the patronymic. Other programs
-    // may write a comma-separated list, which is kept as a single given name.
+    // Here the first word is the given name and the rest the patronymic. A comma-separated
+    // list of given names is kept as it is.
     const words = given.split(/\s+/).filter(Boolean);
     const patronymic = words.length > 1 ? words.slice(1).join(" ") : "";
     const firstName = words[0] ?? "";
@@ -139,10 +147,18 @@ function plainText(value: string): string {
 }
 
 export function planImport(text: string): ImportPlan {
-    const records = parseGedcom(text);
+    const file = parseGedcomFile(text);
+    const records = file.records;
     const warnings: ImportPlan["warnings"] = [];
     const persons: PlannedPerson[] = [];
     const unions: PlannedUnion[] = [];
+
+    if (file.skippedLines > 0) {
+        warnings.push({ xref: "file", message: `${file.skippedLines} lines do not follow the GEDCOM grammar and were skipped` });
+    }
+    if (file.encoding !== "" && file.encoding !== "UTF-8" && file.encoding !== "UTF8") {
+        warnings.push({ xref: "file", message: `the file declares the character set ${file.encoding}: the names may be garbled` });
+    }
 
     for (const record of records) {
         if (record.tag !== "INDI" || !record.xref) continue;
@@ -162,38 +178,44 @@ export function planImport(text: string): ImportPlan {
             if (description) notes.push(description);
         }
 
-        const birt = child(record, "BIRT");
         let birth = "";
-        const birthDate = birt ? child(birt, "DATE")?.value ?? "" : "";
-        if (birthDate) {
-            const read = gedcomDateToInput(birthDate);
-            if (read.ok) {
-                birth = read.input;
-            } else {
-                notes.push(`дата рождения в файле: ${birthDate}`);
-                warnings.push({ xref, message: `birth date not read: ${birthDate}` });
+        const birt = child(record, "BIRT");
+        if (birt) {
+            const { date, phrase } = dateOf(birt);
+            if (phrase) notes.push(`дата рождения (фраза): ${phrase}`);
+            if (date) {
+                const read = gedcomDateToInput(date);
+                if (read.ok) {
+                    birth = read.input;
+                } else {
+                    notes.push(`дата рождения в файле: ${date}`);
+                    warnings.push({ xref, message: `birth date not read: ${date}` });
+                }
             }
         }
 
-        const deat = child(record, "DEAT");
         let death = "";
+        const deat = child(record, "DEAT");
         if (deat) {
-            const deathDate = child(deat, "DATE")?.value ?? "";
-            if (deathDate) {
-                const read = gedcomDateToInput(deathDate);
+            const { date, phrase } = dateOf(deat);
+            if (phrase) notes.push(`дата смерти (фраза): ${phrase}`);
+            if (date) {
+                const read = gedcomDateToInput(date);
                 if (read.ok) {
                     death = read.input;
                 } else {
-                    notes.push(`дата смерти в файле: ${deathDate}`);
-                    warnings.push({ xref, message: `death date not read: ${deathDate}` });
+                    notes.push(`дата смерти в файле: ${date}`);
+                    warnings.push({ xref, message: `death date not read: ${date}` });
                 }
             } else {
                 warnings.push({ xref, message: "death without a date: the person is not marked deceased" });
             }
         }
 
-        const sexValue = child(record, "SEX")?.value ?? "U";
-        const sex = sexValue === "M" ? "male" : sexValue === "F" ? "female" : "unknown";
+        // M and F are the sexes; X (7.0, intersex) and U (unknown) are kept as "other" and "unknown".
+        const sexValue = child(record, "SEX")?.value.trim().toUpperCase() ?? "U";
+        const sex =
+            sexValue === "M" ? "male" : sexValue === "F" ? "female" : sexValue === "X" ? "other" : "unknown";
 
         persons.push({
             xref,
@@ -223,22 +245,22 @@ export function planImport(text: string): ImportPlan {
             continue;
         }
 
-        const marr = child(record, "MARR");
-        const marriageDate = marr ? child(marr, "DATE")?.value ?? "" : "";
         let marriage = "";
-        if (marriageDate) {
-            const read = gedcomDateToInput(marriageDate);
-            if (read.ok) {
-                marriage = read.input;
-            } else {
-                warnings.push({ xref: record.xref, message: `marriage date not read: ${marriageDate}` });
+        const marr = child(record, "MARR");
+        if (marr) {
+            const { date } = dateOf(marr);
+            if (date) {
+                const read = gedcomDateToInput(date);
+                if (read.ok) {
+                    marriage = read.input;
+                } else {
+                    warnings.push({ xref: record.xref, message: `marriage date not read: ${date}` });
+                }
             }
         }
 
         unions.push({ xref: record.xref, partners, children, marriage });
     }
 
-    return { persons, unions, warnings };
+    return { version: file.version, persons, unions, warnings };
 }
-
-export { parseGedcom };
