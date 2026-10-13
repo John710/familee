@@ -164,6 +164,8 @@
         "living": "Living",
         "deceased": "Deceased",
         "deleteWarning": "The person will be deleted along with their events, names and links. Photographs stay in the archive.",
+        "dateHint": "Write a date as 1921-04-12, 1921-04 or 1921; put “c. ” in front for an approximate date. A death date marks the person as deceased.",
+        "notFound": "This person is not in the tree",
         "tabs": {
             "overview": "Overview",
             "names": "Names",
@@ -192,7 +194,10 @@
             "sortOrder": "Position in lists",
             "gedcomXref": "GEDCOM identifier",
             "isLiving": "Living",
-            "isLivingAuto": "Determined automatically"
+            "isLivingAuto": "Determined automatically",
+            "birth": "Birth",
+            "death": "Death",
+            "notes": "Notes"
         },
         "relations": {
             "parents": "Parents",
