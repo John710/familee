@@ -226,6 +226,10 @@
         "addPartner": "Add a partner",
         "addChild": "Add a child",
         "deleteWarning": "The union will be deleted. The people and their events remain.",
+        "none": "No unions yet",
+        "noPartner": "No partner (single parent)",
+        "noChildren": "No children yet",
+        "chooseChild": "Choose a person as a child",
         "fields": {
             "type": "Union type",
             "status": "Status",
