@@ -61,6 +61,8 @@ export async function generateMetadata({
         },
         description: t("tagline"),
         applicationName: t("name"),
+        /** Browsers ask for /favicon.ico by default; the logo tree is served as /icon.svg. */
+        icons: { icon: "/icon.svg" },
         /** A family archive has no business in search engines. */
         robots: { index: false, follow: false },
     };

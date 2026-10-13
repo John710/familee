@@ -28,11 +28,12 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
         canInvite ? listPendingInvitations(access.treeId) : Promise.resolve([]),
     ]);
 
+    const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: "medium" });
     const pending: PendingInvitation[] = invitations.map((row) => ({
         id: row.id,
         email: row.email,
         role: row.role,
-        expiresAt: row.expiresAt.toISOString(),
+        expiresOn: dateFormat.format(row.expiresAt),
     }));
 
     const t = await getTranslations();

@@ -20,7 +20,8 @@ export type PendingInvitation = {
     id: string;
     email: string;
     role: MemberRole;
-    expiresAt: string;
+    /** Already formatted on the server: formatting dates in the browser breaks hydration. */
+    expiresOn: string;
 };
 
 export function MembersPanel({
@@ -39,7 +40,9 @@ export function MembersPanel({
 
     function onInvite(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        const form = new FormData(event.currentTarget);
+        // Keep the form element: after the await, event.currentTarget is already null.
+        const formElement = event.currentTarget;
+        const form = new FormData(formElement);
         const email = String(form.get("email") ?? "");
         const role = String(form.get("role") ?? "viewer");
 
@@ -52,7 +55,7 @@ export function MembersPanel({
                 return;
             }
             setLink({ url: result.url, expiresAt: result.expiresAt });
-            event.currentTarget.reset();
+            formElement.reset();
             router.refresh();
         });
     }
@@ -150,11 +153,7 @@ export function MembersPanel({
                                     </span>
                                     <span className="text-base-content/60 text-xs">
                                         {t(`enums.member_role.${invitation.role}`)} ·{" "}
-                                        {t("members.expiresOn", {
-                                            date: new Date(
-                                                invitation.expiresAt,
-                                            ).toLocaleDateString(),
-                                        })}
+                                        {t("members.expiresOn", { date: invitation.expiresOn })}
                                     </span>
                                 </div>
                                 <button

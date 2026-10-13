@@ -53,7 +53,6 @@ export function CreateTreeForm() {
                         name="slug"
                         required
                         maxLength={63}
-                        pattern="[a-z0-9][a-z0-9-]*"
                         className="input w-full font-mono"
                     />
                     <span className="text-base-content/60 text-xs">
