@@ -39,8 +39,24 @@ export type GedcomFile = {
 
 const LINE = /^(\d+) (?:(@[A-Za-z0-9_]+@) )?([A-Za-z0-9_]+)(?: (.*))?$/;
 
+/** The GEDC.VERS of the header, read before the lines are parsed (it decides the "@" rule). */
+function detectVersion(text: string): string {
+    const match = /^0 HEAD\s*\r?\n1 GEDC\s*\r?\n2 VERS ([^\r\n]+)/m.exec(text);
+    return match?.[1]?.trim() ?? "unknown";
+}
+
+/**
+ * The "@" rule of the version: 7.0 doubles only a leading "@" of a line string;
+ * 5.5 and 5.5.1 double every "@".
+ */
+function unescapeValue(value: string, version: string): string {
+    if (version.startsWith("7")) return value.startsWith("@@") ? value.slice(1) : value;
+    return value.replace(/@@/g, "@");
+}
+
 /** Reads the GEDCOM text into records with their nested lines. */
 export function parseGedcomFile(text: string): GedcomFile {
+    const version = detectVersion(text);
     const roots: GedLine[] = [];
     const stack: GedLine[] = [];
     let previous: GedLine | null = null;
@@ -60,7 +76,7 @@ export function parseGedcomFile(text: string): GedcomFile {
         const level = Number(levelText);
         const tag = tagText;
         // Only one space separates the tag from the value; further spaces belong to it.
-        const value = (valueText ?? "").replace(/@@/g, "@");
+        const value = unescapeValue(valueText ?? "", version);
 
         if (tag === "CONT" && previous) {
             previous.value += `\n${value}`;
@@ -95,8 +111,6 @@ export function parseGedcomFile(text: string): GedcomFile {
     }
 
     const header = roots.find((node) => node.tag === "HEAD");
-    const gedc = header ? child(header, "GEDC") : undefined;
-    const version = gedc ? (child(gedc, "VERS")?.value.trim() ?? "unknown") : "unknown";
     const encoding = header ? (child(header, "CHAR")?.value.trim().toUpperCase() ?? "") : "";
 
     return {
