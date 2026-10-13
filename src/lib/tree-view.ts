@@ -20,6 +20,8 @@ export type PersonNodeData = {
     isLiving: boolean | null;
     sex: string;
     href: string;
+    /** The main photograph's small variant, or null when the person has none. */
+    photoUrl: string | null;
 };
 
 export type FlowNode =
@@ -102,6 +104,9 @@ export async function loadTreeView(treeId: string, slug: string): Promise<TreeVi
                 isLiving: card.isLiving,
                 sex: card.sex,
                 href: `/trees/${slug}/persons/${card.personId}`,
+                photoUrl: card.portraitMediaId
+                    ? `/api/trees/${slug}/media/${card.portraitMediaId}/thumb`
+                    : null,
             },
         });
     }

@@ -20,6 +20,7 @@ export async function listPersonCards(treeId: string) {
             birthYear: schema.personCards.birthYear,
             deathYear: schema.personCards.deathYear,
             isLiving: schema.personCards.isLiving,
+            portraitMediaId: schema.personCards.portraitMediaId,
         })
         .from(schema.personCards)
         .where(eq(schema.personCards.treeId, treeId))

@@ -4,9 +4,11 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { FamilyPanel } from "@/components/persons/family-panel";
 import { PersonForm } from "@/components/persons/person-form";
+import { PhotoAlbum } from "@/components/persons/photo-album";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { getPersonForEdit } from "@/lib/people";
+import { listPersonPhotos } from "@/lib/photos";
 import { atLeast } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -27,6 +29,10 @@ export default async function PersonPage({ params }: { params: Promise<Params> }
     if (!person) notFound();
 
     const canEdit = atLeast(access.role, "editor");
+    const photos = (await listPersonPhotos(access.treeId, id)).map((photo) => ({
+        mediaId: photo.mediaId,
+        isPrimary: photo.isPrimary,
+    }));
     const unions = await listUnionsForPerson(access.treeId, id);
     const options = (await listPersonOptions(access.treeId))
         .filter((option) => option.personId !== id)
@@ -47,6 +53,18 @@ export default async function PersonPage({ params }: { params: Promise<Params> }
                     <span className="badge badge-neutral w-fit">{t("person.deceased")}</span>
                 )}
             </header>
+
+            <section className="card card-border bg-base-100">
+                <div className="card-body gap-5">
+                    <h2 className="font-semibold text-lg">{t("media.many")}</h2>
+                    <PhotoAlbum
+                        slug={slug}
+                        personId={person.personId}
+                        photos={photos}
+                        canEdit={canEdit}
+                    />
+                </div>
+            </section>
 
             <section className="card card-border bg-base-100">
                 <div className="card-body gap-5">

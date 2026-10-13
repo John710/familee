@@ -11,6 +11,7 @@
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
+import { ConfirmDialog } from "@/components/layout/confirm-dialog";
 import { useRouter } from "@/i18n/navigation";
 import { changeMemberRoleAction, removeMemberAction } from "@/lib/actions/members";
 import { INVITABLE_ROLES, type MemberRole } from "@/lib/roles";
@@ -29,6 +30,7 @@ export function MemberControls({
     const t = useTranslations();
     const router = useRouter();
     const [error, setError] = useState<string | null>(null);
+    const [askingRemoval, setAskingRemoval] = useState(false);
     const [pending, startTransition] = useTransition();
 
     function onRoleChange(nextRole: string) {
@@ -43,8 +45,8 @@ export function MemberControls({
         });
     }
 
-    function onRemove() {
-        if (!window.confirm(t("members.removeConfirm", { name }))) return;
+    function removeNow() {
+        setAskingRemoval(false);
         setError(null);
         startTransition(async () => {
             const result = await removeMemberAction({ slug, userId });
@@ -74,11 +76,20 @@ export function MemberControls({
             <button
                 type="button"
                 className="btn btn-ghost btn-sm text-error"
-                onClick={onRemove}
+                onClick={() => setAskingRemoval(true)}
                 disabled={pending}
             >
                 {t("members.remove")}
             </button>
+            <ConfirmDialog
+                open={askingRemoval}
+                title={t("members.removeTitle")}
+                message={t("members.removeConfirm", { name })}
+                confirmLabel={t("members.remove")}
+                danger
+                onConfirm={removeNow}
+                onCancel={() => setAskingRemoval(false)}
+            />
             {error && (
                 <p role="alert" className="w-full text-end text-error text-xs">
                     {error}

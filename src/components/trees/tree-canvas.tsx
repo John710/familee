@@ -98,9 +98,19 @@ function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
             >
                 <span
                     aria-hidden="true"
-                    className="person-photo-empty relative flex aspect-square h-full shrink-0 items-center justify-center overflow-hidden font-semibold text-xl"
+                    className={`relative flex aspect-square h-full shrink-0 items-center justify-center overflow-hidden font-semibold text-xl ${data.photoUrl ? "" : "person-photo-empty"}`}
                 >
-                    {initials(name)}
+                    {data.photoUrl ? (
+                        // biome-ignore lint/performance/noImgElement: the picture comes from our own route, already sized as a thumbnail
+                        <img
+                            src={data.photoUrl}
+                            alt=""
+                            loading="lazy"
+                            className="size-full object-cover"
+                        />
+                    ) : (
+                        initials(name)
+                    )}
                     {deceased && (
                         <span className="pointer-events-none absolute -right-9 bottom-2 h-3 w-28 -rotate-45 bg-black" />
                     )}
@@ -168,14 +178,9 @@ function PersonPanel({ data }: { data: PersonFlowData }) {
                         </span>
                     )}
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Link href={data.href} className="btn btn-primary btn-sm">
-                        {data.canEdit ? t("person.edit") : t("person.openCard")}
-                    </Link>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
-                        {t("common.close")}
-                    </button>
-                </div>
+                <Link href={data.href} className="btn btn-primary btn-sm self-start">
+                    {data.canEdit ? t("person.edit") : t("person.openCard")}
+                </Link>
             </div>
         </div>
     );

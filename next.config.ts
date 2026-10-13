@@ -47,9 +47,9 @@ const nextConfig = {
         serverActions: {
             /**
              * Photo upload goes through a Route Handler
-             * (src/app/api/media/upload), but server actions have to accept
-             * files too: the default 1 MB is far too little for a scan of a
-             * document.
+             * (src/app/api/trees/[slug]/persons/[personId]/photos), which checks
+             * the size itself. Server actions still have to accept files of
+             * some size: the default 1 MB is far too little for a scan.
              */
             bodySizeLimit: "25MB" as const,
         },
