@@ -24,6 +24,14 @@ import { redisSecondaryStorage } from "@/lib/secondary-storage";
 
 const ONE_DAY = 60 * 60 * 24;
 
+/** How long a reset link handed out by an administrator stays valid. */
+export const RESET_LINK_SECONDS = 60 * 60;
+
+/** The Redis key where the last reset link of an e-mail address waits to be taken. */
+export function resetLinkKey(email: string): string {
+    return `familee:reset:${email.trim().toLowerCase()}`;
+}
+
 export const auth = betterAuth({
     baseURL: process.env.BETTER_AUTH_URL,
     secret: process.env.BETTER_AUTH_SECRET,
@@ -42,6 +50,15 @@ export const auth = betterAuth({
         disableSignUp: true,
         minPasswordLength: 12,
         maxPasswordLength: 128,
+
+        /**
+         * There is no mail server. The reset link is kept for an hour in Redis, and an
+         * owner or an administrator of a tree takes it from the members page and hands
+         * it to the person (see src/lib/actions/reset.ts).
+         */
+        sendResetPassword: async ({ user, url }) => {
+            await redis.set(resetLinkKey(user.email), url, "EX", RESET_LINK_SECONDS);
+        },
     },
 
     session: {

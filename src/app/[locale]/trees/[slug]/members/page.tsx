@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { MembersPanel, type PendingInvitation } from "@/components/trees/members-panel";
+import { ResetLinkButton } from "@/components/trees/reset-link-button";
 import { TreeLogo } from "@/components/trees/tree-logo";
 import { TreeLogoForm } from "@/components/trees/tree-logo-form";
 import { Link } from "@/i18n/navigation";
@@ -93,9 +94,14 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                                     {member.email}
                                 </span>
                             </div>
-                            <span className="badge badge-soft">
-                                {t(`enums.member_role.${member.role}`)}
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <span className="badge badge-soft">
+                                    {t(`enums.member_role.${member.role}`)}
+                                </span>
+                                {canInvite && member.userId !== user.id && (
+                                    <ResetLinkButton slug={slug} email={member.email} />
+                                )}
+                            </div>
                         </li>
                     ))}
                 </ul>

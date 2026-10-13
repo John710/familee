@@ -118,7 +118,12 @@
         "invitationRole": "You will join as {role}",
         "acceptInvitation": "Accept the invitation",
         "passwordTooShort": "The password is shorter than 12 characters",
-        "passwordTooLong": "The password is longer than 128 characters"
+        "passwordTooLong": "The password is longer than 128 characters",
+        "resetTitle": "Set a new password",
+        "resetSubtitle": "The link you received is valid for one hour and works once.",
+        "resetSubmit": "Save the new password",
+        "resetInvalid": "This reset link is not valid or has expired. Ask an administrator for a new one.",
+        "newPassword": "New password"
     },
     "profile": {
         "title": "Profile",
@@ -408,7 +413,11 @@
         "cancelInvitation": "Cancel",
         "alreadyMember": "This person already has access to the tree",
         "invalidRole": "This role cannot be given by invitation",
-        "invitationNotFound": "The invitation is not pending any more"
+        "invitationNotFound": "The invitation is not pending any more",
+        "issueReset": "Reset password",
+        "resetLinkHint": "Give this link to the person. It works for one hour, once, and sets a new password.",
+        "notMember": "This person is not a member of the tree",
+        "resetFailed": "The reset link could not be created"
     },
     "search": {
         "title": "Search the archive",
