@@ -36,6 +36,9 @@ export const trees = familee.table(
         title: text("title").notNull(),
         description: text("description"),
 
+        /** The logo: a data URL of a 256 x 256 WebP image; null when the tree has none. */
+        logoData: text("logo_data"),
+
         /** The default language of the tree when the user has none of their own. */
         defaultLocale: text("default_locale").notNull().default("ru"),
 

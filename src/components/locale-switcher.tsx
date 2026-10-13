@@ -6,14 +6,16 @@
  * The list of languages comes from src/i18n/routing.ts, so a new language
  * appears here by itself, without editing this file.
  *
- * The dropdown is a native <details> element: the browser handles the keyboard
- * and the focus itself, so no tabIndex or ARIA role is needed on a plain div.
+ * A client dropdown rather than a native <details>: the menu closes when the page
+ * changes, when the person clicks elsewhere, and on Escape.
  */
 
 import { Check, Languages } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useTransition } from "react";
-import { usePathname, useRouter } from "@/i18n/navigation";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
+
+import { useRouter } from "@/i18n/navigation";
 import { localeLabels, locales } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 
@@ -21,52 +23,74 @@ export function LocaleSwitcher() {
     const t = useTranslations("locale");
     const activeLocale = useLocale();
     const router = useRouter();
-    const pathname = usePathname();
+    const currentPath = usePathname();
+    const [open, setOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
+    const rootRef = useRef<HTMLDivElement>(null);
 
-    function switchTo(locale: (typeof locales)[number], menu: HTMLDetailsElement) {
-        menu.open = false;
+    useEffect(() => {
+        setOpen(false);
+    }, [currentPath]);
+
+    useEffect(() => {
+        if (!open) return;
+        function onPointer(event: MouseEvent) {
+            if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+        }
+        function onKey(event: KeyboardEvent) {
+            if (event.key === "Escape") setOpen(false);
+        }
+        document.addEventListener("mousedown", onPointer);
+        document.addEventListener("keydown", onKey);
+        return () => {
+            document.removeEventListener("mousedown", onPointer);
+            document.removeEventListener("keydown", onKey);
+        };
+    }, [open]);
+
+    function switchTo(locale: (typeof locales)[number]) {
+        setOpen(false);
         if (locale === activeLocale) return;
 
         startTransition(() => {
-            // pathname here is without the language prefix, the router adds it.
-            router.replace(pathname, { locale });
+            // currentPath is without the language prefix, the router adds it.
+            router.replace(currentPath, { locale });
         });
     }
 
     return (
-        <details className="dropdown dropdown-end">
-            <summary
+        <div ref={rootRef} className="relative">
+            <button
+                type="button"
                 className={cn("btn btn-ghost btn-sm gap-2", isPending && "pointer-events-none")}
                 aria-label={t("label")}
+                aria-expanded={open}
                 title={t("label")}
+                onClick={() => setOpen((value) => !value)}
             >
                 <Languages className="size-4" />
-                <span className="hidden font-medium text-xs uppercase tracking-wide sm:inline">
+                <span className="hidden text-xs font-medium tracking-wide uppercase sm:inline">
                     {activeLocale}
                 </span>
-            </summary>
+            </button>
 
-            <ul className="dropdown-content menu z-30 mt-2 w-48 rounded-box bg-base-100 p-2 shadow-lg ring-1 ring-base-300">
-                {locales.map((locale) => (
-                    <li key={locale}>
-                        <button
-                            type="button"
-                            onClick={(event) =>
-                                switchTo(
-                                    locale,
-                                    event.currentTarget.closest("details") as HTMLDetailsElement,
-                                )
-                            }
-                            className="flex items-center justify-between gap-2"
-                            aria-current={locale === activeLocale ? "true" : undefined}
-                        >
-                            {localeLabels[locale]}
-                            {locale === activeLocale && <Check className="size-4" />}
-                        </button>
-                    </li>
-                ))}
-            </ul>
-        </details>
+            {open && (
+                <ul className="menu absolute right-0 z-30 mt-2 w-48 rounded-box bg-base-100 p-2 shadow-lg ring-1 ring-base-300">
+                    {locales.map((locale) => (
+                        <li key={locale}>
+                            <button
+                                type="button"
+                                onClick={() => switchTo(locale)}
+                                className="flex items-center justify-between gap-2"
+                                aria-current={locale === activeLocale ? "true" : undefined}
+                            >
+                                {localeLabels[locale]}
+                                {locale === activeLocale && <Check className="size-4" />}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
     );
 }

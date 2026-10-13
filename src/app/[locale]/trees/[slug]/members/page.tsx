@@ -2,7 +2,11 @@ import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { eq } from "drizzle-orm";
+
+import { db, schema } from "@/db";
 import { MembersPanel, type PendingInvitation } from "@/components/trees/members-panel";
+import { TreeLogoForm } from "@/components/trees/tree-logo-form";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { listMembers, listPendingInvitations } from "@/lib/invitations";
@@ -39,10 +43,24 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
 
     const t = await getTranslations();
 
+    const [treeRow] = await db
+        .select({ logoData: schema.trees.logoData })
+        .from(schema.trees)
+        .where(eq(schema.trees.id, access.treeId))
+        .limit(1);
+
     return (
         <div className="flex flex-col gap-8">
             <header className="flex flex-col gap-1">
                 <h1 className="font-semibold font-serif text-3xl">{access.title}</h1>
+                {atLeast(access.role, "admin") ? (
+                    <TreeLogoForm slug={slug} logoData={treeRow?.logoData ?? null} title={access.title} />
+                ) : (
+                    treeRow?.logoData && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={treeRow.logoData} alt={access.title} className="size-16 rounded-box object-cover" />
+                    )
+                )}
                 <p className="text-base-content/60 text-sm">
                     {t("members.title")} · {t(`enums.member_role.${access.role}`)}
                 </p>

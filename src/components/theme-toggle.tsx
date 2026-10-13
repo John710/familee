@@ -8,14 +8,16 @@
  * appears only after hydration - otherwise the server and the browser
  * would draw different icons.
  *
- * The dropdown is a native <details> element, like the language switcher:
- * the keyboard and the focus are handled by the browser.
+ * A client dropdown, like the language switcher: it closes on navigation, on a
+ * click elsewhere, and on Escape.
  */
 
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+
 import { cn } from "@/lib/utils";
 
 const options = [
@@ -28,51 +30,69 @@ export function ThemeToggle() {
     const t = useTranslations("theme");
     const { theme, setTheme, resolvedTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
+    const [open, setOpen] = useState(false);
+    const currentPath = usePathname();
+    const rootRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         setMounted(true);
     }, []);
 
+    useEffect(() => {
+        setOpen(false);
+    }, [currentPath]);
+
+    useEffect(() => {
+        if (!open) return;
+        function onPointer(event: MouseEvent) {
+            if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+        }
+        function onKey(event: KeyboardEvent) {
+            if (event.key === "Escape") setOpen(false);
+        }
+        document.addEventListener("mousedown", onPointer);
+        document.addEventListener("keydown", onKey);
+        return () => {
+            document.removeEventListener("mousedown", onPointer);
+            document.removeEventListener("keydown", onKey);
+        };
+    }, [open]);
+
     const CurrentIcon = resolvedTheme === "dark" ? Moon : Sun;
 
-    function choose(value: (typeof options)[number]["value"], menu: HTMLDetailsElement) {
-        menu.open = false;
-        setTheme(value);
-    }
-
     return (
-        <details className="dropdown dropdown-end">
-            <summary
+        <div ref={rootRef} className="relative">
+            <button
+                type="button"
                 className="btn btn-ghost btn-sm btn-circle"
                 aria-label={t("label")}
+                aria-expanded={open}
                 title={t("label")}
+                onClick={() => setOpen((value) => !value)}
             >
                 {mounted ? <CurrentIcon className="size-4" /> : <span className="size-4" />}
-            </summary>
+            </button>
 
-            <ul className="dropdown-content menu z-30 mt-2 w-48 rounded-box bg-base-100 p-2 shadow-lg ring-1 ring-base-300">
-                {options.map(({ value, icon: Icon, key }) => (
-                    <li key={value}>
-                        <button
-                            type="button"
-                            onClick={(event) =>
-                                choose(
-                                    value,
-                                    event.currentTarget.closest("details") as HTMLDetailsElement,
-                                )
-                            }
-                            className={cn(
-                                "flex items-center gap-2",
-                                mounted && theme === value && "menu-active",
-                            )}
-                            aria-current={mounted && theme === value ? "true" : undefined}
-                        >
-                            <Icon className="size-4" />
-                            {t(key)}
-                        </button>
-                    </li>
-                ))}
-            </ul>
-        </details>
+            {open && (
+                <ul className="menu absolute right-0 z-30 mt-2 w-48 rounded-box bg-base-100 p-2 shadow-lg ring-1 ring-base-300">
+                    {options.map(({ value, icon: Icon, key }) => (
+                        <li key={value}>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setOpen(false);
+                                    setTheme(value);
+                                }}
+                                className={cn("flex items-center gap-2", mounted && theme === value && "menu-active")}
+                                aria-current={mounted && theme === value ? "true" : undefined}
+                            >
+                                <Icon className="size-4" />
+                                {t(key)}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
     );
 }

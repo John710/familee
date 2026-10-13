@@ -137,10 +137,17 @@
         "notChosen": "Not chosen",
         "personTaken": "Another member has already chosen this person"
     },
+    "logo": {
+        "invalid": "Choose a PNG, JPEG or WebP picture",
+        "tooLarge": "The picture is too large (up to 5 MB)"
+    },
     "tree": {
         "one": "Tree",
         "many": "Trees",
         "create": "New tree",
+        "noLogo": "No logo",
+        "changeLogo": "Change logo",
+        "removeLogo": "Remove logo",
         "invalidSlug": "The address may use lowercase latin letters, digits and hyphens, and must start with a letter or digit",
         "slugTaken": "A tree with this address already exists",
         "empty": "This tree is still empty. Add the first person — everyone else can be linked to them.",
