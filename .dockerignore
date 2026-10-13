@@ -1,0 +1,23 @@
+# Everything that has no business being inside the image. The smaller the
+# context, the faster the build and the less often it invalidates layer cache.
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+node_modules
+.next
+out
+build
+.env
+.env.*
+!.env.example
+*.md
+!README.md
+.idea
+.vscode
+media
+backups
+*.ged
+.mcp.json
+.claude

@@ -1,0 +1,3 @@
+# A family archive - not for search engines.
+User-agent: *
+Disallow: /

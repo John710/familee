@@ -1,0 +1,106 @@
+# Familee - running it on a home server
+#
+# IMPORTANT: postgres, redis and traefik are NOT created here. They are
+# assumed to be running on the server already; the application merely joins
+# their networks and reaches them by container name (see .env).
+#
+#   docker compose build
+#   docker compose run --rm migrate     # apply the familee schema
+#   docker compose up -d
+#
+# If postgres and redis live in ONE Docker network, keep only DATA_NETWORK
+# in .env and remove the `cache` network below - both from the networks
+# block of the app service and from the networks section at the bottom.
+
+name: familee
+
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: familee:local
+        restart: unless-stopped
+
+        env_file: .env
+        environment:
+            NODE_ENV: production
+            PORT: "3000"
+            HOSTNAME: 0.0.0.0
+            TZ: ${APP_TIME_ZONE:-Europe/Moscow}
+
+        volumes:
+            # The original photographs and the previews generated ahead of time.
+            # This is the only data of the application outside Postgres -
+            # this is the volume that has to go into the backups.
+            - media:/data/media
+
+        networks:
+            - proxy
+            - data
+            - cache
+
+        labels:
+            traefik.enable: "true"
+            # Which network traefik should look the container up in: app has
+            # several, and without this label traefik may pick the wrong one.
+            traefik.docker.network: ${TRAEFIK_NETWORK:-traefik}
+            traefik.http.routers.familee.rule: Host(`${FAMILEE_HOST}`)
+            traefik.http.routers.familee.entrypoints: ${TRAEFIK_ENTRYPOINT:-websecure}
+            traefik.http.routers.familee.tls: "true"
+            traefik.http.routers.familee.tls.certresolver: ${TRAEFIK_CERTRESOLVER:-letsencrypt}
+            traefik.http.services.familee.loadbalancer.server.port: "3000"
+
+        healthcheck:
+            test:
+                - CMD
+                - node
+                - -e
+                - "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+            interval: 30s
+            timeout: 5s
+            retries: 5
+            start_period: 20s
+
+        logging:
+            driver: json-file
+            options:
+                max-size: 10m
+                max-file: "3"
+
+    # A one-shot migration run: no need to install psql on the server.
+    # The image version does not matter - only the psql client is used.
+    migrate:
+        image: postgres:alpine
+        profiles:
+            - tools
+        env_file: .env
+        volumes:
+            - ./db:/db:ro
+        entrypoint:
+            - bash
+            - /db/apply.sh
+        networks:
+            - data
+        restart: "no"
+
+networks:
+    # The traefik network - external requests arrive through it.
+    proxy:
+        external: true
+        name: ${TRAEFIK_NETWORK:-traefik}
+
+    # The network postgres already runs in.
+    data:
+        external: true
+        name: ${DATA_NETWORK:-postgres}
+
+    # The network redis already runs in. If it shares the network with
+    # postgres, delete this block and the mention of `cache` above.
+    cache:
+        external: true
+        name: ${CACHE_NETWORK:-redis}
+
+volumes:
+    media:
+        name: familee_media
