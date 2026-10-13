@@ -112,7 +112,9 @@ an owner or administrator of a tree. The link is valid for 7 days and works once
 only at creation and stored as a hash.
 
 Roles are granted per tree: owner, administrator, co-author (the `editor` role), viewer. An invitation can grant
-any role except owner.
+any role except owner. An owner or an administrator changes a member's role or revokes access on the members
+page; an administrator cannot touch another administrator or the owner, and nobody changes their own access
+there. Each person sees the devices they are signed in on in the profile and can end any of them.
 
 `BETTER_AUTH_URL` must be the address the browser uses, port included (for example
 `http://192.168.0.10:3000` or `https://archive.example.com`). Otherwise better-auth rejects the requests

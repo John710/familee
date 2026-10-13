@@ -8,8 +8,8 @@
  */
 
 import { Check } from "lucide-react";
-import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { type FormEvent, useState, useTransition } from "react";
 
 import { authClient } from "@/lib/auth-client";

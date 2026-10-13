@@ -1,9 +1,8 @@
-import { TreeLogo } from "@/components/trees/tree-logo";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-
 import { CreateTreeForm } from "@/components/trees/create-tree-form";
+import { TreeLogo } from "@/components/trees/tree-logo";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { listTreesForUser } from "@/lib/invitations";
@@ -36,7 +35,11 @@ export default async function TreesPage({ params }: { params: Promise<Params> })
                                     className="card card-border bg-base-100 transition-colors hover:border-primary"
                                 >
                                     <div className="card-body flex-row items-center gap-3 p-4">
-                                        <TreeLogo logoData={tree.logoData} title={tree.title} size="sm" />
+                                        <TreeLogo
+                                            logoData={tree.logoData}
+                                            title={tree.title}
+                                            size="sm"
+                                        />
                                         <div className="flex flex-col">
                                             <span className="font-semibold">{tree.title}</span>
                                             <span className="text-base-content/60 text-xs">

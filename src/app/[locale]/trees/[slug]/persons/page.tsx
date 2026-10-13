@@ -1,6 +1,6 @@
+import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { notFound } from "next/navigation";
 
 import { PersonForm } from "@/components/persons/person-form";
 import { Link } from "@/i18n/navigation";
@@ -55,9 +55,13 @@ export default async function PersonsPage({ params }: { params: Promise<Params> 
                                                   death: card.deathYear,
                                               })
                                             : card.birthYear
-                                              ? t("date.lifespanBirthOnly", { birth: card.birthYear })
+                                              ? t("date.lifespanBirthOnly", {
+                                                    birth: card.birthYear,
+                                                })
                                               : card.deathYear
-                                                ? t("date.lifespanDeathOnly", { death: card.deathYear })
+                                                ? t("date.lifespanDeathOnly", {
+                                                      death: card.deathYear,
+                                                  })
                                                 : null}
                                         {card.isLiving === false && (
                                             <span className="badge badge-neutral badge-sm">
@@ -94,4 +98,3 @@ export default async function PersonsPage({ params }: { params: Promise<Params> 
         </div>
     );
 }
-

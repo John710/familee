@@ -8,9 +8,8 @@
 
 import { TreeDeciduous } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-
-import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ProfileMenu } from "@/components/layout/profile-menu";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Link } from "@/i18n/navigation";
 import { getCurrentUser } from "@/lib/session";

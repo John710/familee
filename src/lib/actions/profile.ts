@@ -32,7 +32,10 @@ export async function setSelfPersonAction(input: {
             .select({ id: schema.persons.id })
             .from(schema.persons)
             .where(
-                and(eq(schema.persons.id, input.personId), eq(schema.persons.treeId, access.treeId)),
+                and(
+                    eq(schema.persons.id, input.personId),
+                    eq(schema.persons.treeId, access.treeId),
+                ),
             )
             .limit(1);
         if (!person) return { ok: false, error: "person.notFound" };

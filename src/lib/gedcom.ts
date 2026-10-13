@@ -116,7 +116,9 @@ export function parseGedcomFile(text: string): GedcomFile {
     return {
         version,
         encoding,
-        records: roots.filter((node) => node.level === 0 && node.tag !== "HEAD" && node.tag !== "TRLR"),
+        records: roots.filter(
+            (node) => node.level === 0 && node.tag !== "HEAD" && node.tag !== "TRLR",
+        ),
         skippedLines,
     };
 }

@@ -96,7 +96,11 @@ export function PersonForm({
                 </label>
                 <label className="flex flex-col gap-1.5">
                     <span className="font-medium text-sm">{t("person.fields.patronymic")}</span>
-                    <input name="patronymic" defaultValue={initial.patronymic} className="input w-full" />
+                    <input
+                        name="patronymic"
+                        defaultValue={initial.patronymic}
+                        className="input w-full"
+                    />
                 </label>
             </div>
 
@@ -128,7 +132,12 @@ export function PersonForm({
 
             <label className="flex flex-col gap-1.5">
                 <span className="font-medium text-sm">{t("person.fields.notes")}</span>
-                <textarea name="notes" defaultValue={initial.notes} rows={4} className="textarea w-full" />
+                <textarea
+                    name="notes"
+                    defaultValue={initial.notes}
+                    rows={4}
+                    className="textarea w-full"
+                />
             </label>
 
             {error && (
@@ -143,7 +152,7 @@ export function PersonForm({
                     {t("common.save")}
                 </button>
                 {saved && (
-                    <span className="flex items-center gap-1 text-success text-sm">
+                    <span className="flex items-center gap-1 text-sm text-success">
                         <Check className="size-4" />
                         {t("common.saved")}
                         {isLiving === false && ` · ${t("person.deceased")}`}

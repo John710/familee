@@ -8,14 +8,22 @@
  */
 
 import { ImagePlus, Trash2 } from "lucide-react";
-import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 import { TreeLogo } from "@/components/trees/tree-logo";
 import { setTreeLogoAction } from "@/lib/actions/logo";
 
-export function TreeLogoForm({ slug, logoData, title }: { slug: string; logoData: string | null; title: string }) {
+export function TreeLogoForm({
+    slug,
+    logoData,
+    title,
+}: {
+    slug: string;
+    logoData: string | null;
+    title: string;
+}) {
     const t = useTranslations();
     const router = useRouter();
     const [error, setError] = useState<string | null>(null);
@@ -63,7 +71,12 @@ export function TreeLogoForm({ slug, logoData, title }: { slug: string; logoData
             </label>
 
             {logoData && (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => send(null)} disabled={pending}>
+                <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => send(null)}
+                    disabled={pending}
+                >
                     <Trash2 className="size-4" />
                     {t("tree.removeLogo")}
                 </button>

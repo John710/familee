@@ -37,8 +37,18 @@ export type ImportPlan = {
 };
 
 const MONTHS: Record<string, string> = {
-    JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06",
-    JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12",
+    JAN: "01",
+    FEB: "02",
+    MAR: "03",
+    APR: "04",
+    MAY: "05",
+    JUN: "06",
+    JUL: "07",
+    AUG: "08",
+    SEP: "09",
+    OCT: "10",
+    NOV: "11",
+    DEC: "12",
 };
 
 const SINGLE_DATE = /^(?:(\d{1,2})\s+)?(?:([A-Za-z]{3})\s+)?(\d{4})$/;
@@ -113,7 +123,12 @@ function dateOf(event: GedLine): { date: string; phrase: string } {
 }
 
 /** Splits a name into surname, given name and patronymic, with the file's own fields first. */
-function splitName(record: GedRecord): { surname: string; given: string; patronymic: string; suffix: string } {
+function splitName(record: GedRecord): {
+    surname: string;
+    given: string;
+    patronymic: string;
+    suffix: string;
+} {
     const nameLine = child(record, "NAME");
     const givn = child(nameLine ?? record, "GIVN")?.value ?? "";
     const surn = child(nameLine ?? record, "SURN")?.value ?? "";
@@ -143,7 +158,10 @@ function splitName(record: GedRecord): { surname: string; given: string; patrony
 
 /** Strips the markup of a free text (<DSCR><HAIR>Кудрявый</HAIR></DSCR> -> "Кудрявый"). */
 function plainText(value: string): string {
-    return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    return value
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
 }
 
 export function planImport(text: string): ImportPlan {
@@ -154,7 +172,10 @@ export function planImport(text: string): ImportPlan {
     const unions: PlannedUnion[] = [];
 
     if (file.skippedLines > 0) {
-        warnings.push({ xref: "file", message: `${file.skippedLines} lines do not follow the GEDCOM grammar and were skipped` });
+        warnings.push({
+            xref: "file",
+            message: `${file.skippedLines} lines do not follow the GEDCOM grammar and were skipped`,
+        });
     }
 
     for (const record of records) {
@@ -205,14 +226,23 @@ export function planImport(text: string): ImportPlan {
                     warnings.push({ xref, message: `death date not read: ${date}` });
                 }
             } else {
-                warnings.push({ xref, message: "death without a date: the person is not marked deceased" });
+                warnings.push({
+                    xref,
+                    message: "death without a date: the person is not marked deceased",
+                });
             }
         }
 
         // M and F are the sexes; X (7.0, intersex) and U (unknown) are kept as "other" and "unknown".
         const sexValue = child(record, "SEX")?.value.trim().toUpperCase() ?? "U";
         const sex =
-            sexValue === "M" ? "male" : sexValue === "F" ? "female" : sexValue === "X" ? "other" : "unknown";
+            sexValue === "M"
+                ? "male"
+                : sexValue === "F"
+                  ? "female"
+                  : sexValue === "X"
+                    ? "other"
+                    : "unknown";
 
         persons.push({
             xref,
@@ -238,7 +268,10 @@ export function planImport(text: string): ImportPlan {
             .filter((ref) => importable.has(ref));
 
         if (partners.length === 0 && children.length === 0) {
-            warnings.push({ xref: record.xref, message: "union without imported partners or children" });
+            warnings.push({
+                xref: record.xref,
+                message: "union without imported partners or children",
+            });
             continue;
         }
 
@@ -251,7 +284,10 @@ export function planImport(text: string): ImportPlan {
                 if (read.ok) {
                     marriage = read.input;
                 } else {
-                    warnings.push({ xref: record.xref, message: `marriage date not read: ${date}` });
+                    warnings.push({
+                        xref: record.xref,
+                        message: `marriage date not read: ${date}`,
+                    });
                 }
             }
         }

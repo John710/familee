@@ -49,12 +49,7 @@ export function CreateTreeForm() {
 
                 <label className="flex flex-col gap-1.5">
                     <span className="font-medium text-sm">{t("tree.fields.slug")}</span>
-                    <input
-                        name="slug"
-                        required
-                        maxLength={63}
-                        className="input w-full font-mono"
-                    />
+                    <input name="slug" required maxLength={63} className="input w-full font-mono" />
                     <span className="text-base-content/60 text-xs">
                         {t("tree.fields.slugHint")}
                     </span>

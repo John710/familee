@@ -1,6 +1,6 @@
+import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { notFound } from "next/navigation";
 
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 import { localizedPath } from "@/i18n/paths";

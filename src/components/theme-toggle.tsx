@@ -13,9 +13,9 @@
  */
 
 import { Monitor, Moon, Sun } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
-import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -38,6 +38,7 @@ export function ThemeToggle() {
         setMounted(true);
     }, []);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the menu closes on each pathname change; the body does not read it
     useEffect(() => {
         setOpen(false);
     }, [currentPath]);
@@ -83,7 +84,10 @@ export function ThemeToggle() {
                                     setOpen(false);
                                     setTheme(value);
                                 }}
-                                className={cn("flex items-center gap-2", mounted && theme === value && "menu-active")}
+                                className={cn(
+                                    "flex items-center gap-2",
+                                    mounted && theme === value && "menu-active",
+                                )}
                                 aria-current={mounted && theme === value ? "true" : undefined}
                             >
                                 <Icon className="size-4" />

@@ -82,8 +82,15 @@ export function ProfileForm({ name, username }: { name: string; username: string
                 </label>
                 <label className="flex flex-col gap-1.5">
                     <span className="font-medium text-sm">{t("profile.username")}</span>
-                    <input name="username" defaultValue={username} className="input w-full" autoComplete="username" />
-                    <span className="text-base-content/60 text-xs">{t("profile.usernameHint")}</span>
+                    <input
+                        name="username"
+                        defaultValue={username}
+                        className="input w-full"
+                        autoComplete="username"
+                    />
+                    <span className="text-base-content/60 text-xs">
+                        {t("profile.usernameHint")}
+                    </span>
                 </label>
                 <button type="submit" className="btn btn-primary self-start" disabled={pending}>
                     {t("common.save")}
@@ -94,15 +101,35 @@ export function ProfileForm({ name, username }: { name: string; username: string
                 <h2 className="font-semibold text-lg">{t("profile.password")}</h2>
                 <label className="flex flex-col gap-1.5">
                     <span className="font-medium text-sm">{t("profile.currentPassword")}</span>
-                    <input name="currentPassword" type="password" required className="input w-full" autoComplete="current-password" />
+                    <input
+                        name="currentPassword"
+                        type="password"
+                        required
+                        className="input w-full"
+                        autoComplete="current-password"
+                    />
                 </label>
                 <label className="flex flex-col gap-1.5">
                     <span className="font-medium text-sm">{t("auth.newPassword")}</span>
-                    <input name="newPassword" type="password" required minLength={PASSWORD_MIN} className="input w-full" autoComplete="new-password" />
+                    <input
+                        name="newPassword"
+                        type="password"
+                        required
+                        minLength={PASSWORD_MIN}
+                        className="input w-full"
+                        autoComplete="new-password"
+                    />
                 </label>
                 <label className="flex flex-col gap-1.5">
                     <span className="font-medium text-sm">{t("auth.passwordConfirm")}</span>
-                    <input name="newPasswordRepeat" type="password" required minLength={PASSWORD_MIN} className="input w-full" autoComplete="new-password" />
+                    <input
+                        name="newPasswordRepeat"
+                        type="password"
+                        required
+                        minLength={PASSWORD_MIN}
+                        className="input w-full"
+                        autoComplete="new-password"
+                    />
                 </label>
                 <button type="submit" className="btn btn-primary self-start" disabled={pending}>
                     {t("profile.changePassword")}
@@ -110,7 +137,7 @@ export function ProfileForm({ name, username }: { name: string; username: string
             </form>
 
             {message && (
-                <p role="status" className="flex items-center gap-1 text-success text-sm">
+                <p role="status" className="flex items-center gap-1 text-sm text-success">
                     <Check className="size-4" />
                     {message}
                 </p>

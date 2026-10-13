@@ -23,10 +23,7 @@ export async function listPersonCards(treeId: string) {
         })
         .from(schema.personCards)
         .where(eq(schema.personCards.treeId, treeId))
-        .orderBy(
-            sql`${schema.personCards.birthDate} nulls last`,
-            asc(schema.personCards.fullName),
-        );
+        .orderBy(sql`${schema.personCards.birthDate} nulls last`, asc(schema.personCards.fullName));
 }
 
 /** One person for the editing form: the primary name, the sex, the notes and the two life events. */
@@ -44,10 +41,7 @@ export async function getPersonForEdit(treeId: string, personId: string) {
         })
         .from(schema.personCards)
         .where(
-            and(
-                eq(schema.personCards.treeId, treeId),
-                eq(schema.personCards.personId, personId),
-            ),
+            and(eq(schema.personCards.treeId, treeId), eq(schema.personCards.personId, personId)),
         )
         .limit(1);
 

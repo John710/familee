@@ -12,7 +12,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
-import { parseFuzzyDate, type ParsedDate } from "@/lib/fuzzy-date";
+import { type ParsedDate, parseFuzzyDate } from "@/lib/fuzzy-date";
 import type { ImportPlan } from "@/lib/gedcom-plan";
 
 export type ImportResult =
@@ -31,7 +31,15 @@ export async function importIntoTree(input: {
     const existingPersons = await db
         .select({ xref: schema.persons.gedcomXref })
         .from(schema.persons)
-        .where(and(eq(schema.persons.treeId, treeId), inArray(schema.persons.gedcomXref, plan.persons.map((p) => p.xref))));
+        .where(
+            and(
+                eq(schema.persons.treeId, treeId),
+                inArray(
+                    schema.persons.gedcomXref,
+                    plan.persons.map((p) => p.xref),
+                ),
+            ),
+        );
     if (existingPersons.length > 0) {
         return { ok: false, error: "gedcom.alreadyImported" };
     }
@@ -39,7 +47,15 @@ export async function importIntoTree(input: {
     const existingFamilies = await db
         .select({ xref: schema.families.gedcomXref })
         .from(schema.families)
-        .where(and(eq(schema.families.treeId, treeId), inArray(schema.families.gedcomXref, plan.unions.map((u) => u.xref))));
+        .where(
+            and(
+                eq(schema.families.treeId, treeId),
+                inArray(
+                    schema.families.gedcomXref,
+                    plan.unions.map((u) => u.xref),
+                ),
+            ),
+        );
     if (existingFamilies.length > 0) {
         return { ok: false, error: "gedcom.alreadyImported" };
     }
@@ -86,7 +102,7 @@ export async function importIntoTree(input: {
                 if (partners.length === 0 && kids.length === 0) continue;
 
                 const marriage = union.marriage ? parseFuzzyDate(union.marriage) : null;
-                const marriageValue = marriage && marriage.ok ? marriage.value : null;
+                const marriageValue = marriage?.ok ? marriage.value : null;
 
                 const [family] = await tx
                     .insert(schema.families)
@@ -188,7 +204,8 @@ function partnerRole(sex: string): "husband" | "wife" | "partner" | "unknown" {
 
 function translate(error: unknown): string {
     const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("own ancestor") || message.includes("pedigree cycle")) return "errors.cycle";
+    if (message.includes("own ancestor") || message.includes("pedigree cycle"))
+        return "errors.cycle";
     if (message.includes("already a partner")) return "errors.duplicatePartner";
     return "errors.generic";
 }

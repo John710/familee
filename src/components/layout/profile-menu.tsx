@@ -29,6 +29,7 @@ export function ProfileMenu({
     const pathname = usePathname();
 
     // Going to another page closes the menu.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the menu closes on each pathname change; the body does not read it
     useEffect(() => {
         setOpen(false);
     }, [pathname]);

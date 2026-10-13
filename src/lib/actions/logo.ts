@@ -23,7 +23,10 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const SIDE = 256;
 const ALLOWED = ["image/png", "image/jpeg", "image/webp"] as const;
 
-export async function setTreeLogoAction(input: { slug: string; dataUrl: string | null }): Promise<LogoResult> {
+export async function setTreeLogoAction(input: {
+    slug: string;
+    dataUrl: string | null;
+}): Promise<LogoResult> {
     const user = await getCurrentUser();
     if (!user) return { ok: false, error: "auth.needSignIn" };
 
@@ -35,7 +38,9 @@ export async function setTreeLogoAction(input: { slug: string; dataUrl: string |
     let logoData: string | null = null;
 
     if (input.dataUrl !== null) {
-        const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(input.dataUrl);
+        const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(
+            input.dataUrl,
+        );
         if (!match || !(ALLOWED as readonly string[]).includes(match[1] ?? "")) {
             return { ok: false, error: "logo.invalid" };
         }

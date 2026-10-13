@@ -1,16 +1,16 @@
+import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { notFound } from "next/navigation";
 
 import { FamilyPanel } from "@/components/persons/family-panel";
 import { PersonForm } from "@/components/persons/person-form";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { getPersonForEdit } from "@/lib/people";
-import { listPersonOptions, listUnionsForPerson } from "@/lib/unions";
 import { atLeast } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
+import { listPersonOptions, listUnionsForPerson } from "@/lib/unions";
 
 type Params = { locale: string; slug: string; id: string };
 
@@ -94,16 +94,24 @@ export default async function PersonPage({ params }: { params: Promise<Params> }
                     ) : (
                         <dl className="grid gap-3 sm:grid-cols-2">
                             <div>
-                                <dt className="text-base-content/60 text-xs">{t("person.fields.birth")}</dt>
+                                <dt className="text-base-content/60 text-xs">
+                                    {t("person.fields.birth")}
+                                </dt>
                                 <dd>{person.birthOriginal || t("common.none")}</dd>
                             </div>
                             <div>
-                                <dt className="text-base-content/60 text-xs">{t("person.fields.death")}</dt>
+                                <dt className="text-base-content/60 text-xs">
+                                    {t("person.fields.death")}
+                                </dt>
                                 <dd>{person.deathOriginal || t("common.none")}</dd>
                             </div>
                             <div className="sm:col-span-2">
-                                <dt className="text-base-content/60 text-xs">{t("person.fields.notes")}</dt>
-                                <dd className="whitespace-pre-line">{person.notes || t("common.none")}</dd>
+                                <dt className="text-base-content/60 text-xs">
+                                    {t("person.fields.notes")}
+                                </dt>
+                                <dd className="whitespace-pre-line">
+                                    {person.notes || t("common.none")}
+                                </dd>
                             </div>
                         </dl>
                     )}

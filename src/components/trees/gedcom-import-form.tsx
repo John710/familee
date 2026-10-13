@@ -13,8 +13,8 @@ import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 import { Link } from "@/i18n/navigation";
-import { commitGedcomAction, previewGedcomAction } from "@/lib/actions/gedcom";
 import type { CommitResult, PreviewResult } from "@/lib/actions/gedcom";
+import { commitGedcomAction, previewGedcomAction } from "@/lib/actions/gedcom";
 
 /**
  * The file as base64, byte for byte: the server decodes it by the character set in
@@ -98,7 +98,12 @@ export function GedcomImportForm({ slug, personsHref }: { slug: string; personsH
             </label>
 
             <div className="flex flex-wrap gap-3">
-                <button type="button" className="btn" onClick={onPreview} disabled={text === null || pending}>
+                <button
+                    type="button"
+                    className="btn"
+                    onClick={onPreview}
+                    disabled={text === null || pending}
+                >
                     {t("gedcom.preview")}
                 </button>
                 <button
@@ -130,6 +135,7 @@ export function GedcomImportForm({ slug, personsHref }: { slug: string; personsH
                                 <span className="font-medium text-sm">{t("gedcom.warnings")}</span>
                                 <ul className="max-h-64 overflow-y-auto text-xs">
                                     {preview.warnings.map((warning, index) => (
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: the warnings of one preview are a fixed list, never reordered
                                         <li key={`${warning.xref}-${index}`}>
                                             {warning.xref}: {warning.message}
                                         </li>

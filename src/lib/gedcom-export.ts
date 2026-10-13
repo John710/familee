@@ -15,7 +15,15 @@
  */
 
 export type GedDate = {
-    qualifier: "exact" | "about" | "estimated" | "calculated" | "before" | "after" | "between" | "from_to";
+    qualifier:
+        | "exact"
+        | "about"
+        | "estimated"
+        | "calculated"
+        | "before"
+        | "after"
+        | "between"
+        | "from_to";
     precision: "day" | "month" | "year";
     start: string;
     end: string | null;
@@ -40,7 +48,20 @@ export type ExportUnion = {
     marriage: GedDate | null;
 };
 
-const MONTH_NAMES = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const MONTH_NAMES = [
+    "JAN",
+    "FEB",
+    "MAR",
+    "APR",
+    "MAY",
+    "JUN",
+    "JUL",
+    "AUG",
+    "SEP",
+    "OCT",
+    "NOV",
+    "DEC",
+];
 
 /** A single date in GEDCOM form, at the precision it was entered with. */
 export function gedcomSingle(iso: string, precision: GedDate["precision"]): string {
@@ -136,7 +157,8 @@ export function writeGedcom7(input: {
         lines.push({ level: 0, xref: person.xref, tag: "INDI" });
         lines.push({ level: 1, tag: "NAME", value: escapeValue(name) });
         if (given) lines.push({ level: 2, tag: "GIVN", value: escapeValue(given) });
-        if (person.surname) lines.push({ level: 2, tag: "SURN", value: escapeValue(person.surname) });
+        if (person.surname)
+            lines.push({ level: 2, tag: "SURN", value: escapeValue(person.surname) });
         lines.push({ level: 1, tag: "SEX", value: sexCode(person.sex) });
 
         if (person.birth) {
@@ -162,7 +184,14 @@ export function writeGedcom7(input: {
         union.partners.forEach((partner, index) => {
             // Husband and wife are the tags of the standard; a partner of another sex
             // takes the tag of his or her place in the union.
-            const tag = partner.sex === "male" ? "HUSB" : partner.sex === "female" ? "WIFE" : index === 0 ? "HUSB" : "WIFE";
+            const tag =
+                partner.sex === "male"
+                    ? "HUSB"
+                    : partner.sex === "female"
+                      ? "WIFE"
+                      : index === 0
+                        ? "HUSB"
+                        : "WIFE";
             lines.push({ level: 1, tag, value: partner.xref });
         });
         for (const child of union.children) {

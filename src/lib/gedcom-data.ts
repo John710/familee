@@ -61,7 +61,9 @@ export async function loadTreeForExport(treeId: string): Promise<{
     const notesOf = new Map(notes.map((row) => [row.id, row.notes ?? ""]));
 
     const xrefOf = new Map<string, string>();
-    cards.forEach((card, index) => xrefOf.set(card.personId, `@I${index + 1}@`));
+    cards.forEach((card, index) => {
+        xrefOf.set(card.personId, `@I${index + 1}@`);
+    });
 
     const persons: ExportPerson[] = cards.map((card) => ({
         xref: xrefOf.get(card.personId) ?? "@I0@",
@@ -83,7 +85,10 @@ export async function loadTreeForExport(treeId: string): Promise<{
         .orderBy(asc(schema.families.createdAt));
 
     const partnerRows = await db
-        .select({ familyId: schema.familyPartners.familyId, personId: schema.familyPartners.personId })
+        .select({
+            familyId: schema.familyPartners.familyId,
+            personId: schema.familyPartners.personId,
+        })
         .from(schema.familyPartners)
         .where(eq(schema.familyPartners.treeId, treeId))
         .orderBy(asc(schema.familyPartners.sortOrder));
@@ -117,7 +122,9 @@ export async function loadTreeForExport(treeId: string): Promise<{
         );
 
     const xrefOfFamily = new Map<string, string>();
-    families.forEach((family, index) => xrefOfFamily.set(family.id, `@F${index + 1}@`));
+    families.forEach((family, index) => {
+        xrefOfFamily.set(family.id, `@F${index + 1}@`);
+    });
 
     const unions: ExportUnion[] = families.map((family) => {
         const partners = partnerRows
@@ -135,7 +142,12 @@ export async function loadTreeForExport(treeId: string): Promise<{
             partners,
             children,
             marriage: marriage
-                ? dateOf(marriage.dateStart, marriage.dateEnd, marriage.qualifier, marriage.precision)
+                ? dateOf(
+                      marriage.dateStart,
+                      marriage.dateEnd,
+                      marriage.qualifier,
+                      marriage.precision,
+                  )
                 : null,
         };
     });

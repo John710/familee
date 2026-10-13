@@ -19,9 +19,11 @@ export function TreeLogo({
     const icon = size === "sm" ? "size-4" : size === "lg" ? "size-8" : "size-6";
 
     return (
-        <span className={`${box} flex shrink-0 items-center justify-center overflow-hidden rounded-box bg-base-200`}>
+        <span
+            className={`${box} flex shrink-0 items-center justify-center overflow-hidden rounded-box bg-base-200`}
+        >
             {logoData ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                // biome-ignore lint/performance/noImgElement: the logo is a data URL from the database, which the image optimizer cannot read
                 <img src={logoData} alt={title} className="size-full object-cover" />
             ) : (
                 <TreeDeciduous className={`${icon} text-primary`} aria-hidden="true" />

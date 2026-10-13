@@ -1,22 +1,31 @@
+import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-
-import { eq } from "drizzle-orm";
-
-import { db, schema } from "@/db";
+import { MemberControls } from "@/components/trees/member-controls";
 import { MembersPanel, type PendingInvitation } from "@/components/trees/members-panel";
 import { ResetLinkButton } from "@/components/trees/reset-link-button";
 import { TreeLogo } from "@/components/trees/tree-logo";
 import { TreeLogoForm } from "@/components/trees/tree-logo-form";
+import { db, schema } from "@/db";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { listMembers, listPendingInvitations } from "@/lib/invitations";
-import { atLeast } from "@/lib/roles";
+import { atLeast, type MemberRole } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
 
 type Params = { locale: string; slug: string };
+
+/**
+ * Whether the viewer may change this member: an admin manages everyone but the owner
+ * and other admins, the owner manages everyone but themselves. The server checks again.
+ */
+function canManage(viewer: MemberRole, target: MemberRole, isSelf: boolean): boolean {
+    if (isSelf || target === "owner") return false;
+    if (viewer === "owner") return true;
+    return atLeast(viewer, "admin") && target !== "admin";
+}
 
 export default async function MembersPage({ params }: { params: Promise<Params> }) {
     const { locale, slug } = await params;
@@ -56,7 +65,11 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
             <header className="flex flex-col gap-1">
                 <h1 className="font-semibold font-serif text-3xl">{access.title}</h1>
                 {atLeast(access.role, "admin") ? (
-                    <TreeLogoForm slug={slug} logoData={treeRow?.logoData ?? null} title={access.title} />
+                    <TreeLogoForm
+                        slug={slug}
+                        logoData={treeRow?.logoData ?? null}
+                        title={access.title}
+                    />
                 ) : (
                     <TreeLogo logoData={treeRow?.logoData ?? null} title={access.title} size="lg" />
                 )}
@@ -94,10 +107,19 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                                     {member.email}
                                 </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className="badge badge-soft">
-                                    {t(`enums.member_role.${member.role}`)}
-                                </span>
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                                {canManage(access.role, member.role, member.userId === user.id) ? (
+                                    <MemberControls
+                                        slug={slug}
+                                        userId={member.userId}
+                                        name={member.name || member.email}
+                                        role={member.role}
+                                    />
+                                ) : (
+                                    <span className="badge badge-soft">
+                                        {t(`enums.member_role.${member.role}`)}
+                                    </span>
+                                )}
                                 {canInvite && member.userId !== user.id && (
                                     <ResetLinkButton slug={slug} email={member.email} />
                                 )}

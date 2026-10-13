@@ -9,9 +9,9 @@
  * the editor role or higher in the tree.
  */
 
-import { decodeGedcomBytes } from "@/lib/gedcom-text";
 import { importIntoTree } from "@/lib/gedcom-import";
 import { planImport } from "@/lib/gedcom-plan";
+import { decodeGedcomBytes } from "@/lib/gedcom-text";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -56,7 +56,10 @@ function readFile(base64: string): { error: string | null; text: string; note: s
     return { error: null, text: decoded.text, note: decoded.note };
 }
 
-export async function previewGedcomAction(input: { slug: string; bytes: string }): Promise<PreviewResult> {
+export async function previewGedcomAction(input: {
+    slug: string;
+    bytes: string;
+}): Promise<PreviewResult> {
     const check = await accessFor(input.slug);
     if (check.error !== undefined) return { ok: false, error: check.error };
 
@@ -78,7 +81,10 @@ export async function previewGedcomAction(input: { slug: string; bytes: string }
     };
 }
 
-export async function commitGedcomAction(input: { slug: string; bytes: string }): Promise<CommitResult> {
+export async function commitGedcomAction(input: {
+    slug: string;
+    bytes: string;
+}): Promise<CommitResult> {
     const check = await accessFor(input.slug);
     if (check.error !== undefined) return { ok: false, error: check.error };
 
@@ -94,5 +100,11 @@ export async function commitGedcomAction(input: { slug: string; bytes: string })
         plan,
     });
     if (!result.ok) return result;
-    return { ok: true, persons: result.persons, unions: result.unions, children: result.children, events: result.events };
+    return {
+        ok: true,
+        persons: result.persons,
+        unions: result.unions,
+        children: result.children,
+        events: result.events,
+    };
 }

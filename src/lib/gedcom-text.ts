@@ -28,10 +28,18 @@ export type Decoded = {
 export function decodeGedcomBytes(bytes: Uint8Array): Decoded {
     // A UTF-16 byte-order mark wins over anything the header may say.
     if (bytes[0] === 0xff && bytes[1] === 0xfe) {
-        return { text: new TextDecoder("utf-16le").decode(bytes.subarray(2)), encoding: "UNICODE", note: null };
+        return {
+            text: new TextDecoder("utf-16le").decode(bytes.subarray(2)),
+            encoding: "UNICODE",
+            note: null,
+        };
     }
     if (bytes[0] === 0xfe && bytes[1] === 0xff) {
-        return { text: new TextDecoder("utf-16be").decode(bytes.subarray(2)), encoding: "UNICODE", note: null };
+        return {
+            text: new TextDecoder("utf-16be").decode(bytes.subarray(2)),
+            encoding: "UNICODE",
+            note: null,
+        };
     }
 
     // The header is read as Latin-1, which keeps every byte, to find the declared set.
@@ -41,7 +49,11 @@ export function decodeGedcomBytes(bytes: Uint8Array): Decoded {
     switch (declared) {
         case "UNICODE":
         case "UTF-16":
-            return { text: new TextDecoder("utf-16le").decode(bytes), encoding: "UNICODE", note: null };
+            return {
+                text: new TextDecoder("utf-16le").decode(bytes),
+                encoding: "UNICODE",
+                note: null,
+            };
         case "ASCII":
             return { text: new TextDecoder("latin1").decode(bytes), encoding: "ASCII", note: null };
         case "ANSI":

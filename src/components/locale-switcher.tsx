@@ -11,8 +11,8 @@
  */
 
 import { Check, Languages } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { useRouter } from "@/i18n/navigation";
@@ -28,6 +28,7 @@ export function LocaleSwitcher() {
     const [isPending, startTransition] = useTransition();
     const rootRef = useRef<HTMLDivElement>(null);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the menu closes on each pathname change; the body does not read it
     useEffect(() => {
         setOpen(false);
     }, [currentPath]);
@@ -69,7 +70,7 @@ export function LocaleSwitcher() {
                 onClick={() => setOpen((value) => !value)}
             >
                 <Languages className="size-4" />
-                <span className="hidden text-xs font-medium tracking-wide uppercase sm:inline">
+                <span className="hidden font-medium text-xs uppercase tracking-wide sm:inline">
                     {activeLocale}
                 </span>
             </button>

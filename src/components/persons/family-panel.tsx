@@ -25,7 +25,15 @@ export type UnionItem = {
 export type PersonOption = { personId: string; name: string };
 
 const UNION_TYPES = ["marriage", "partnership", "civil_union", "single_parent", "unknown"] as const;
-const RELATIONS = ["biological", "adopted", "step", "foster", "guardianship", "sealing", "unknown"] as const;
+const RELATIONS = [
+    "biological",
+    "adopted",
+    "step",
+    "foster",
+    "guardianship",
+    "sealing",
+    "unknown",
+] as const;
 
 type UnionType = (typeof UNION_TYPES)[number];
 type Relation = (typeof RELATIONS)[number];
@@ -101,7 +109,9 @@ export function FamilyPanel({
                         <li key={union.familyId} className="rounded-box border border-base-300 p-4">
                             <div className="flex items-center gap-2 font-medium">
                                 <Heart className="size-4 text-primary" />
-                                <span>{union.partner ? union.partner.name : t("family.noPartner")}</span>
+                                <span>
+                                    {union.partner ? union.partner.name : t("family.noPartner")}
+                                </span>
                                 <span className="text-base-content/60 text-xs">
                                     · {t(`enums.family_type.${union.type as UnionType}`)}
                                 </span>
@@ -109,13 +119,20 @@ export function FamilyPanel({
 
                             <ul className="mt-3 flex flex-col gap-1 text-sm">
                                 {union.children.length === 0 ? (
-                                    <li className="text-base-content/60">{t("family.noChildren")}</li>
+                                    <li className="text-base-content/60">
+                                        {t("family.noChildren")}
+                                    </li>
                                 ) : (
                                     union.children.map((child) => (
-                                        <li key={child.personId} className="flex items-center gap-2">
+                                        <li
+                                            key={child.personId}
+                                            className="flex items-center gap-2"
+                                        >
                                             <span>{child.name}</span>
                                             <span className="text-base-content/60 text-xs">
-                                                {t(`enums.child_relation.${child.relation as Relation}`)}
+                                                {t(
+                                                    `enums.child_relation.${child.relation as Relation}`,
+                                                )}
                                             </span>
                                         </li>
                                     ))
@@ -136,7 +153,11 @@ export function FamilyPanel({
                                         </option>
                                     ))}
                                 </select>
-                                <select name="relation" defaultValue="biological" className="select w-full">
+                                <select
+                                    name="relation"
+                                    defaultValue="biological"
+                                    className="select w-full"
+                                >
                                     {RELATIONS.map((relation) => (
                                         <option key={relation} value={relation}>
                                             {t(`enums.child_relation.${relation}`)}

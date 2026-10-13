@@ -1,6 +1,6 @@
+import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { notFound } from "next/navigation";
 
 import { GedcomImportForm } from "@/components/trees/gedcom-import-form";
 import { routing } from "@/i18n/routing";

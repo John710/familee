@@ -15,7 +15,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
-import { parseFuzzyDate, type ParsedDate } from "@/lib/fuzzy-date";
+import { type ParsedDate, parseFuzzyDate } from "@/lib/fuzzy-date";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -114,12 +114,7 @@ async function savePerson(
             const [updated] = await tx
                 .update(schema.persons)
                 .set({ sex: input.sex, notes, updatedBy: user.id, updatedAt: new Date() })
-                .where(
-                    and(
-                        eq(schema.persons.id, id),
-                        eq(schema.persons.treeId, access.treeId),
-                    ),
-                )
+                .where(and(eq(schema.persons.id, id), eq(schema.persons.treeId, access.treeId)))
                 .returning({ id: schema.persons.id });
             if (!updated) throw new Error("person not found in this tree");
 
