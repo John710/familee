@@ -21,6 +21,12 @@ export async function listPersonCards(treeId: string) {
             deathYear: schema.personCards.deathYear,
             isLiving: schema.personCards.isLiving,
             portraitMediaId: schema.personCards.portraitMediaId,
+            portraitWidth: schema.personCards.portraitWidth,
+            portraitHeight: schema.personCards.portraitHeight,
+            cropX: schema.personCards.cropX,
+            cropY: schema.personCards.cropY,
+            cropW: schema.personCards.cropW,
+            cropH: schema.personCards.cropH,
         })
         .from(schema.personCards)
         .where(eq(schema.personCards.treeId, treeId))

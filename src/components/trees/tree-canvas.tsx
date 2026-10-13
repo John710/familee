@@ -4,10 +4,11 @@
  * Familee - the canvas of the visual tree
  *
  * React Flow draws the cards and the lines; the positions come from the server (see
- * src/lib/tree-view.ts), so nothing here moves a card. A click on a card opens a small
- * panel that comes out of that card, with a button to the card page; the browser's
- * context menu is switched off on the canvas, because right-clicking here means nothing
- * to the archive. Panning and zooming stay on.
+ * src/lib/tree-view.ts), so nothing here moves a card. A click on a card opens a small panel
+ * that comes out of that card, with a button to the card page. The search bar finds people by
+ * name: the matches are marked, and the canvas centres on the first one; Enter and the arrows
+ * go on to the next. The browser's context menu is switched off on the canvas. Panning and
+ * zooming stay on.
  */
 
 import "@xyflow/react/dist/style.css";
@@ -21,11 +22,21 @@ import {
     NodeToolbar,
     Position,
     ReactFlow,
+    ReactFlowProvider,
+    useReactFlow,
 } from "@xyflow/react";
+import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import {
+    type KeyboardEvent as ReactKeyboardEvent,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 
 import { Link } from "@/i18n/navigation";
+import { cropStyle } from "@/lib/photo-crop";
 import { CARD_HEIGHT, CARD_WIDTH } from "@/lib/tree-layout";
 import type { FlowEdge, FlowNode, PersonNodeData } from "@/lib/tree-view";
 
@@ -73,9 +84,10 @@ function sexBorder(sex: string): string {
     return "border-base-300";
 }
 
-/** What a card needs on the canvas: its data, whether it is open, and how to close it. */
+/** What a card needs on the canvas: its data, its state, and how to close its panel. */
 type PersonFlowData = PersonNodeData & {
     selected: boolean;
+    highlighted: boolean;
     canEdit: boolean;
     onClose: () => void;
 };
@@ -94,10 +106,12 @@ function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
                 type="button"
                 aria-label={label}
                 data-selected={data.selected ? "true" : "false"}
+                data-match={data.highlighted ? "true" : "false"}
                 className={`person-card nodrag flex h-full w-full overflow-hidden text-start ${sexBorder(data.sex)}`}
             >
                 <span
                     aria-hidden="true"
+                    style={data.photoCrop ? { containerType: "size" } : undefined}
                     className={`relative flex aspect-square h-full shrink-0 items-center justify-center overflow-hidden font-semibold text-xl ${data.photoUrl ? "" : "person-photo-empty"}`}
                 >
                     {data.photoUrl ? (
@@ -106,7 +120,10 @@ function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
                             src={data.photoUrl}
                             alt=""
                             loading="lazy"
-                            className="size-full object-cover"
+                            className={
+                                data.photoCrop ? "absolute max-w-none" : "size-full object-cover"
+                            }
+                            style={cropStyle(data.photoCrop, data.photoRatio)}
                         />
                     ) : (
                         initials(name)
@@ -186,7 +203,74 @@ function PersonPanel({ data }: { data: PersonFlowData }) {
     );
 }
 
-export function TreeCanvas({
+/** The search bar over the canvas: finds people by name and walks through the matches. */
+function TreeSearch({
+    matches,
+    cursor,
+    query,
+    onQuery,
+    onStep,
+}: {
+    matches: number;
+    cursor: number;
+    query: string;
+    onQuery: (value: string) => void;
+    onStep: (delta: number) => void;
+}) {
+    const t = useTranslations();
+
+    function onKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            onStep(event.shiftKey ? -1 : 1);
+        }
+        if (event.key === "Escape") onQuery("");
+    }
+
+    return (
+        <div className="card card-border absolute top-3 left-3 z-10 flex-row items-center gap-2 bg-base-100 p-2 shadow-md">
+            <Search className="ml-1 size-4 text-base-content/60" aria-hidden="true" />
+            <input
+                type="search"
+                value={query}
+                onChange={(event) => onQuery(event.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder={t("tree.view.searchPlaceholder")}
+                aria-label={t("tree.view.searchPlaceholder")}
+                className="input input-sm w-52"
+            />
+            {query.trim() !== "" && (
+                <>
+                    <span className="min-w-20 text-center text-base-content/70 text-xs">
+                        {matches === 0
+                            ? t("tree.view.searchNone")
+                            : t("tree.view.searchCount", { current: cursor + 1, total: matches })}
+                    </span>
+                    <button
+                        type="button"
+                        className="btn btn-ghost btn-xs btn-square"
+                        aria-label={t("tree.view.searchPrevious")}
+                        disabled={matches === 0}
+                        onClick={() => onStep(-1)}
+                    >
+                        <ChevronUp className="size-4" />
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-ghost btn-xs btn-square"
+                        aria-label={t("tree.view.searchNext")}
+                        disabled={matches === 0}
+                        onClick={() => onStep(1)}
+                    >
+                        <ChevronDown className="size-4" />
+                    </button>
+                </>
+            )}
+        </div>
+    );
+}
+
+function TreeCanvasInner({
     nodes,
     edges,
     canEdit,
@@ -196,8 +280,44 @@ export function TreeCanvas({
     canEdit: boolean;
 }) {
     const t = useTranslations();
+    const { setCenter, getZoom } = useReactFlow();
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [query, setQuery] = useState("");
+    const [cursor, setCursor] = useState(0);
     const close = () => setSelectedId(null);
+
+    // The people whose name contains the query, in the order of the tree.
+    const matches = useMemo(() => {
+        const needle = query.trim().toLocaleLowerCase();
+        if (needle === "") return [] as string[];
+        return nodes
+            .filter((node): node is Extract<FlowNode, { type: "person" }> => node.type === "person")
+            .filter((node) => node.data.name.toLocaleLowerCase().includes(needle))
+            .map((node) => node.id);
+    }, [nodes, query]);
+
+    const activeIndex = matches.length === 0 ? 0 : Math.min(cursor, matches.length - 1);
+    const activeId = matches[activeIndex] ?? null;
+
+    // The latest nodes are kept in a ref: the canvas moves when the active match changes, not
+    // whenever the list of nodes is rebuilt.
+    const latestNodes = useRef(nodes);
+    useEffect(() => {
+        latestNodes.current = nodes;
+    }, [nodes]);
+
+    // Whenever the active match changes, the canvas moves to it.
+    useEffect(() => {
+        if (!activeId) return;
+        const node = latestNodes.current.find((candidate) => candidate.id === activeId);
+        if (!node) return;
+        void setCenter(node.position.x + CARD_WIDTH / 2, node.position.y + CARD_HEIGHT / 2, {
+            zoom: Math.max(getZoom(), 0.9),
+            duration: 400,
+        });
+    }, [activeId, setCenter, getZoom]);
+
+    const matchSet = useMemo(() => new Set(matches), [matches]);
 
     // The open card is raised above its neighbours, so its panel is not hidden by them.
     const flowNodes = nodes.map((node) =>
@@ -208,6 +328,7 @@ export function TreeCanvas({
                   data: {
                       ...node.data,
                       selected: node.id === selectedId,
+                      highlighted: matchSet.has(node.id),
                       canEdit,
                       onClose: close,
                   },
@@ -225,8 +346,23 @@ export function TreeCanvas({
         },
     }));
 
+    function step(delta: number) {
+        if (matches.length === 0) return;
+        setCursor((activeIndex + delta + matches.length) % matches.length);
+    }
+
     return (
         <div className="relative h-full w-full">
+            <TreeSearch
+                matches={matches.length}
+                cursor={activeIndex}
+                query={query}
+                onQuery={(value) => {
+                    setQuery(value);
+                    setCursor(0);
+                }}
+                onStep={step}
+            />
             <ReactFlow
                 className="tree-canvas"
                 nodes={flowNodes}
@@ -256,5 +392,13 @@ export function TreeCanvas({
                 <Controls showInteractive={false} />
             </ReactFlow>
         </div>
+    );
+}
+
+export function TreeCanvas(props: { nodes: FlowNode[]; edges: FlowEdge[]; canEdit: boolean }) {
+    return (
+        <ReactFlowProvider>
+            <TreeCanvasInner {...props} />
+        </ReactFlowProvider>
     );
 }

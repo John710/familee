@@ -34,6 +34,8 @@ export default async function PersonPage({ params }: { params: Promise<Params> }
     const photos = (await listPersonPhotos(access.treeId, id)).map((photo) => ({
         mediaId: photo.mediaId,
         isPrimary: photo.isPrimary,
+        crop: photo.crop,
+        ratio: photo.width && photo.height ? photo.height / photo.width : null,
     }));
     const names = await listAdditionalNames(id);
     const events = await Promise.all(

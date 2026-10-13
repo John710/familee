@@ -16,10 +16,19 @@ import { useState, useTransition } from "react";
 
 import { ConfirmDialog } from "@/components/layout/confirm-dialog";
 import { Lightbox, photoUrl } from "@/components/media/lightbox";
+import { CropDialog } from "@/components/persons/crop-dialog";
 import { useRouter } from "@/i18n/navigation";
 import { removePersonPhotoAction, setMainPhotoAction } from "@/lib/actions/photos";
+import type { PhotoCrop } from "@/lib/photo-crop";
 
-export type AlbumPhoto = { mediaId: string; isPrimary: boolean };
+export type AlbumPhoto = {
+    mediaId: string;
+    isPrimary: boolean;
+    /** The part of the picture the card shows for this person; null for the whole picture. */
+    crop: PhotoCrop | null;
+    /** Height over width of the picture; null when the size is not known. */
+    ratio: number | null;
+};
 
 const ACCEPT = "image/jpeg,image/png,image/webp";
 
@@ -41,6 +50,8 @@ export function PhotoAlbum({
     const [viewing, setViewing] = useState<number | null>(null);
     /** The photograph waiting for the confirmation dialog, if any. */
     const [removing, setRemoving] = useState<string | null>(null);
+    /** The main photograph whose crop is being chosen, if any. */
+    const [cropping, setCropping] = useState<AlbumPhoto | null>(null);
     const [pending, startTransition] = useTransition();
 
     function translate(key: string, values?: Record<string, string | number>) {
@@ -141,9 +152,14 @@ export function PhotoAlbum({
                             {canEdit && (
                                 <div className="flex items-center justify-between gap-2 p-2">
                                     {photo.isPrimary ? (
-                                        <span className="text-base-content/60 text-xs">
-                                            {t("media.portrait")}
-                                        </span>
+                                        <button
+                                            type="button"
+                                            className="btn btn-ghost btn-xs"
+                                            disabled={pending}
+                                            onClick={() => setCropping(photo)}
+                                        >
+                                            {t("media.crop")}
+                                        </button>
                                     ) : (
                                         <button
                                             type="button"
@@ -208,6 +224,17 @@ export function PhotoAlbum({
                 }}
                 onCancel={() => setRemoving(null)}
             />
+
+            {cropping && cropping.ratio !== null && (
+                <CropDialog
+                    slug={slug}
+                    personId={personId}
+                    mediaId={cropping.mediaId}
+                    ratio={cropping.ratio}
+                    crop={cropping.crop}
+                    onClose={() => setCropping(null)}
+                />
+            )}
 
             {viewing !== null && photos[viewing] && (
                 <Lightbox

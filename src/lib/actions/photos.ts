@@ -7,7 +7,13 @@
  * tree and be in the person's album; the checks are repeated here, not only in the page.
  */
 
-import { removePersonPhoto, removePhotoLink, setMainPhoto } from "@/lib/photos";
+import {
+    type PhotoCrop,
+    removePersonPhoto,
+    removePhotoLink,
+    setMainPhoto,
+    setPortraitCrop,
+} from "@/lib/photos";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -84,6 +90,40 @@ export async function removeEventPhotoAction(input: {
         treeId: access.treeId,
         target: { eventId: input.eventId },
         mediaId: input.mediaId,
+        userId: access.userId,
+    });
+    return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+/** The crop must lie inside the picture and keep the square the card shows; null clears it. */
+export async function setPortraitCropAction(input: {
+    slug: string;
+    personId: string;
+    mediaId: string;
+    crop: PhotoCrop | null;
+}): Promise<PhotoResult> {
+    if (!UUID.test(input.personId) || !UUID.test(input.mediaId)) {
+        return { ok: false, error: "media.errors.failed" };
+    }
+    const access = await editorAccess(input.slug);
+    if (!access.ok) return access;
+
+    const crop = input.crop;
+    if (crop) {
+        const inside = [crop.x, crop.y, crop.w, crop.h].every(
+            (value) => Number.isFinite(value) && value >= 0 && value <= 1,
+        );
+        const fits = crop.x + crop.w <= 1.0001 && crop.y + crop.h <= 1.0001;
+        if (!inside || !fits || crop.w <= 0 || crop.h <= 0) {
+            return { ok: false, error: "media.errors.failed" };
+        }
+    }
+
+    const result = await setPortraitCrop({
+        treeId: access.treeId,
+        personId: input.personId,
+        mediaId: input.mediaId,
+        crop,
         userId: access.userId,
     });
     return result.ok ? { ok: true } : { ok: false, error: result.error };

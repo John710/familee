@@ -22,6 +22,10 @@ export type PersonNodeData = {
     href: string;
     /** The main photograph's small variant, or null when the person has none. */
     photoUrl: string | null;
+    /** The part of the photograph the card shows, as fractions of it; null shows the whole. */
+    photoCrop: { x: number; y: number; w: number; h: number } | null;
+    /** Height over width of the photograph, to place a crop on the card. */
+    photoRatio: number | null;
 };
 
 export type FlowNode =
@@ -107,6 +111,17 @@ export async function loadTreeView(treeId: string, slug: string): Promise<TreeVi
                 photoUrl: card.portraitMediaId
                     ? `/api/trees/${slug}/media/${card.portraitMediaId}/thumb`
                     : null,
+                photoCrop:
+                    card.cropX === null ||
+                    card.cropY === null ||
+                    card.cropW === null ||
+                    card.cropH === null
+                        ? null
+                        : { x: card.cropX, y: card.cropY, w: card.cropW, h: card.cropH },
+                photoRatio:
+                    card.portraitWidth && card.portraitHeight
+                        ? card.portraitHeight / card.portraitWidth
+                        : null,
             },
         });
     }

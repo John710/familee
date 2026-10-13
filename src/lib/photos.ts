@@ -28,11 +28,15 @@ export type PhotoError =
     | "person.notFound"
     | "event.notFound";
 
+export type PhotoCrop = { x: number; y: number; w: number; h: number };
+
 export type PersonPhoto = {
     mediaId: string;
     isPrimary: boolean;
     width: number | null;
     height: number | null;
+    /** The part of the picture shown on the card, as fractions of the picture. */
+    crop: PhotoCrop | null;
 };
 
 export type TreePhoto = {
@@ -45,21 +49,88 @@ export type TreePhoto = {
 
 /** The photographs of a person, the main one first. */
 export async function listPersonPhotos(treeId: string, personId: string): Promise<PersonPhoto[]> {
-    return db
+    const rows = await db
         .select({
             mediaId: schema.media.id,
             isPrimary: schema.mediaLinks.isPrimary,
             width: schema.media.width,
             height: schema.media.height,
+            cropX: schema.mediaLinks.cropX,
+            cropY: schema.mediaLinks.cropY,
+            cropW: schema.mediaLinks.cropW,
+            cropH: schema.mediaLinks.cropH,
         })
         .from(schema.mediaLinks)
         .innerJoin(schema.media, eq(schema.media.id, schema.mediaLinks.mediaId))
         .where(and(eq(schema.mediaLinks.personId, personId), eq(schema.media.treeId, treeId)))
         .orderBy(desc(schema.mediaLinks.isPrimary), asc(schema.mediaLinks.createdAt));
+
+    return rows.map((row) => ({
+        mediaId: row.mediaId,
+        isPrimary: row.isPrimary,
+        width: row.width,
+        height: row.height,
+        crop:
+            row.cropX === null || row.cropY === null || row.cropW === null || row.cropH === null
+                ? null
+                : { x: row.cropX, y: row.cropY, w: row.cropW, h: row.cropH },
+    }));
+}
+
+/**
+ * Sets the part of the main photograph that the card shows, or clears it (null). The crop is
+ * stored on the person's link to the picture, so the same picture can be cut differently for
+ * another person.
+ */
+export async function setPortraitCrop(input: {
+    treeId: string;
+    personId: string;
+    mediaId: string;
+    crop: PhotoCrop | null;
+    userId: string;
+}): Promise<{ ok: true } | { ok: false; error: PhotoError }> {
+    if (!(await personInTree(input.treeId, input.personId))) {
+        return { ok: false, error: "person.notFound" };
+    }
+
+    const [link] = await db
+        .select({ id: schema.mediaLinks.id, crop: schema.mediaLinks.cropX })
+        .from(schema.mediaLinks)
+        .where(
+            and(
+                eq(schema.mediaLinks.mediaId, input.mediaId),
+                eq(schema.mediaLinks.personId, input.personId),
+            ),
+        )
+        .limit(1);
+    if (!link) return { ok: false, error: "media.errors.failed" };
+
+    await db
+        .update(schema.mediaLinks)
+        .set({
+            cropX: input.crop?.x ?? null,
+            cropY: input.crop?.y ?? null,
+            cropW: input.crop?.w ?? null,
+            cropH: input.crop?.h ?? null,
+            updatedAt: new Date(),
+        })
+        .where(eq(schema.mediaLinks.id, link.id));
+
+    await writeAudit({
+        treeId: input.treeId,
+        userId: input.userId,
+        action: "update",
+        entityType: "person_photo",
+        entityId: input.personId,
+    });
+    return { ok: true };
 }
 
 /** The photographs of an event, in the order they were added. */
-export async function listEventPhotos(treeId: string, eventId: string): Promise<PersonPhoto[]> {
+export async function listEventPhotos(
+    treeId: string,
+    eventId: string,
+): Promise<Omit<PersonPhoto, "crop">[]> {
     return db
         .select({
             mediaId: schema.media.id,

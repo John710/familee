@@ -282,6 +282,11 @@
         box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 35%, transparent);
     }
 
+    /** A card that matches the search: a warm ring, so it stands out among the others. */
+    .person-card[data-match="true"] {
+        box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-warning) 70%, transparent);
+    }
+
     /**
      * A photograph with no picture: a monogram on a calm background instead
      * of somebody else's silhouette.

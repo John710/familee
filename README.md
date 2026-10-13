@@ -231,6 +231,7 @@ docker run --rm -v familee_media:/data:ro -v "$PWD:/backup" alpine \
 ## What comes next
 
 See [TODO.md](TODO.md). In short: the visual tree already draws every card and the lines between them,
-and a click on a card opens its panel. Every person has a photo album: upload, choose the main
-photograph, which the card shows. Still to come: search and focus mode, cropping of the portrait,
-and photographs on documents and events.
+and a click on a card opens its panel. The tree can be searched by name. Every person has a photo
+album: upload, choose the main photograph and crop the part the card shows; events have their own
+photographs, and the gallery shows all of them. Still to come: focus mode (the ancestors and
+descendants of one person) and the relation to me.
