@@ -1,16 +1,21 @@
-# Familee - running it on a home server
+# Familee - running it on a server
 #
-# IMPORTANT: postgres, redis and traefik are NOT created here. They are
-# assumed to be running on the server already; the application merely joins
-# their networks and reaches them by container name (see .env).
+# Two ways to reach the application, chosen in .env:
+#
+#   1. By IP address and port (default). The app is published on FAMILEE_PORT of
+#      the host, plain HTTP. Works with no reverse proxy at all.
+#
+#   2. Behind Traefik over HTTPS. Set FAMILEE_HOST to your domain and switch the
+#      compose file set in .env (see the COMPOSE_FILE comment there). The
+#      traefik overlay adds the labels and joins the proxy network, and removes
+#      the published port, so the app is reachable only through Traefik.
+#
+# Postgres and Redis are NOT created here. They must already be running, and the
+# application reaches them by container name through the DATA_NETWORK.
 #
 #   docker compose build
-#   docker compose run --rm migrate     # apply the familee schema
+#   docker compose --profile tools run --rm migrate    # apply the schema
 #   docker compose up -d
-#
-# Postgres and Redis share one Docker network (db-network) on the server, so
-# the application needs a single data network: DATA_NETWORK. The application
-# is reached only through traefik over HTTPS (see the labels of the app service).
 
 name: familee
 
@@ -29,6 +34,11 @@ services:
             HOSTNAME: 0.0.0.0
             TZ: ${APP_TIME_ZONE:-Asia/Vladivostok}
 
+        ports:
+            # Mode 1: the address of the server and this port. Mode 2 removes it
+            # in docker-compose.traefik.yml.
+            - "${FAMILEE_PORT:-3000}:3000"
+
         volumes:
             # The original photographs and the previews generated ahead of time.
             # This is the only data of the application outside Postgres -
@@ -36,19 +46,11 @@ services:
             - media:/data/media
 
         networks:
-            - proxy
+            # default: an ordinary network of this project. Docker publishes ports only
+            # for containers that have at least one non-internal network, and the data
+            # network may be declared internal (as it is on the server).
+            - default
             - data
-
-        labels:
-            traefik.enable: "true"
-            # Which network traefik should look the container up in: app has
-            # several, and without this label traefik may pick the wrong one.
-            traefik.docker.network: ${TRAEFIK_NETWORK:-traefik}
-            traefik.http.routers.familee.rule: Host(`${FAMILEE_HOST}`)
-            traefik.http.routers.familee.entrypoints: ${TRAEFIK_ENTRYPOINT:-websecure}
-            traefik.http.routers.familee.tls: "true"
-            traefik.http.routers.familee.tls.certresolver: ${TRAEFIK_CERTRESOLVER:-letsencrypt}
-            traefik.http.services.familee.loadbalancer.server.port: "3000"
 
         healthcheck:
             test:
@@ -67,7 +69,7 @@ services:
                 max-size: 10m
                 max-file: "3"
 
-    # A one-shot migration run: no need to install psql on the server.
+    # A one-shot migration run: no need to install psql on the host.
     # The image version does not matter - only the psql client is used.
     migrate:
         image: postgres:alpine
@@ -84,12 +86,7 @@ services:
         restart: "no"
 
 networks:
-    # The traefik network - external requests arrive through it.
-    proxy:
-        external: true
-        name: ${TRAEFIK_NETWORK:-traefik}
-
-    # The network postgres already runs in.
+    # The network postgres and redis run in.
     data:
         external: true
         name: ${DATA_NETWORK:-postgres}

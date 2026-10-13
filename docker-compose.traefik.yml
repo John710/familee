@@ -1,0 +1,38 @@
+# Familee - the Traefik overlay
+#
+# Use it together with docker-compose.yml. In .env set:
+#
+#   FAMILEE_HOST=familee.example.com
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.traefik.yml
+#
+# Then `docker compose up -d` works as before. This file:
+#   - joins the proxy network where traefik runs (TRAEFIK_NETWORK);
+#   - adds the routing labels for the domain in FAMILEE_HOST;
+#   - removes the published host port, so the app is reachable only through Traefik.
+#
+# Traefik must already run on the server. The entrypoint, the certificate resolver
+# and the network name are set in .env (see .env.example).
+
+services:
+    app:
+        # Removes the port published by docker-compose.yml.
+        ports: !reset []
+
+        networks:
+            - proxy
+            - data
+
+        labels:
+            traefik.enable: "true"
+            # Traefik may be on several networks: name the one it should use.
+            traefik.docker.network: ${TRAEFIK_NETWORK:-traefik}
+            traefik.http.routers.familee.rule: Host(`${FAMILEE_HOST}`)
+            traefik.http.routers.familee.entrypoints: ${TRAEFIK_ENTRYPOINT:-websecure}
+            traefik.http.routers.familee.tls: "true"
+            traefik.http.routers.familee.tls.certresolver: ${TRAEFIK_CERTRESOLVER:-letsencrypt}
+            traefik.http.services.familee.loadbalancer.server.port: "3000"
+
+networks:
+    proxy:
+        external: true
+        name: ${TRAEFIK_NETWORK:-traefik}

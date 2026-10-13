@@ -7,8 +7,9 @@ photographs. The tree is drawn visually — cards with a photo and a full name, 
 opens it for editing. The interface is multilingual; every string lives in `messages/*.json`.
 
 Everything runs on your own server in a single Docker container and connects to the Postgres and
-Redis containers that already run there — it never starts containers of its own for them. The
-application is served only over HTTPS through traefik.
+Redis containers that already run there — it never starts containers of its own for them. You choose
+how it is reached: by the server's IP address and a port (the default), or behind Traefik over HTTPS
+with a domain of your own.
 
 Project history is in [CHANGELOG.md](CHANGELOG.md); the open work is in [TODO.md](TODO.md).
 
@@ -28,12 +29,11 @@ image.
 ## Server requirements
 
 - Docker with the compose plugin.
-- The shared services already running on the server: Postgres (container `postgres`, with the
-  contrib extensions `pgcrypto`, `pg_trgm` and `btree_gin` available), Redis (container `redis`),
-  and traefik. Postgres and Redis share one Docker network, `db-network`; traefik listens on the
-  network `t3_proxy`.
+- Postgres (with the contrib extensions `pgcrypto`, `pg_trgm` and `btree_gin` available) and Redis
+  already running, reachable by container name from one Docker network (`DATA_NETWORK`).
+- Optional: Traefik, if you want HTTPS on a domain. Without it the archive is reached by IP address.
 
-The application joins those networks and reaches the services by container name.
+The application joins the data network and reaches the services by container name.
 
 ## First run
 
@@ -57,25 +57,28 @@ A dedicated database is optional. Every object of the application lives in the `
 the schema can just as well be created inside an existing database. In that case the role needs the
 `create` privilege on that database and `DATABASE_URL` points at the existing database name.
 
-**2. Configuration.** Copy `.env.example` to `.env` (mode `600`) and fill it in. `DATABASE_URL`,
-`REDIS_URL`, `BETTER_AUTH_SECRET` (`openssl rand -base64 48`), `BETTER_AUTH_URL`, `FAMILEE_HOST` and
-the Traefik values must match your server. The network names are `DATA_NETWORK=db-network` and
-`TRAEFIK_NETWORK=t3_proxy` on the current server; they can be checked like this:
+**2. Configuration.** Copy `.env.example` to `.env` (mode `600`) and fill it in. Set `DATABASE_URL`,
+`REDIS_URL`, `DATA_NETWORK` and `BETTER_AUTH_SECRET` (`openssl rand -base64 48`).
 
-```bash
-docker inspect -f '{{range $n,$_ := .NetworkSettings.Networks}}{{$n}} {{end}}' postgres
-docker inspect -f '{{range $n,$_ := .NetworkSettings.Networks}}{{$n}} {{end}}' traefik
-```
+**3. How the archive is reached.** Choose one of two modes in `.env`:
 
-**3. HTTPS through traefik.** The application has no HTTP port of its own. traefik takes the
-`familee.*` router from the labels of the `app` service and terminates TLS with the certificate
-resolver `TRAEFIK_CERTRESOLVER`. The entrypoint decides where the archive is reachable:
+- **By IP address (default).** The application is published on `FAMILEE_PORT` (3000 by default)
+  of the server, over plain HTTP. Set `BETTER_AUTH_URL=http://<server-ip>:<FAMILEE_PORT>`. Nothing
+  else is needed. Plain HTTP is only suitable for a private network; for the internet put an HTTPS
+  proxy in front of the application.
+- **Behind Traefik over HTTPS.** Set `FAMILEE_HOST` to your domain, `BETTER_AUTH_URL=https://<domain>`,
+  and enable the overlay file in `.env`:
 
-- `TRAEFIK_ENTRYPOINT=websecure-internal` — the home network only; on the current server it listens
-  on port **444**, so the address is `https://<FAMILEE_HOST>:444`.
-- `TRAEFIK_ENTRYPOINT=websecure-external` — the public entrypoint on port 443.
+  ```bash
+  COMPOSE_FILE=docker-compose.yml:docker-compose.traefik.yml
+  ```
 
-`BETTER_AUTH_URL` must contain the same scheme, host and port that the browser uses.
+  The overlay joins the proxy network `TRAEFIK_NETWORK`, adds the routing labels for the domain, and
+  removes the published port, so the application is reachable only through Traefik. The entrypoint and
+  the certificate resolver are set by `TRAEFIK_ENTRYPOINT` and `TRAEFIK_CERTRESOLVER`.
+
+`BETTER_AUTH_URL` must match the address the browser uses, scheme and port included. Otherwise sign-in
+is refused as coming from another origin.
 
 **4. Build, schema, start.**
 
@@ -103,7 +106,7 @@ are left alone.
 
 ## Accounts and access
 
-Public sign-up is closed. The first person opens `https://<FAMILEE_HOST>:444/setup` once and creates
+Public sign-up is closed. The first person opens `<BETTER_AUTH_URL>/setup` once and creates
 the administrator; the page answers 404 from then on. Everyone else receives an invitation link from
 an owner or administrator of a tree. The link is valid for 7 days and works once; the token is shown
 only at creation and stored as a hash.
@@ -112,8 +115,8 @@ Roles are granted per tree: owner, administrator, editor, contributor, viewer. A
 any role except owner.
 
 `BETTER_AUTH_URL` must be the address the browser uses, port included (for example
-`https://familee.john710.ru:444`). Otherwise better-auth rejects the requests as coming from another
-origin.
+`http://192.168.0.10:3000` or `https://archive.example.com`). Otherwise better-auth rejects the requests
+as coming from another origin.
 
 ## Time zone
 
