@@ -91,6 +91,15 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                             {t("gedcom.import")}
                         </Link>
                     )}
+                    <Link href={`/trees/${slug}/search`} className="btn btn-sm">
+                        {t("search.title")}
+                    </Link>
+                    <Link href={`/trees/${slug}/places`} className="btn btn-sm">
+                        {t("place.many")}
+                    </Link>
+                    <Link href={`/trees/${slug}/sources`} className="btn btn-sm">
+                        {t("source.many")}
+                    </Link>
                     <Link href={`/trees/${slug}/gallery`} className="btn btn-sm">
                         {t("gallery.title")}
                     </Link>

@@ -3,12 +3,14 @@ import { getTranslations } from "next-intl/server";
 
 import { FamilyPanel } from "@/components/persons/family-panel";
 import { PersonForm } from "@/components/persons/person-form";
+import { PersonLibraryPanel } from "@/components/persons/person-library-panel";
 import { PhotoAlbum } from "@/components/persons/photo-album";
 import { RecordsPanel } from "@/components/persons/records-panel";
 import { Link } from "@/i18n/navigation";
 import { localizedPath } from "@/i18n/paths";
 import type { Locale } from "@/i18n/routing";
 import { listOtherEventTypes } from "@/lib/actions/records";
+import { listPersonCitations, listPersonNotes, listSources } from "@/lib/library";
 import { getPersonForEdit, listAdditionalNames, listOtherEvents } from "@/lib/people";
 import { listEventPhotos, listPersonPhotos } from "@/lib/photos";
 import { atLeast } from "@/lib/roles";
@@ -65,6 +67,12 @@ export async function PersonPageBody({
         })),
     );
     const eventTypes = await listOtherEventTypes();
+    const notes = await listPersonNotes(access.treeId, id);
+    const citations = await listPersonCitations(access.treeId, id);
+    const sources = (await listSources(access.treeId)).map((source) => ({
+        id: source.id,
+        title: source.title,
+    }));
     const unions = await listUnionsForPerson(access.treeId, id);
     const options = (await listPersonOptions(access.treeId))
         .filter((option) => option.personId !== id)
@@ -158,6 +166,20 @@ export async function PersonPageBody({
                             ))}
                         </ul>
                     )}
+                </div>
+            </section>
+
+            <section className="card card-border bg-base-100">
+                <div className="card-body gap-5">
+                    <h2 className="font-semibold text-lg">{t("library.notes")}</h2>
+                    <PersonLibraryPanel
+                        slug={slug}
+                        personId={person.personId}
+                        notes={notes}
+                        citations={citations}
+                        sources={sources}
+                        canEdit={editing}
+                    />
                 </div>
             </section>
 

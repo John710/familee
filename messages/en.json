@@ -342,6 +342,8 @@
         "add": "Add a place",
         "edit": "Edit place",
         "empty": "No places recorded",
+        "removeTitle": "Remove this place?",
+        "removeConfirm": "The place is removed; events that used it keep their dates and lose the place.",
         "fields": {
             "name": "Name",
             "kind": "Kind",
@@ -408,6 +410,8 @@
         "add": "Add a source",
         "edit": "Edit source",
         "empty": "No sources recorded",
+        "removeTitle": "Remove this source?",
+        "removeConfirm": "The source and the citations of it are removed; the people keep their facts.",
         "repository": "Repository",
         "repositories": "Archives and repositories",
         "fields": {
@@ -484,6 +488,24 @@
         "cannotManageOwner": "The owner's access cannot be changed",
         "cannotManageAdmin": "Only the owner can change an administrator"
     },
+    "library": {
+        "notes": "Notes and stories",
+        "addNote": "Write a note",
+        "noteTitle": "Title",
+        "noteBody": "Text",
+        "noNotes": "No notes or stories yet",
+        "removeNoteTitle": "Remove this note?",
+        "removeNoteConfirm": "The note or story is removed for good.",
+        "citations": "Sources",
+        "addCitation": "Cite a source",
+        "noSources": "Add a source to the archive first",
+        "chooseSource": "Source",
+        "citationPage": "Page or place in the source",
+        "citationText": "Words taken from it",
+        "noCitations": "No sources cited yet",
+        "removeCitationTitle": "Remove this citation?",
+        "removeCitationConfirm": "The source stays in the archive; only the citation is removed."
+    },
     "birthdays": {
         "title": "Birthdays in the next two weeks",
         "today": "today",
@@ -504,6 +526,15 @@
     "search": {
         "title": "Search the archive",
         "placeholder": "Name, surname, place, year",
+        "nothing": "Nothing found",
+        "found": "{count, plural, one {# result} other {# results}}",
+        "kinds": {
+            "person": "People",
+            "place": "Places",
+            "source": "Sources",
+            "note": "Notes and stories",
+            "event": "Events"
+        },
         "results": "{count, plural, =0 {nothing found} one {# result} other {# results}}",
         "hint": "A part of the name is enough: the search tolerates typos",
         "inPersons": "People",
