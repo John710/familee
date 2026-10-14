@@ -25,7 +25,7 @@ import {
     ReactFlowProvider,
     useReactFlow,
 } from "@xyflow/react";
-import { ChevronDown, ChevronUp, Images, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, Images, Maximize, Minimize, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
     type KeyboardEvent as ReactKeyboardEvent,
@@ -267,7 +267,7 @@ function PersonPanel({ data }: { data: PersonFlowData }) {
 
                 <div className="flex flex-wrap items-center gap-2">
                     <Link href={data.href} className="btn btn-primary btn-sm">
-                        {data.canEdit ? t("person.edit") : t("person.openCard")}
+                        {t("person.openCard")}
                     </Link>
                     <button type="button" className="btn btn-ghost btn-sm" onClick={data.onFocus}>
                         {t("tree.view.focus.enable")}
@@ -396,6 +396,22 @@ function TreeCanvasInner({
 }) {
     const t = useTranslations();
     const { setCenter, getZoom } = useReactFlow();
+
+    // The whole canvas can be shown full screen (the browser's own mode: Escape leaves it too).
+    const rootRef = useRef<HTMLDivElement>(null);
+    const [fullscreen, setFullscreen] = useState(false);
+    useEffect(() => {
+        const onChange = () => setFullscreen(document.fullscreenElement === rootRef.current);
+        document.addEventListener("fullscreenchange", onChange);
+        return () => document.removeEventListener("fullscreenchange", onChange);
+    }, []);
+    function toggleFullscreen() {
+        if (document.fullscreenElement) {
+            void document.exitFullscreen();
+        } else {
+            void rootRef.current?.requestFullscreen();
+        }
+    }
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [query, setQuery] = useState("");
     const [cursor, setCursor] = useState(0);
@@ -505,7 +521,16 @@ function TreeCanvasInner({
     }
 
     return (
-        <div className="relative h-full w-full">
+        <div ref={rootRef} className="relative h-full w-full bg-base-200">
+            <button
+                type="button"
+                className="btn btn-square btn-sm absolute right-3 bottom-3 z-10 bg-base-100 shadow-md"
+                aria-label={t(fullscreen ? "tree.view.exitFullscreen" : "tree.view.fullscreen")}
+                title={t(fullscreen ? "tree.view.exitFullscreen" : "tree.view.fullscreen")}
+                onClick={toggleFullscreen}
+            >
+                {fullscreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+            </button>
             <TreeSearch
                 matches={matches.length}
                 cursor={activeIndex}
