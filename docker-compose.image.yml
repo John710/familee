@@ -32,9 +32,7 @@ services:
 
         env_file: .env
         environment:
-            NODE_ENV: production
-            PORT: "3000"
-            HOSTNAME: 0.0.0.0
+            # NODE_ENV, PORT and HOSTNAME are set in the image (see the Dockerfile).
             TZ: ${APP_TIME_ZONE:-Asia/Vladivostok}
 
         ports:
