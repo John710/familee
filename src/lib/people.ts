@@ -78,7 +78,22 @@ export async function getPersonForEdit(treeId: string, personId: string) {
     const birthPlaceId = lifeEvents.find((event) => event.typeCode === "birth")?.placeId ?? null;
     const deathPlaceId = lifeEvents.find((event) => event.typeCode === "death")?.placeId ?? null;
 
-    return { ...card, notes: person?.notes ?? "", birthPlaceId, deathPlaceId };
+    // The suffix is not in the card view; it is read from the primary name.
+    const [primaryName] = await db
+        .select({ suffix: schema.personNames.suffix })
+        .from(schema.personNames)
+        .where(
+            and(eq(schema.personNames.personId, personId), eq(schema.personNames.isPrimary, true)),
+        )
+        .limit(1);
+
+    return {
+        ...card,
+        suffix: primaryName?.suffix ?? "",
+        notes: person?.notes ?? "",
+        birthPlaceId,
+        deathPlaceId,
+    };
 }
 
 /** The additional names of a person: every name except the primary one (edited on the form). */

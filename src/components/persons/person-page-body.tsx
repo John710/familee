@@ -12,6 +12,7 @@ import { Link } from "@/i18n/navigation";
 import { localizedPath } from "@/i18n/paths";
 import type { Locale } from "@/i18n/routing";
 import { listOtherEventTypes } from "@/lib/actions/records";
+import { relationPhrase, type Translator } from "@/lib/kinship-phrase";
 import {
     listEventCitations,
     listPersonCitations,
@@ -97,7 +98,9 @@ export async function PersonPageBody({
         .filter((option) => option.personId !== id)
         .map((option) => ({ personId: option.personId, name: option.name ?? "" }));
     const t = await getTranslations();
-    const fullName = [person.surname, person.given, person.patronymic].filter(Boolean).join(" ");
+    const fullName = [person.surname, person.given, person.patronymic, person.suffix]
+        .filter(Boolean)
+        .join(" ");
     const basePath = `/trees/${slug}/persons/${id}`;
 
     // The same figures the card's panel shows in the tree: age, the timeline with places, the
@@ -121,6 +124,12 @@ export async function PersonPageBody({
     const view = await loadTreeView(access.treeId, slug, membership?.selfPersonId ?? null);
     const node = view.nodes.find((candidate) => candidate.id === `person-${id}`);
     const card = node?.type === "person" ? node.data : null;
+    // How this person is related to the signed-in person, in the same words as the tree.
+    const relation = card
+        ? relationPhrase(card.kinship, card.sex, t as unknown as Translator)
+        : null;
+    const birthPlace = card?.details.timeline.find((item) => item.typeCode === "birth")?.place;
+    const deathPlace = card?.details.timeline.find((item) => item.typeCode === "death")?.place;
 
     return (
         <div className="flex flex-col gap-8">
@@ -161,10 +170,18 @@ export async function PersonPageBody({
             {!editing && card && (
                 <section className="card card-border bg-base-100">
                     <div className="card-body gap-5">
-                        {(headline || card.age || card.isSelf) && (
+                        {(headline || card.age || card.isSelf || relation) && (
                             <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
                                 {headline && (
                                     <p className="w-full text-base-content/80">{headline}</p>
+                                )}
+                                {relation && (
+                                    <dl className="flex flex-col">
+                                        <dt className="text-base-content/60 text-xs">
+                                            {t("tree.view.relationTitle")}
+                                        </dt>
+                                        <dd>{relation}</dd>
+                                    </dl>
                                 )}
                                 {card.age && (
                                     <dl className="flex flex-col">
@@ -306,6 +323,7 @@ export async function PersonPageBody({
                                 surname: person.surname ?? "",
                                 given: person.given ?? "",
                                 patronymic: person.patronymic ?? "",
+                                suffix: person.suffix ?? "",
                                 sex: person.sex,
                                 birth: person.birthOriginal ?? "",
                                 death: person.deathOriginal ?? "",
@@ -327,13 +345,21 @@ export async function PersonPageBody({
                                 <dt className="text-base-content/60 text-xs">
                                     {t("person.fields.birth")}
                                 </dt>
-                                <dd>{person.birthOriginal || t("common.none")}</dd>
+                                <dd>
+                                    {[person.birthOriginal || t("common.none"), birthPlace]
+                                        .filter(Boolean)
+                                        .join(" · ")}
+                                </dd>
                             </div>
                             <div>
                                 <dt className="text-base-content/60 text-xs">
                                     {t("person.fields.death")}
                                 </dt>
-                                <dd>{person.deathOriginal || t("common.none")}</dd>
+                                <dd>
+                                    {[person.deathOriginal || t("common.none"), deathPlace]
+                                        .filter(Boolean)
+                                        .join(" · ")}
+                                </dd>
                             </div>
                             <div className="sm:col-span-2">
                                 <dt className="text-base-content/60 text-xs">

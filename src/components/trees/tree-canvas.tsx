@@ -34,8 +34,8 @@ import {
     useRef,
     useState,
 } from "react";
-
 import { Link } from "@/i18n/navigation";
+import { relationPhrase, type Translator } from "@/lib/kinship-phrase";
 import { cropStyle } from "@/lib/photo-crop";
 import { focusedNodeIds } from "@/lib/tree-focus";
 import { CARD_HEIGHT, CARD_WIDTH } from "@/lib/tree-layout";
@@ -194,54 +194,10 @@ function preventMenu(event: { preventDefault: () => void }) {
     event.preventDefault();
 }
 
-/**
- * The phrase for how the person is related to the signed-in person, from the kinship.* keys.
- * The sex of the person picks the words (uncle or aunt, son or daughter), the degrees the numbers.
- */
+/** The phrase for how the person is related to the signed-in person (see src/lib/kinship-phrase.ts). */
 function useRelationPhrase(data: PersonNodeData): string | null {
     const t = useTranslations();
-    const relation = data.kinship;
-    if (!relation || relation.kind === "self") return null;
-    const sex = data.sex;
-    const key = (n: number) => (n <= 4 ? String(n) : "other");
-
-    if (relation.kind === "spouse") return t("kinship.spouse", { sex });
-
-    // The blood relation of the person, or of the blood relative a spouse is married to.
-    const blood = (up: number, down: number): string => {
-        if (down === 0)
-            return t(`kinship.ancestor.${key(up)}` as "kinship.ancestor.1", { sex, degree: up });
-        if (up === 0) {
-            return t(`kinship.descendant.${key(down)}` as "kinship.descendant.1", {
-                sex,
-                degree: down,
-            });
-        }
-        if (up === 1 && down === 1) return t("kinship.sibling", { sex });
-        if (down === 1) {
-            // The person is a sibling of one of the ancestors: an uncle or aunt, a great-uncle...
-            return t(`kinship.auncle.${up <= 3 ? up : "other"}` as "kinship.auncle.2", { sex });
-        }
-        if (up === 1) {
-            // The person is a child of a sibling: a nephew or niece, a great-nephew...
-            return t(`kinship.nibling.${down <= 3 ? down : "other"}` as "kinship.nibling.2", {
-                sex,
-            });
-        }
-        // Both sides are at least two generations away: cousins, once removed when the sides differ.
-        const degree = Math.min(up, down) - 1;
-        const base = t(`kinship.cousin.${degree <= 3 ? degree : "other"}` as "kinship.cousin.1", {
-            sex,
-            degree,
-        });
-        if (up === down) return base;
-        return t("kinship.removed", { base, count: Math.abs(up - down) });
-    };
-
-    if (relation.kind === "inLaw") {
-        return t("kinship.inLaw", { base: blood(relation.up, relation.down) });
-    }
-    return blood(relation.up, relation.down);
+    return relationPhrase(data.kinship, data.sex, t as unknown as Translator);
 }
 
 /** The panel that comes out of an open card: name, years, status and the way to the card. */

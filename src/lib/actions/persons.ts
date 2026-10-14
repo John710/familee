@@ -33,6 +33,8 @@ export type PersonInput = {
     surname: string;
     given: string;
     patronymic: string;
+    /** The suffix of the name ("Jr.", "III"). Optional. */
+    suffix?: string;
     sex: "male" | "female" | "unknown";
     birth: string;
     death: string;
@@ -71,6 +73,7 @@ async function savePerson(
     const surname = input.surname.trim();
     const given = input.given.trim();
     const patronymic = input.patronymic.trim();
+    const suffix = (input.suffix ?? "").trim();
     if (surname === "" && given === "") {
         return { ok: false, error: "validation.nameEmpty" };
     }
@@ -120,6 +123,7 @@ async function savePerson(
                 surname: surname || null,
                 given: given || null,
                 patronymic: patronymic || null,
+                suffix: suffix || null,
             });
         } else {
             id = existingId;
@@ -136,6 +140,7 @@ async function savePerson(
                     surname: surname || null,
                     given: given || null,
                     patronymic: patronymic || null,
+                    suffix: suffix || null,
                     updatedAt: new Date(),
                 })
                 .where(

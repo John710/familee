@@ -277,7 +277,7 @@
             "nickname": "Nickname",
             "surnameAtBirth": "Surname at birth",
             "prefix": "Name prefix",
-            "suffix": "Name suffix",
+            "suffix": "Suffix",
             "nameType": "Name type",
             "nameLocale": "Language of this spelling",
             "isPrimary": "Primary spelling",

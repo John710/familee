@@ -20,6 +20,8 @@ export type PersonFormValues = {
     surname: string;
     given: string;
     patronymic: string;
+    /** The suffix of the name: "Jr.", "III". Optional, so that old callers keep working. */
+    suffix?: string;
     sex: "male" | "female" | "unknown";
     birth: string;
     death: string;
@@ -62,6 +64,7 @@ export function PersonForm({
             value("surname") !== initial.surname ||
             value("given") !== initial.given ||
             value("patronymic") !== initial.patronymic ||
+            value("suffix") !== (initial.suffix ?? "") ||
             value("sex") !== initial.sex ||
             value("birth") !== initial.birth ||
             value("death") !== initial.death ||
@@ -78,6 +81,7 @@ export function PersonForm({
             surname: String(form.get("surname") ?? ""),
             given: String(form.get("given") ?? ""),
             patronymic: String(form.get("patronymic") ?? ""),
+            suffix: String(form.get("suffix") ?? ""),
             sex: String(form.get("sex") ?? "unknown") as PersonFormValues["sex"],
             birth: String(form.get("birth") ?? ""),
             death: String(form.get("death") ?? ""),
@@ -116,7 +120,7 @@ export function PersonForm({
             onChange={(event) => setChanged(differsFromInitial(event.currentTarget))}
             className="flex flex-col gap-5"
         >
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-4">
                 <label className="flex flex-col gap-1.5">
                     <span className="font-medium text-sm">{t("person.fields.surname")}</span>
                     <input name="surname" defaultValue={initial.surname} className="input w-full" />
@@ -130,6 +134,15 @@ export function PersonForm({
                     <input
                         name="patronymic"
                         defaultValue={initial.patronymic}
+                        className="input w-full"
+                    />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                    <span className="font-medium text-sm">{t("person.fields.suffix")}</span>
+                    <input
+                        name="suffix"
+                        defaultValue={initial.suffix ?? ""}
+                        placeholder="Jr., III"
                         className="input w-full"
                     />
                 </label>

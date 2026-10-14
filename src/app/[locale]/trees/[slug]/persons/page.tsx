@@ -143,6 +143,7 @@ export default async function PersonsPage({ params }: { params: Promise<Params> 
                                 surname: "",
                                 given: "",
                                 patronymic: "",
+                                suffix: "",
                                 sex: "unknown",
                                 birth: "",
                                 death: "",
