@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/logo.svg" alt="Familee" width="420">
+</p>
+
 # Familee — family tree
 
 *Read this in another language: [Русский](README.ru.md)*
