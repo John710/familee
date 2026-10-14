@@ -1,4 +1,15 @@
 import { eq } from "drizzle-orm";
+import {
+    BookOpen,
+    Download,
+    History,
+    Images,
+    MapPin,
+    Search,
+    TreeDeciduous,
+    Upload,
+    Users,
+} from "lucide-react";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -81,53 +92,86 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
 
     return (
         <div className="flex flex-col gap-8">
-            <header className="flex flex-col gap-1">
-                <h1 className="font-semibold font-serif text-3xl">{access.title}</h1>
-                {atLeast(access.role, "admin") ? (
-                    <TreeLogoForm
-                        slug={slug}
-                        logoData={treeRow?.logoData ?? null}
-                        title={access.title}
-                    />
-                ) : (
-                    <TreeLogo logoData={treeRow?.logoData ?? null} title={access.title} size="lg" />
-                )}
-                <p className="text-base-content/60 text-sm">
-                    {t("members.title")} · {t(`enums.member_role.${access.role}`)}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                    <Link href={`/trees/${slug}/tree`} className="btn btn-sm">
+            <header className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex flex-col gap-1">
+                        <h1 className="font-semibold font-serif text-3xl">{access.title}</h1>
+                        {atLeast(access.role, "admin") ? (
+                            <TreeLogoForm
+                                slug={slug}
+                                logoData={treeRow?.logoData ?? null}
+                                title={access.title}
+                            />
+                        ) : (
+                            <TreeLogo
+                                logoData={treeRow?.logoData ?? null}
+                                title={access.title}
+                                size="lg"
+                            />
+                        )}
+                        <p className="text-base-content/60 text-sm">
+                            {t("members.title")} · {t(`enums.member_role.${access.role}`)}
+                        </p>
+                    </div>
+
+                    {/* The tools of the tree: they are not for everyday browsing, so they sit
+                        in the corner, level with the title. */}
+                    <div className="flex flex-wrap items-center gap-1 self-start pt-1">
+                        <a
+                            href={`/api/trees/${slug}/gedcom`}
+                            download
+                            className="btn btn-ghost btn-sm gap-2"
+                        >
+                            <Download className="size-4" aria-hidden="true" />
+                            {t("gedcom.export")}
+                        </a>
+                        {atLeast(access.role, "editor") && (
+                            <Link
+                                href={`/trees/${slug}/import`}
+                                className="btn btn-ghost btn-sm gap-2"
+                            >
+                                <Upload className="size-4" aria-hidden="true" />
+                                {t("gedcom.import")}
+                            </Link>
+                        )}
+                        {canInvite && (
+                            <Link
+                                href={`/trees/${slug}/history`}
+                                className="btn btn-ghost btn-sm gap-2"
+                            >
+                                <History className="size-4" aria-hidden="true" />
+                                {t("history.title")}
+                            </Link>
+                        )}
+                    </div>
+                </div>
+
+                <nav className="flex flex-wrap gap-2">
+                    <Link href={`/trees/${slug}/tree`} className="btn btn-primary btn-sm gap-2">
+                        <TreeDeciduous className="size-4" aria-hidden="true" />
                         {t("tree.view.open")}
                     </Link>
-                    <Link href={`/trees/${slug}/persons`} className="btn btn-sm">
+                    <Link href={`/trees/${slug}/persons`} className="btn btn-sm gap-2">
+                        <Users className="size-4" aria-hidden="true" />
                         {t("person.many")}
                     </Link>
-                    <a href={`/api/trees/${slug}/gedcom`} download className="btn btn-sm">
-                        {t("gedcom.export")}
-                    </a>
-                    {atLeast(access.role, "editor") && (
-                        <Link href={`/trees/${slug}/import`} className="btn btn-sm">
-                            {t("gedcom.import")}
-                        </Link>
-                    )}
-                    <Link href={`/trees/${slug}/search`} className="btn btn-sm">
+                    <Link href={`/trees/${slug}/search`} className="btn btn-sm gap-2">
+                        <Search className="size-4" aria-hidden="true" />
                         {t("search.title")}
                     </Link>
-                    <Link href={`/trees/${slug}/places`} className="btn btn-sm">
+                    <Link href={`/trees/${slug}/places`} className="btn btn-sm gap-2">
+                        <MapPin className="size-4" aria-hidden="true" />
                         {t("place.many")}
                     </Link>
-                    <Link href={`/trees/${slug}/sources`} className="btn btn-sm">
+                    <Link href={`/trees/${slug}/sources`} className="btn btn-sm gap-2">
+                        <BookOpen className="size-4" aria-hidden="true" />
                         {t("source.many")}
                     </Link>
-                    <Link href={`/trees/${slug}/gallery`} className="btn btn-sm">
+                    <Link href={`/trees/${slug}/gallery`} className="btn btn-sm gap-2">
+                        <Images className="size-4" aria-hidden="true" />
                         {t("gallery.title")}
                     </Link>
-                    {canInvite && (
-                        <Link href={`/trees/${slug}/history`} className="btn btn-sm">
-                            {t("history.title")}
-                        </Link>
-                    )}
-                </div>
+                </nav>
             </header>
 
             <section className="flex flex-col gap-3">
