@@ -40,11 +40,13 @@ Familee — это место, где можно хранить семейный
 
 ## Скриншоты
 
-![Древо семьи](screenshots/tree.png)
-
-![Карточка в древе и её панель](screenshots/tree_card.png)
-
-![Страница человека: хронология и возраст](screenshots/person.png)
+<table>
+  <tr>
+    <td><img src="screenshots/tree.png" alt="Древо семьи" width="300"></td>
+    <td><img src="screenshots/tree_card.png" alt="Карточка в древе и её панель" width="300"></td>
+    <td><img src="screenshots/person.png" alt="Страница человека: хронология и возраст" width="300"></td>
+  </tr>
+</table>
 
 ## Из чего сделано
 

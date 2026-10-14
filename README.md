@@ -43,11 +43,13 @@ The interface is in English by default and in Russian at `/ru`.
 
 ## Screenshots
 
-![The family tree](screenshots/tree.png)
-
-![A card in the tree and its panel](screenshots/tree_card.png)
-
-![A person page: the timeline and the age](screenshots/person.png)
+<table>
+  <tr>
+    <td><img src="screenshots/tree.png" alt="The family tree" width="300"></td>
+    <td><img src="screenshots/tree_card.png" alt="A card in the tree and its panel" width="300"></td>
+    <td><img src="screenshots/person.png" alt="A person page: the timeline and the age" width="300"></td>
+  </tr>
+</table>
 
 ## Under the hood
 
