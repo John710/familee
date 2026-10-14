@@ -117,9 +117,12 @@ export const auth = betterAuth({
      */
     rateLimit: {
         enabled: true,
+        // Behind a proxy the address of the client is known, so the per-address rule counts it.
+        // Without one (the address-and-port mode) every request would share one counter, so the
+        // rule is off there; the limit per account above still holds.
         customRules: {
-            "/sign-in/email": { window: 60, max: 10 },
-            "/sign-in/username": { window: 60, max: 10 },
+            "/sign-in/email": trustedProxies().length > 0 ? { window: 60, max: 10 } : false,
+            "/sign-in/username": trustedProxies().length > 0 ? { window: 60, max: 10 } : false,
         },
     },
 

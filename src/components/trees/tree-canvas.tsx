@@ -173,6 +173,47 @@ function preventMenu(event: { preventDefault: () => void }) {
     event.preventDefault();
 }
 
+/**
+ * The phrase for how the person is related to the signed-in person, from the kinship.* keys.
+ * The sex of the person picks the words (uncle or aunt, son or daughter), the degrees the numbers.
+ */
+function useRelationPhrase(data: PersonNodeData): string | null {
+    const t = useTranslations();
+    const relation = data.kinship;
+    if (!relation || relation.kind === "self") return null;
+    const sex = data.sex;
+    const key = (n: number) => (n <= 4 ? String(n) : "other");
+
+    if (relation.kind === "spouse") return t("kinship.spouse", { sex });
+
+    const { up, down } = relation;
+    if (down === 0)
+        return t(`kinship.ancestor.${key(up)}` as "kinship.ancestor.1", { sex, degree: up });
+    if (up === 0) {
+        return t(`kinship.descendant.${key(down)}` as "kinship.descendant.1", {
+            sex,
+            degree: down,
+        });
+    }
+    if (up === 1 && down === 1) return t("kinship.sibling", { sex });
+    if (down === 1) {
+        // The person is a sibling of one of the ancestors: an uncle or aunt, a great-uncle...
+        return t(`kinship.auncle.${up <= 3 ? up : "other"}` as "kinship.auncle.2", { sex });
+    }
+    if (up === 1) {
+        // The person is a child of a sibling: a nephew or niece, a great-nephew...
+        return t(`kinship.nibling.${down <= 3 ? down : "other"}` as "kinship.nibling.2", { sex });
+    }
+    // Both sides are at least two generations away: cousins, once removed when the sides differ.
+    const degree = Math.min(up, down) - 1;
+    const base = t(`kinship.cousin.${degree <= 3 ? degree : "other"}` as "kinship.cousin.1", {
+        sex,
+        degree,
+    });
+    if (up === down) return base;
+    return t("kinship.removed", { base, count: Math.abs(up - down) });
+}
+
 /** The panel that comes out of an open card: name, years, status and the way to the card. */
 function PersonPanel({ data }: { data: PersonFlowData }) {
     const t = useTranslations();
@@ -189,6 +230,7 @@ function PersonPanel({ data }: { data: PersonFlowData }) {
     }, [onClose]);
 
     const { details } = data;
+    const relation = useRelationPhrase(data);
 
     return (
         // The scrollable panel keeps the wheel for itself: scrolling it does not zoom the canvas.
@@ -202,6 +244,14 @@ function PersonPanel({ data }: { data: PersonFlowData }) {
                     <div className="flex min-w-0 flex-col">
                         <h2 className="font-semibold text-base leading-snug">{name}</h2>
                         {years && <p className="text-base-content/70 text-sm">{years}</p>}
+                        {relation && (
+                            <p className="text-sm">
+                                <span className="text-base-content/60">
+                                    {t("tree.view.relationTitle")}:{" "}
+                                </span>
+                                {relation}
+                            </p>
+                        )}
                     </div>
                     <Link
                         href={data.albumHref}

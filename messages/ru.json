@@ -188,6 +188,7 @@
             "you": "Вы",
             "fullscreen": "На весь экран",
             "exitFullscreen": "Выйти из полноэкранного режима",
+            "relationTitle": "Кем вам приходится",
             "timeline": "События жизни",
             "noTimeline": "Событий пока не записано",
             "withPartner": "с {name}",

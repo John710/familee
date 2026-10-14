@@ -188,6 +188,7 @@
             "you": "You",
             "fullscreen": "Full screen",
             "exitFullscreen": "Leave full screen",
+            "relationTitle": "Relation to you",
             "timeline": "Life events",
             "noTimeline": "No events recorded yet",
             "withPartner": "with {name}",

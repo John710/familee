@@ -9,6 +9,7 @@
 import { and, asc, eq, isNotNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
+import { type Relation, relationsTo } from "@/lib/kinship";
 import { listPersonCards } from "@/lib/people";
 import { CARD_HEIGHT, CARD_WIDTH, layoutTree } from "@/lib/tree-layout";
 
@@ -28,6 +29,8 @@ export type PersonNodeData = {
     photoRatio: number | null;
     /** The person the signed-in member chose as themself in this tree. */
     isSelf: boolean;
+    /** How this person is related to the one who is "me"; null when there is no such person. */
+    kinship: Relation | null;
     /** Notes and the timeline of the person, for the panel that opens on a click. */
     details: PersonDetails;
     /** The person's photo album. */
@@ -204,6 +207,15 @@ export async function loadTreeView(
         });
     }
 
+    // The relation of every card to the signed-in person, when that person is chosen.
+    const relations = selfPersonId
+        ? relationsTo(
+              selfPersonId,
+              families,
+              cards.map((card) => card.personId),
+          )
+        : new Map<string, Relation>();
+
     const nodes: FlowNode[] = [];
     for (const card of cards) {
         const place = layout.persons.get(card.personId);
@@ -231,6 +243,7 @@ export async function loadTreeView(
                         ? null
                         : { x: card.cropX, y: card.cropY, w: card.cropW, h: card.cropH },
                 isSelf: card.personId === selfPersonId,
+                kinship: relations.get(card.personId) ?? null,
                 details: detailsOf.get(card.personId) ?? {
                     notes: notesOf.get(card.personId) ?? "",
                     timeline: [],

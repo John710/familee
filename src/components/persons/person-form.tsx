@@ -45,7 +45,23 @@ export function PersonForm({
     const router = useRouter();
     const [error, setError] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
+    // The save button waits for a change: nothing to save means nothing to press.
+    const [changed, setChanged] = useState(false);
     const [pending, startTransition] = useTransition();
+
+    function differsFromInitial(form: HTMLFormElement): boolean {
+        const data = new FormData(form);
+        const value = (name: string) => String(data.get(name) ?? "");
+        return (
+            value("surname") !== initial.surname ||
+            value("given") !== initial.given ||
+            value("patronymic") !== initial.patronymic ||
+            value("sex") !== initial.sex ||
+            value("birth") !== initial.birth ||
+            value("death") !== initial.death ||
+            value("notes") !== initial.notes
+        );
+    }
 
     function onSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -70,6 +86,7 @@ export function PersonForm({
                     return;
                 }
                 setSaved(true);
+                setChanged(false);
                 router.refresh();
                 return;
             }
@@ -84,7 +101,11 @@ export function PersonForm({
     }
 
     return (
-        <form onSubmit={onSubmit} className="flex flex-col gap-5">
+        <form
+            onSubmit={onSubmit}
+            onChange={(event) => setChanged(differsFromInitial(event.currentTarget))}
+            className="flex flex-col gap-5"
+        >
             <div className="grid gap-4 sm:grid-cols-3">
                 <label className="flex flex-col gap-1.5">
                     <span className="font-medium text-sm">{t("person.fields.surname")}</span>
@@ -147,7 +168,7 @@ export function PersonForm({
             )}
 
             <div className="flex items-center gap-3">
-                <button type="submit" className="btn btn-primary" disabled={pending}>
+                <button type="submit" className="btn btn-primary" disabled={pending || !changed}>
                     <Save className="size-4" />
                     {t("common.save")}
                 </button>
