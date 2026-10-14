@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { PersonThumb } from "@/components/persons/person-thumb";
 import { MemberControls } from "@/components/trees/member-controls";
 import { MembersPanel, type PendingInvitation } from "@/components/trees/members-panel";
 import { ResetLinkButton } from "@/components/trees/reset-link-button";
@@ -10,7 +11,10 @@ import { TreeLogoForm } from "@/components/trees/tree-logo-form";
 import { db, schema } from "@/db";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
+import { todayIn, upcomingBirthdays } from "@/lib/age";
+import { BIRTHDAY_DAYS, birthdayInput } from "@/lib/birthdays";
 import { listMembers, listPendingInvitations } from "@/lib/invitations";
+import { listPersonCards } from "@/lib/people";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -53,6 +57,19 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
     }));
 
     const t = await getTranslations();
+
+    // The birthdays of this tree; the bell and the home page list those of all trees.
+    const cards = await listPersonCards(access.treeId);
+    const birthdays = upcomingBirthdays(
+        cards.map((card) => birthdayInput(card, slug)),
+        todayIn(),
+        BIRTHDAY_DAYS,
+    );
+    const dayFormat = new Intl.DateTimeFormat(locale, {
+        day: "numeric",
+        month: "long",
+        timeZone: "UTC",
+    });
 
     const [treeRow] = await db
         .select({ logoData: schema.trees.logoData })
@@ -110,6 +127,42 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                     )}
                 </div>
             </header>
+
+            <section className="flex flex-col gap-3">
+                <h2 className="font-semibold text-base-content/70 text-sm uppercase tracking-wide">
+                    {t("birthdays.title")}
+                </h2>
+                {birthdays.length === 0 ? (
+                    <p className="text-base-content/60 text-sm">{t("birthdays.none")}</p>
+                ) : (
+                    <ul className="grid gap-2 sm:grid-cols-2">
+                        {birthdays.map((entry) => (
+                            <li key={entry.personId}>
+                                <Link
+                                    href={`/trees/${slug}/persons/${entry.personId}`}
+                                    className="card card-border flex flex-row items-center gap-3 bg-base-100 p-3 transition-colors hover:border-primary"
+                                >
+                                    <PersonThumb name={entry.name} photoUrl={entry.photoUrl} />
+                                    <span className="flex min-w-0 flex-col gap-0.5">
+                                        <span className="font-medium text-sm">
+                                            {entry.name || t("common.unknown")}
+                                        </span>
+                                        <span className="text-base-content/60 text-xs">
+                                            {entry.inDays === 0
+                                                ? t("birthdays.today")
+                                                : dayFormat.format(
+                                                      new Date(`${entry.date}T00:00:00Z`),
+                                                  )}
+                                            {" · "}
+                                            {t("birthdays.turns", { count: entry.turns })}
+                                        </span>
+                                    </span>
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
 
             <section className="flex flex-col gap-3">
                 <h2 className="font-semibold text-lg">{t("members.members")}</h2>

@@ -125,7 +125,8 @@ as coming from another origin.
 ## Time zone
 
 `APP_TIME_ZONE` is an IANA name; the default is `Asia/Vladivostok`. It sets the container's `TZ`,
-which Node.js uses for every displayed time.
+which Node.js uses for every displayed time. The birthdays of the next two weeks (the bell, the home
+page, the tree, the members and the persons pages) are counted from the day in this zone.
 
 ## Migrations and database tests
 

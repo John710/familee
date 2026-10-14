@@ -3,8 +3,11 @@ import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { PersonForm } from "@/components/persons/person-form";
+import { PersonThumb } from "@/components/persons/person-thumb";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
+import { todayIn, upcomingBirthdays } from "@/lib/age";
+import { BIRTHDAY_DAYS, birthdayInput } from "@/lib/birthdays";
 import { listPersonCards } from "@/lib/people";
 import { atLeast } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
@@ -24,6 +27,16 @@ export default async function PersonsPage({ params }: { params: Promise<Params> 
     const canEdit = atLeast(access.role, "editor");
     const cards = await listPersonCards(access.treeId);
     const t = await getTranslations();
+    const birthdays = upcomingBirthdays(
+        cards.map((card) => birthdayInput(card, slug)),
+        todayIn(),
+        BIRTHDAY_DAYS,
+    );
+    const dayFormat = new Intl.DateTimeFormat(locale, {
+        day: "numeric",
+        month: "long",
+        timeZone: "UTC",
+    });
 
     return (
         <div className="flex flex-col gap-10">
@@ -38,6 +51,36 @@ export default async function PersonsPage({ params }: { params: Promise<Params> 
             </header>
 
             <section className="flex flex-col gap-3">
+                <h2 className="font-medium text-base-content/70 text-sm">{t("birthdays.title")}</h2>
+                {birthdays.length === 0 ? (
+                    <p className="text-base-content/60 text-sm">{t("birthdays.none")}</p>
+                ) : (
+                    <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                        {birthdays.map((entry) => (
+                            <li key={entry.personId} className="flex items-center gap-2">
+                                <PersonThumb name={entry.name} photoUrl={entry.photoUrl} />
+                                <span className="flex flex-col">
+                                    <Link
+                                        href={`/trees/${slug}/persons/${entry.personId}`}
+                                        className="link"
+                                    >
+                                        {entry.name || t("common.unknown")}
+                                    </Link>
+                                    <span className="text-base-content/60 text-xs">
+                                        {entry.inDays === 0
+                                            ? t("birthdays.today")
+                                            : dayFormat.format(new Date(`${entry.date}T00:00:00Z`))}
+                                        {" · "}
+                                        {t("birthdays.turns", { count: entry.turns })}
+                                    </span>
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+
+            <section className="flex flex-col gap-3">
                 {cards.length === 0 ? (
                     <p className="text-base-content/60 text-sm">{t("common.empty")}</p>
                 ) : (
@@ -48,8 +91,19 @@ export default async function PersonsPage({ params }: { params: Promise<Params> 
                                     href={`/trees/${slug}/persons/${card.personId}`}
                                     className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-base-200"
                                 >
-                                    <span className="font-medium text-sm">
-                                        {card.fullName || t("common.unknown")}
+                                    <span className="flex min-w-0 flex-col">
+                                        <span className="font-medium text-sm">
+                                            {card.fullName || t("common.unknown")}
+                                        </span>
+                                        {card.birthDate && card.birthPrecision === "day" && (
+                                            <span className="text-base-content/60 text-xs">
+                                                {t("person.birthdayOn", {
+                                                    day: dayFormat.format(
+                                                        new Date(`${card.birthDate}T00:00:00Z`),
+                                                    ),
+                                                })}
+                                            </span>
+                                        )}
                                     </span>
                                     <span className="flex items-center gap-2 text-base-content/60 text-xs">
                                         {card.birthYear && card.deathYear

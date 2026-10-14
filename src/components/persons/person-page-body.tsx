@@ -10,7 +10,13 @@ import { Link } from "@/i18n/navigation";
 import { localizedPath } from "@/i18n/paths";
 import type { Locale } from "@/i18n/routing";
 import { listOtherEventTypes } from "@/lib/actions/records";
-import { listPersonCitations, listPersonNotes, listSources } from "@/lib/library";
+import {
+    listEventCitations,
+    listPersonCitations,
+    listPersonNotes,
+    listPlaces,
+    listSources,
+} from "@/lib/library";
 import { getPersonForEdit, listAdditionalNames, listOtherEvents } from "@/lib/people";
 import { listEventPhotos, listPersonPhotos } from "@/lib/photos";
 import { atLeast } from "@/lib/roles";
@@ -58,15 +64,25 @@ export async function PersonPageBody({
         ratio: photo.width && photo.height ? photo.height / photo.width : null,
     }));
     const names = await listAdditionalNames(id);
+    const otherEvents = await listOtherEvents(id);
+    const eventCitations = await listEventCitations(
+        access.treeId,
+        otherEvents.map((event) => event.id),
+    );
     const events = await Promise.all(
-        (await listOtherEvents(id)).map(async (event) => ({
+        otherEvents.map(async (event) => ({
             ...event,
+            citations: eventCitations.get(event.id) ?? [],
             photos: (await listEventPhotos(access.treeId, event.id)).map((photo) => ({
                 mediaId: photo.mediaId,
             })),
         })),
     );
     const eventTypes = await listOtherEventTypes();
+    const places = (await listPlaces(access.treeId)).map((place) => ({
+        id: place.id,
+        name: place.name,
+    }));
     const notes = await listPersonNotes(access.treeId, id);
     const citations = await listPersonCitations(access.treeId, id);
     const sources = (await listSources(access.treeId)).map((source) => ({
@@ -138,6 +154,8 @@ export async function PersonPageBody({
                         names={names}
                         events={events}
                         eventTypes={eventTypes}
+                        places={places}
+                        sources={sources}
                         canEdit={editing}
                     />
                 </div>
@@ -198,7 +216,10 @@ export async function PersonPageBody({
                                 birth: person.birthOriginal ?? "",
                                 death: person.deathOriginal ?? "",
                                 notes: person.notes,
+                                birthPlaceId: person.birthPlaceId ?? "",
+                                deathPlaceId: person.deathPlaceId ?? "",
                             }}
+                            places={places}
                         />
                     ) : (
                         <dl className="grid gap-3 sm:grid-cols-2">

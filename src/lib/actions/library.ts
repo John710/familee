@@ -298,6 +298,99 @@ export async function deleteCitationAction(input: {
     return { ok: true };
 }
 
+// ─── citations for an event: the source of a fact such as a baptism or an occupation ───
+
+/** A citation of an event belongs to the event, not to the person, so the person is not set. */
+export async function saveEventCitationAction(input: {
+    slug: string;
+    personId: string;
+    eventId: string;
+    sourceId: string;
+    page: string;
+    textExcerpt: string;
+}): Promise<LibraryResult> {
+    const access = await editorAccess(input.slug);
+    if (!access.ok) return access;
+    if (![input.personId, input.eventId, input.sourceId].every((id) => UUID.test(id))) {
+        return { ok: false, error: "validation.required" };
+    }
+
+    // The event must be one of this person's events, and the source must be in this tree.
+    const [event] = await db
+        .select({ id: schema.events.id })
+        .from(schema.events)
+        .where(
+            and(
+                eq(schema.events.id, input.eventId),
+                eq(schema.events.personId, input.personId),
+                eq(schema.events.treeId, access.treeId),
+            ),
+        )
+        .limit(1);
+    const [source] = await db
+        .select({ id: schema.sources.id })
+        .from(schema.sources)
+        .where(and(eq(schema.sources.id, input.sourceId), eq(schema.sources.treeId, access.treeId)))
+        .limit(1);
+    if (!event || !source) return { ok: false, error: "person.notFound" };
+
+    const [created] = await db
+        .insert(schema.citations)
+        .values({
+            sourceId: input.sourceId,
+            eventId: input.eventId,
+            page: blank(input.page),
+            textExcerpt: blank(input.textExcerpt),
+        })
+        .returning({ id: schema.citations.id });
+    if (!created) return { ok: false, error: "validation.required" };
+    await writeAudit({
+        treeId: access.treeId,
+        userId: access.userId,
+        action: "create",
+        entityType: "citation",
+        entityId: created.id,
+    });
+    return { ok: true, id: created.id };
+}
+
+export async function deleteEventCitationAction(input: {
+    slug: string;
+    personId: string;
+    citationId: string;
+}): Promise<LibraryResult> {
+    const access = await editorAccess(input.slug);
+    if (!access.ok) return access;
+    if (!UUID.test(input.citationId) || !UUID.test(input.personId)) {
+        return { ok: false, error: "validation.required" };
+    }
+
+    // Only a citation of one of this person's events can be removed here.
+    const [owned] = await db
+        .select({ id: schema.citations.id })
+        .from(schema.citations)
+        .innerJoin(schema.events, eq(schema.events.id, schema.citations.eventId))
+        .where(
+            and(
+                eq(schema.citations.id, input.citationId),
+                eq(schema.events.personId, input.personId),
+                eq(schema.events.treeId, access.treeId),
+            ),
+        )
+        .limit(1);
+    if (!owned) return { ok: false, error: "validation.required" };
+
+    await db.delete(schema.citations).where(eq(schema.citations.id, input.citationId));
+    await writeAudit({
+        treeId: access.treeId,
+        userId: access.userId,
+        action: "delete",
+        entityType: "citation",
+        entityId: input.citationId,
+    });
+    return { ok: true };
+}
+
 // ─── notes and stories about a person ────────────────────────────────────────
 
 export async function saveNoteAction(input: {

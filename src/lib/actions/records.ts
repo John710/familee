@@ -217,7 +217,20 @@ export type EventInput = {
     value: string;
     description: string;
     date: string;
+    placeId: string | null;
 };
+
+/** A place of the tree, or null: a place from another tree must not be linked to this one. */
+async function eventPlace(treeId: string, placeId: string | null): Promise<string | null> {
+    if (!placeId) return null;
+    if (!UUID.test(placeId)) return null;
+    const [place] = await db
+        .select({ id: schema.places.id })
+        .from(schema.places)
+        .where(and(eq(schema.places.id, placeId), eq(schema.places.treeId, treeId)))
+        .limit(1);
+    return place?.id ?? null;
+}
 
 /** The event types a person can have on this form: all of them except birth and death. */
 export async function listOtherEventTypes(): Promise<{ code: string; hasValue: boolean }[]> {
@@ -250,6 +263,7 @@ export async function saveEventAction(
         typeCode: type.code,
         value: type.hasValue && input.value.trim() ? input.value.trim() : null,
         description: input.description.trim() || null,
+        placeId: await eventPlace(access.treeId, input.placeId),
         dateQualifier: date.value?.qualifier ?? ("unknown" as const),
         datePrecision: date.value?.precision ?? ("day" as const),
         dateStart: date.value?.dateStart ?? null,
@@ -282,12 +296,14 @@ export async function saveEventAction(
                 value: before.value,
                 description: before.description,
                 date: before.dateOriginal,
+                placeId: before.placeId,
             },
             {
                 typeCode: values.typeCode,
                 value: values.value,
                 description: values.description,
                 date: values.dateOriginal,
+                placeId: values.placeId,
             },
         );
         if (changes) {

@@ -36,6 +36,9 @@ export type PersonInput = {
     birth: string;
     death: string;
     notes: string;
+    /** The place of the birth and of the death, from the places of the tree; empty for none. */
+    birthPlaceId?: string | null;
+    deathPlaceId?: string | null;
 };
 
 const SEXES = ["male", "female", "unknown"] as const;
@@ -84,6 +87,10 @@ async function savePerson(
     }
 
     const notes = input.notes.trim() === "" ? null : input.notes.trim();
+
+    // The places of the birth and the death: only places of this tree, and only with a date.
+    const birthPlaceId = await treePlace(access.treeId, input.birthPlaceId);
+    const deathPlaceId = await treePlace(access.treeId, input.deathPlaceId);
 
     // The values before the edit, for the diff in the audit log (an update only).
     const before = existingId === null ? null : await getPersonForEdit(access.treeId, existingId);
@@ -138,8 +145,8 @@ async function savePerson(
                 );
         }
 
-        await upsertLifeEvent(tx, access.treeId, id, "birth", birth.value, user.id);
-        await upsertLifeEvent(tx, access.treeId, id, "death", death.value, user.id);
+        await upsertLifeEvent(tx, access.treeId, id, "birth", birth.value, user.id, birthPlaceId);
+        await upsertLifeEvent(tx, access.treeId, id, "death", death.value, user.id, deathPlaceId);
 
         return id;
     });
@@ -212,6 +219,7 @@ async function upsertLifeEvent(
     typeCode: "birth" | "death",
     value: ParsedDate | null,
     userId: string,
+    placeId: string | null,
 ) {
     const [existing] = await tx
         .select({ id: schema.events.id })
@@ -238,6 +246,7 @@ async function upsertLifeEvent(
         dateStart: value.dateStart,
         dateEnd: value.dateEnd,
         dateOriginal: value.original,
+        placeId,
         updatedBy: userId,
         updatedAt: new Date(),
     };
@@ -254,4 +263,18 @@ async function upsertLifeEvent(
             createdBy: userId,
         });
     }
+}
+
+/** A place of this tree by its id, or null: a place of another tree is never taken. */
+async function treePlace(
+    treeId: string,
+    placeId: string | null | undefined,
+): Promise<string | null> {
+    if (!placeId) return null;
+    const [row] = await db
+        .select({ id: schema.places.id })
+        .from(schema.places)
+        .where(and(eq(schema.places.id, placeId), eq(schema.places.treeId, treeId)))
+        .limit(1);
+    return row?.id ?? null;
 }

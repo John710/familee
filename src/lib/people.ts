@@ -6,7 +6,7 @@
  * already computes the display name, the years and the living flag.
  */
 
-import { and, asc, eq, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 
@@ -64,7 +64,21 @@ export async function getPersonForEdit(treeId: string, personId: string) {
         .where(eq(schema.persons.id, personId))
         .limit(1);
 
-    return { ...card, notes: person?.notes ?? "" };
+    // The places of the birth and the death are kept on those primary events.
+    const lifeEvents = await db
+        .select({ typeCode: schema.events.typeCode, placeId: schema.events.placeId })
+        .from(schema.events)
+        .where(
+            and(
+                eq(schema.events.personId, personId),
+                eq(schema.events.isPrimary, true),
+                inArray(schema.events.typeCode, ["birth", "death"]),
+            ),
+        );
+    const birthPlaceId = lifeEvents.find((event) => event.typeCode === "birth")?.placeId ?? null;
+    const deathPlaceId = lifeEvents.find((event) => event.typeCode === "death")?.placeId ?? null;
+
+    return { ...card, notes: person?.notes ?? "", birthPlaceId, deathPlaceId };
 }
 
 /** The additional names of a person: every name except the primary one (edited on the form). */
@@ -94,8 +108,11 @@ export async function listOtherEvents(personId: string) {
             value: schema.events.value,
             description: schema.events.description,
             dateOriginal: schema.events.dateOriginal,
+            placeId: schema.events.placeId,
+            placeName: schema.places.name,
         })
         .from(schema.events)
+        .leftJoin(schema.places, eq(schema.places.id, schema.events.placeId))
         .where(
             and(
                 eq(schema.events.personId, personId),

@@ -8,6 +8,7 @@
 
 import { TreeDeciduous } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import { BirthdayBell } from "@/components/layout/birthday-bell";
 import { ProfileMenu } from "@/components/layout/profile-menu";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -38,6 +39,7 @@ export async function SiteHeader() {
                 )}
 
                 <div className="ml-auto flex items-center gap-1">
+                    {user && <BirthdayBell />}
                     {user ? (
                         <ProfileMenu
                             label={t("profile.title")}

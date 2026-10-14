@@ -25,8 +25,8 @@ import {
     ReactFlowProvider,
     useReactFlow,
 } from "@xyflow/react";
-import { ChevronDown, ChevronUp, Images, Maximize, Minimize, Search } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { Cake, ChevronDown, ChevronUp, Images, Maximize, Minimize, Search } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import {
     type KeyboardEvent as ReactKeyboardEvent,
     useEffect,
@@ -96,8 +96,18 @@ type PersonFlowData = PersonNodeData & {
     onFocus: () => void;
 };
 
+/** The day of a birthday as the reader sees it; the calendar date has no time, so it is kept in UTC. */
+function birthdayLabel(date: string, locale: string): string {
+    return new Intl.DateTimeFormat(locale, {
+        day: "numeric",
+        month: "long",
+        timeZone: "UTC",
+    }).format(new Date(`${date}T00:00:00Z`));
+}
+
 function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
     const t = useTranslations();
+    const locale = useLocale();
     const name = data.name || t("common.unknown");
     const years = useYears(data);
     const deceased = data.isLiving === false;
@@ -143,6 +153,17 @@ function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
                     {years && <span className="text-base-content/60 text-xs">{years}</span>}
                 </span>
             </button>
+            {data.birthday && (
+                <span
+                    className="badge badge-warning badge-sm pointer-events-none absolute -top-2 -left-2 z-10 gap-1 shadow"
+                    title={`${t("birthdays.title")}: ${birthdayLabel(data.birthday.date, locale)}`}
+                >
+                    <Cake className="size-3" aria-hidden="true" />
+                    {data.birthday.inDays === 0
+                        ? t("birthdays.today")
+                        : birthdayLabel(data.birthday.date, locale)}
+                </span>
+            )}
             {data.isSelf && (
                 <span className="badge badge-primary badge-sm pointer-events-none absolute -top-2 -right-2 z-10 shadow">
                     {t("tree.view.you")}
@@ -314,6 +335,7 @@ function PersonPanel({ data }: { data: PersonFlowData }) {
                                     <span className="absolute top-1.5 -left-[21px] size-2.5 rounded-full bg-primary" />
                                     <span className="text-base-content/60 text-xs">
                                         {item.date ?? t("common.none")}
+                                        {item.place ? ` · ${item.place}` : ""}
                                     </span>
                                     <span className="text-sm">
                                         {t(`events.${item.typeCode}` as "events.birth")}

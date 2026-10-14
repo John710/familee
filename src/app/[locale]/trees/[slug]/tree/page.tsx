@@ -2,12 +2,13 @@ import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-
+import { PersonThumb } from "@/components/persons/person-thumb";
 import { TreeCanvas } from "@/components/trees/tree-canvas";
 import { db, schema } from "@/db";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { todayIn, upcomingBirthdays } from "@/lib/age";
+import { birthdayInput } from "@/lib/birthdays";
 import { listPersonCards } from "@/lib/people";
 import { atLeast } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
@@ -44,13 +45,7 @@ export default async function TreePage({ params }: { params: Promise<Params> }) 
 
     const today = todayIn();
     const birthdays = upcomingBirthdays(
-        (await listPersonCards(access.treeId)).map((card) => ({
-            personId: card.personId,
-            name: card.fullName ?? "",
-            birthDate: card.birthDate,
-            birthPrecision: card.birthPrecision,
-            isLiving: card.isLiving,
-        })),
+        (await listPersonCards(access.treeId)).map((card) => birthdayInput(card, slug)),
         today,
         BIRTHDAY_DAYS,
     ).slice(0, 8);
@@ -74,22 +69,26 @@ export default async function TreePage({ params }: { params: Promise<Params> }) 
                 <section className="card card-border bg-base-100">
                     <div className="card-body gap-3 p-4">
                         <h2 className="font-medium text-sm">{t("birthdays.title")}</h2>
-                        <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                        <ul className="flex flex-wrap gap-x-6 gap-y-3 text-sm">
                             {birthdays.map((entry) => (
-                                <li key={entry.personId} className="flex items-baseline gap-2">
-                                    <Link
-                                        href={`/trees/${slug}/persons/${entry.personId}`}
-                                        className="link"
-                                    >
-                                        {entry.name || t("common.unknown")}
-                                    </Link>
-                                    <span className="text-base-content/60 text-xs">
-                                        {entry.inDays === 0
-                                            ? t("birthdays.today")
-                                            : dayFormat.format(new Date(`${entry.date}T00:00:00Z`))}
-                                    </span>
-                                    <span className="text-xs">
-                                        {t("birthdays.turns", { count: entry.turns })}
+                                <li key={entry.personId} className="flex items-center gap-2">
+                                    <PersonThumb name={entry.name} photoUrl={entry.photoUrl} />
+                                    <span className="flex flex-col">
+                                        <Link
+                                            href={`/trees/${slug}/persons/${entry.personId}`}
+                                            className="link"
+                                        >
+                                            {entry.name || t("common.unknown")}
+                                        </Link>
+                                        <span className="text-base-content/60 text-xs">
+                                            {entry.inDays === 0
+                                                ? t("birthdays.today")
+                                                : dayFormat.format(
+                                                      new Date(`${entry.date}T00:00:00Z`),
+                                                  )}
+                                            {" · "}
+                                            {t("birthdays.turns", { count: entry.turns })}
+                                        </span>
                                     </span>
                                 </li>
                             ))}

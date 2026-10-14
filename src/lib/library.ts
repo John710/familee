@@ -5,7 +5,7 @@
  * been checked. Every query is limited to one tree.
  */
 
-import { and, asc, desc, eq, ilike, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 
@@ -53,6 +53,52 @@ export async function listPersonCitations(treeId: string, personId: string) {
         .innerJoin(schema.sources, eq(schema.sources.id, schema.citations.sourceId))
         .where(and(eq(schema.citations.personId, personId), eq(schema.sources.treeId, treeId)))
         .orderBy(asc(schema.sources.title));
+}
+
+export type EventCitation = {
+    id: string;
+    sourceId: string;
+    sourceTitle: string;
+    page: string | null;
+    textExcerpt: string | null;
+};
+
+/**
+ * The citations of the given events, grouped by event id. The events are the person's own, so
+ * the caller has already checked them; the source must still be in the tree.
+ */
+export async function listEventCitations(
+    treeId: string,
+    eventIds: string[],
+): Promise<Map<string, EventCitation[]>> {
+    const grouped = new Map<string, EventCitation[]>();
+    if (eventIds.length === 0) return grouped;
+    const rows = await db
+        .select({
+            id: schema.citations.id,
+            eventId: schema.citations.eventId,
+            sourceId: schema.sources.id,
+            sourceTitle: schema.sources.title,
+            page: schema.citations.page,
+            textExcerpt: schema.citations.textExcerpt,
+        })
+        .from(schema.citations)
+        .innerJoin(schema.sources, eq(schema.sources.id, schema.citations.sourceId))
+        .where(and(inArray(schema.citations.eventId, eventIds), eq(schema.sources.treeId, treeId)))
+        .orderBy(asc(schema.sources.title));
+    for (const row of rows) {
+        if (!row.eventId) continue;
+        const list = grouped.get(row.eventId) ?? [];
+        list.push({
+            id: row.id,
+            sourceId: row.sourceId,
+            sourceTitle: row.sourceTitle,
+            page: row.page,
+            textExcerpt: row.textExcerpt,
+        });
+        grouped.set(row.eventId, list);
+    }
+    return grouped;
 }
 
 /** The notes and stories written about a person, newest first. */

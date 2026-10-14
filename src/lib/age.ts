@@ -35,6 +35,8 @@ export type BirthdayEntry = {
     turns: number;
     /** Days from today; zero is today. */
     inDays: number;
+    /** The small picture of the person, or null: the lists then show a placeholder. */
+    photoUrl: string | null;
 };
 
 /** Today in the archive's time zone, as "YYYY-MM-DD". */
@@ -111,6 +113,7 @@ export function upcomingBirthdays(
         birthDate: string | null;
         birthPrecision: DatePrecision;
         isLiving: boolean | null;
+        photoUrl?: string | null;
     }[],
     today: string,
     withinDays: number,
@@ -136,6 +139,7 @@ export function upcomingBirthdays(
             date,
             turns: year - birthYear,
             inDays,
+            photoUrl: person.photoUrl ?? null,
         });
     }
     return entries.sort((a, b) => a.inDays - b.inDays || a.name.localeCompare(b.name));

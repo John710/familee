@@ -24,6 +24,9 @@ export type PersonFormValues = {
     birth: string;
     death: string;
     notes: string;
+    /** The place of the birth and death events; empty when none is chosen. */
+    birthPlaceId?: string;
+    deathPlaceId?: string;
 };
 
 const SEX_OPTIONS = ["unknown", "male", "female"] as const;
@@ -33,6 +36,7 @@ export function PersonForm({
     personId,
     initial,
     isLiving,
+    places = [],
 }: {
     slug: string;
     /** Absent for a new person. */
@@ -40,6 +44,8 @@ export function PersonForm({
     initial: PersonFormValues;
     /** Shown after the save, so the editor sees the result of the death date at once. */
     isLiving?: boolean | null;
+    /** The places of the tree; the birth and death place are picked from them. */
+    places?: { id: string; name: string }[];
 }) {
     const t = useTranslations();
     const router = useRouter();
@@ -59,7 +65,9 @@ export function PersonForm({
             value("sex") !== initial.sex ||
             value("birth") !== initial.birth ||
             value("death") !== initial.death ||
-            value("notes") !== initial.notes
+            value("notes") !== initial.notes ||
+            value("birthPlaceId") !== (initial.birthPlaceId ?? "") ||
+            value("deathPlaceId") !== (initial.deathPlaceId ?? "")
         );
     }
 
@@ -74,6 +82,8 @@ export function PersonForm({
             birth: String(form.get("birth") ?? ""),
             death: String(form.get("death") ?? ""),
             notes: String(form.get("notes") ?? ""),
+            birthPlaceId: String(form.get("birthPlaceId") ?? "") || null,
+            deathPlaceId: String(form.get("deathPlaceId") ?? "") || null,
         };
 
         setError(null);
@@ -150,6 +160,41 @@ export function PersonForm({
                 />
             </div>
             <p className="text-base-content/60 text-xs">{t("person.dateHint")}</p>
+
+            {places.length > 0 && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="flex flex-col gap-1.5">
+                        <span className="font-medium text-sm">{t("person.fields.birthPlace")}</span>
+                        <select
+                            name="birthPlaceId"
+                            defaultValue={initial.birthPlaceId ?? ""}
+                            className="select w-full"
+                        >
+                            <option value="">{t("common.none")}</option>
+                            {places.map((place) => (
+                                <option key={place.id} value={place.id}>
+                                    {place.name}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                        <span className="font-medium text-sm">{t("person.fields.deathPlace")}</span>
+                        <select
+                            name="deathPlaceId"
+                            defaultValue={initial.deathPlaceId ?? ""}
+                            className="select w-full"
+                        >
+                            <option value="">{t("common.none")}</option>
+                            {places.map((place) => (
+                                <option key={place.id} value={place.id}>
+                                    {place.name}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                </div>
+            )}
 
             <label className="flex flex-col gap-1.5">
                 <span className="font-medium text-sm">{t("person.fields.notes")}</span>

@@ -9,7 +9,8 @@
 import { and, asc, eq, isNotNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { type AgeInfo, ageOf, todayIn } from "@/lib/age";
+import { type AgeInfo, ageOf, todayIn, upcomingBirthdays } from "@/lib/age";
+import { BIRTHDAY_DAYS } from "@/lib/birthdays";
 import { type Relation, relationsTo } from "@/lib/kinship";
 import { listPersonCards } from "@/lib/people";
 import { CARD_HEIGHT, CARD_WIDTH, layoutTree } from "@/lib/tree-layout";
@@ -34,6 +35,8 @@ export type PersonNodeData = {
     kinship: Relation | null;
     /** The age: today's for the living, the age reached for the dead; null when unknown. */
     age: AgeInfo | null;
+    /** The next birthday within the notice period: its date and the days to it; null otherwise. */
+    birthday: { date: string; inDays: number } | null;
     /** Notes and the timeline of the person, for the panel that opens on a click. */
     details: PersonDetails;
     /** The person's photo album. */
@@ -53,6 +56,8 @@ export type TimelineItem = {
     sortKey: string | null;
     /** For a union: the name of the other partner. */
     partner: string | null;
+    /** The place of the event, when one is chosen. */
+    place: string | null;
 };
 
 export type PersonDetails = {
@@ -91,6 +96,19 @@ export async function loadTreeView(
     const cards = await listPersonCards(treeId);
     if (cards.length === 0) return { nodes: [], edges: [], empty: true };
     const today = todayIn();
+    const soonBirthdays = new Map(
+        upcomingBirthdays(
+            cards.map((card) => ({
+                personId: card.personId,
+                name: card.fullName ?? "",
+                birthDate: card.birthDate,
+                birthPrecision: card.birthPrecision,
+                isLiving: card.isLiving,
+            })),
+            today,
+            BIRTHDAY_DAYS,
+        ).map((entry) => [entry.personId, { date: entry.date, inDays: entry.inDays }]),
+    );
 
     const familyRows = await db
         .select({ id: schema.families.id })
@@ -145,8 +163,10 @@ export async function loadTreeView(
             description: schema.events.description,
             dateOriginal: schema.events.dateOriginal,
             sortDate: schema.events.sortDate,
+            placeName: schema.places.name,
         })
         .from(schema.events)
+        .leftJoin(schema.places, eq(schema.places.id, schema.events.placeId))
         .where(and(eq(schema.events.treeId, treeId), isNotNull(schema.events.personId)));
 
     const familyEventRows = await db
@@ -158,8 +178,10 @@ export async function loadTreeView(
             description: schema.events.description,
             dateOriginal: schema.events.dateOriginal,
             sortDate: schema.events.sortDate,
+            placeName: schema.places.name,
         })
         .from(schema.events)
+        .leftJoin(schema.places, eq(schema.places.id, schema.events.placeId))
         .where(and(eq(schema.events.treeId, treeId), isNotNull(schema.events.familyId)));
 
     const nameOf = new Map(cards.map((card) => [card.personId, card.fullName ?? ""]));
@@ -182,6 +204,7 @@ export async function loadTreeView(
             date: event.dateOriginal,
             sortKey: event.sortDate,
             partner: null,
+            place: event.placeName ?? null,
         });
     }
     // A union's events (the marriage) belong to each of its partners, with the other partner named.
@@ -198,6 +221,7 @@ export async function loadTreeView(
                     date: event.dateOriginal,
                     sortKey: event.sortDate,
                     partner: other ? (nameOf.get(other) ?? null) : null,
+                    place: event.placeName ?? null,
                 });
             }
         }
@@ -248,6 +272,7 @@ export async function loadTreeView(
                         : { x: card.cropX, y: card.cropY, w: card.cropW, h: card.cropH },
                 isSelf: card.personId === selfPersonId,
                 kinship: relations.get(card.personId) ?? null,
+                birthday: soonBirthdays.get(card.personId) ?? null,
                 age: ageOf(
                     {
                         date: card.birthDate,
