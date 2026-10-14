@@ -238,6 +238,14 @@ npm audit           # known vulnerabilities of the pinned tree
 Biome replaces ESLint and Prettier: one dependency instead of a dozen, no peer-dependency graph,
 and import and Tailwind class sorting come along for free (`useSortedClasses` in `biome.json`).
 
+## Docker images
+
+Every version tag (`vX.Y.Z`) is built and pushed to the GitHub Container Registry by
+`.github/workflows/docker.yml`: `ghcr.io/<owner>/familee` gets the tags `X.Y.Z`, `X.Y` and `latest`.
+The image is private while the repository is private. To run a published image instead of building
+it on the server, log in with `docker login ghcr.io` and set `image:` for the `app` service in
+`docker-compose.yml`; the default still builds from the source.
+
 ## Versions
 
 Familee follows [Semantic Versioning](https://semver.org) with the usual `MAJOR.MINOR.PATCH` numbers.

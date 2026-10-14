@@ -234,6 +234,14 @@ npm audit           # известные уязвимости закреплён
 Biome заменяет ESLint и Prettier: одна зависимость вместо десятка, без графа peer-зависимостей, а
 сортировка импортов и классов Tailwind работает из коробки (`useSortedClasses` в `biome.json`).
 
+## Образы Docker
+
+Каждая версия с тегом `vX.Y.Z` собирается и публикуется в GitHub Container Registry workflow-ом
+`.github/workflows/docker.yml`: `ghcr.io/<владелец>/familee` получает теги `X.Y.Z`, `X.Y` и `latest`.
+Пока репозиторий приватный, образ тоже приватный. Чтобы запускать опубликованный образ вместо сборки на
+сервере, выполните `docker login ghcr.io` и укажите `image:` для сервиса `app` в `docker-compose.yml`;
+по умолчанию сборка идёт из исходников.
+
 ## Версии
 
 Familee следует [семантическому версионированию](https://semver.org) с номерами `MAJOR.MINOR.PATCH`.
