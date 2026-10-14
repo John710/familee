@@ -7,7 +7,7 @@
  * be read stays in the notes and is listed as a warning.
  */
 
-import { parseFuzzyDate } from "@/lib/fuzzy-date";
+import { type DateWords, parseFuzzyDate } from "@/lib/fuzzy-date";
 import { child, childrenOf, type GedLine, type GedRecord, parseGedcomFile } from "@/lib/gedcom";
 
 export type PlannedPerson = {
@@ -70,37 +70,46 @@ function singleDate(text: string): string | null {
 
 /**
  * A GEDCOM date as the person editor takes it, or null when it is not read.
- * The modifiers of GEDCOM 5.5.1 and 7.0 (DATE_APPROXIMATE, DATE_RANGE, DATE_PERIOD)
- * map onto the qualifiers of the editor:
- *   ABT x          -> ок. x       (about)
- *   EST x          -> оц. x       (estimated)
- *   CAL x          -> выч. x      (calculated)
- *   BEF x          -> до x        (before)
- *   AFT x          -> после x     (after)
- *   BET x AND y    -> между x и y (between)
- *   FROM x TO y    -> с x по y    (from_to)
+ * The modifiers of GEDCOM 5.5.1 and 7.0 (DATE_APPROXIMATE, DATE_RANGE, DATE_PERIOD) map onto
+ * the qualifiers of the editor, written with the first word of the current locale's list:
+ *   ABT x          -> about x
+ *   EST x          -> estimated x
+ *   CAL x          -> calculated x
+ *   BEF x          -> before x
+ *   AFT x          -> after x
+ *   BET x AND y    -> between x and y
+ *   FROM x TO y    -> from x to y
  * Calendars (@#DJULIAN@ …), "FROM x" and "TO y" alone, and date phrases are not read.
  */
-export function gedcomDateToInput(value: string): { ok: true; input: string } | { ok: false } {
-    const converted = convertGedcomDate(value);
+export function gedcomDateToInput(
+    value: string,
+    words: DateWords,
+): { ok: true; input: string } | { ok: false } {
+    const converted = convertGedcomDate(value, words);
     if (!converted.ok) return converted;
     // A date the editor would refuse (32 JAN, 30 FEB) is not read either: the import must
     // not stop on it later.
-    return parseFuzzyDate(converted.input).ok ? converted : { ok: false };
+    return parseFuzzyDate(converted.input, words).ok ? converted : { ok: false };
 }
 
-function convertGedcomDate(value: string): { ok: true; input: string } | { ok: false } {
+function convertGedcomDate(
+    value: string,
+    words: DateWords,
+): { ok: true; input: string } | { ok: false } {
     const text = value.trim().replace(/\s+/g, " ");
     if (text === "") return { ok: false };
 
+    // The GEDCOM keywords are the format's grammar; the words written into the editor's form
+    // are the locale's own.
+    const word = (list: string[]) => list[0] ?? "";
     const modified: [RegExp, (parts: string[]) => string][] = [
-        [/^BET (.+) AND (.+)$/i, ([a, b]) => `между ${a} и ${b}`],
-        [/^FROM (.+) TO (.+)$/i, ([a, b]) => `с ${a} по ${b}`],
-        [/^ABT (.+)$/i, ([a]) => `ок. ${a}`],
-        [/^EST (.+)$/i, ([a]) => `оц. ${a}`],
-        [/^CAL (.+)$/i, ([a]) => `выч. ${a}`],
-        [/^BEF (.+)$/i, ([a]) => `до ${a}`],
-        [/^AFT (.+)$/i, ([a]) => `после ${a}`],
+        [/^BET (.+) AND (.+)$/i, ([a, b]) => `${word(words.between)} ${a} ${word(words.and)} ${b}`],
+        [/^FROM (.+) TO (.+)$/i, ([a, b]) => `${word(words.from)} ${a} ${word(words.to)} ${b}`],
+        [/^ABT (.+)$/i, ([a]) => `${word(words.about)} ${a}`],
+        [/^EST (.+)$/i, ([a]) => `${word(words.estimated)} ${a}`],
+        [/^CAL (.+)$/i, ([a]) => `${word(words.calculated)} ${a}`],
+        [/^BEF (.+)$/i, ([a]) => `${word(words.before)} ${a}`],
+        [/^AFT (.+)$/i, ([a]) => `${word(words.after)} ${a}`],
     ];
 
     for (const [pattern, build] of modified) {
@@ -146,7 +155,7 @@ function splitName(record: GedRecord): {
     }
 
     // The standard separates several given names with a comma (NAME_PIECE_GIVEN).
-    // The MyHeritage export writes the patronymic after a space instead: "Сергей Михайлович".
+    // The MyHeritage export writes the patronymic after a space instead of in a separate tag.
     // Here the first word is the given name and the rest the patronymic. A comma-separated
     // list of given names is kept as it is.
     const words = given.split(/\s+/).filter(Boolean);
@@ -156,7 +165,7 @@ function splitName(record: GedRecord): {
     return { surname, given: firstName, patronymic, suffix: suffix.trim() };
 }
 
-/** Strips the markup of a free text (<DSCR><HAIR>Кудрявый</HAIR></DSCR> -> "Кудрявый"). */
+/** Strips the markup of a free text (<DSCR><HAIR>curly</HAIR></DSCR> -> "curly"). */
 function plainText(value: string): string {
     return value
         .replace(/<[^>]+>/g, " ")
@@ -164,7 +173,28 @@ function plainText(value: string): string {
         .trim();
 }
 
-export function planImport(text: string): ImportPlan {
+/** The messages of the planner, keyed as in the gedcom.plan namespace of the translation files. */
+export type PlanKey =
+    | "skippedLines"
+    | "noName"
+    | "suffixInFile"
+    | "birthPhrase"
+    | "birthDateInFile"
+    | "birthDateNotRead"
+    | "deathPhrase"
+    | "deathDateInFile"
+    | "deathDateNotRead"
+    | "deathWithoutDate"
+    | "unionWithoutPartners"
+    | "marriageDateNotRead";
+
+/** What the planner takes from the request: the words of the date parser and the translator. */
+export type PlanContext = {
+    words: DateWords;
+    t: (key: PlanKey, values?: Record<string, string | number>) => string;
+};
+
+export function planImport(text: string, ctx: PlanContext): ImportPlan {
     const file = parseGedcomFile(text);
     const records = file.records;
     const warnings: ImportPlan["warnings"] = [];
@@ -174,7 +204,7 @@ export function planImport(text: string): ImportPlan {
     if (file.skippedLines > 0) {
         warnings.push({
             xref: "file",
-            message: `${file.skippedLines} lines do not follow the GEDCOM grammar and were skipped`,
+            message: ctx.t("skippedLines", { count: file.skippedLines }),
         });
     }
 
@@ -184,12 +214,12 @@ export function planImport(text: string): ImportPlan {
         const { surname, given, patronymic, suffix } = splitName(record);
 
         if (surname === "" && given === "") {
-            warnings.push({ xref, message: "no name in the file: the person is not imported" });
+            warnings.push({ xref, message: ctx.t("noName") });
             continue;
         }
 
         const notes: string[] = [];
-        if (suffix) notes.push(`суффикс в файле: ${suffix}`);
+        if (suffix) notes.push(ctx.t("suffixInFile", { suffix }));
         const dscr = child(record, "DSCR");
         if (dscr) {
             const description = plainText(dscr.value);
@@ -200,14 +230,14 @@ export function planImport(text: string): ImportPlan {
         const birt = child(record, "BIRT");
         if (birt) {
             const { date, phrase } = dateOf(birt);
-            if (phrase) notes.push(`дата рождения (фраза): ${phrase}`);
+            if (phrase) notes.push(ctx.t("birthPhrase", { phrase }));
             if (date) {
-                const read = gedcomDateToInput(date);
+                const read = gedcomDateToInput(date, ctx.words);
                 if (read.ok) {
                     birth = read.input;
                 } else {
-                    notes.push(`дата рождения в файле: ${date}`);
-                    warnings.push({ xref, message: `birth date not read: ${date}` });
+                    notes.push(ctx.t("birthDateInFile", { date }));
+                    warnings.push({ xref, message: ctx.t("birthDateNotRead", { date }) });
                 }
             }
         }
@@ -216,20 +246,17 @@ export function planImport(text: string): ImportPlan {
         const deat = child(record, "DEAT");
         if (deat) {
             const { date, phrase } = dateOf(deat);
-            if (phrase) notes.push(`дата смерти (фраза): ${phrase}`);
+            if (phrase) notes.push(ctx.t("deathPhrase", { phrase }));
             if (date) {
-                const read = gedcomDateToInput(date);
+                const read = gedcomDateToInput(date, ctx.words);
                 if (read.ok) {
                     death = read.input;
                 } else {
-                    notes.push(`дата смерти в файле: ${date}`);
-                    warnings.push({ xref, message: `death date not read: ${date}` });
+                    notes.push(ctx.t("deathDateInFile", { date }));
+                    warnings.push({ xref, message: ctx.t("deathDateNotRead", { date }) });
                 }
             } else {
-                warnings.push({
-                    xref,
-                    message: "death without a date: the person is not marked deceased",
-                });
+                warnings.push({ xref, message: ctx.t("deathWithoutDate") });
             }
         }
 
@@ -264,7 +291,7 @@ export function planImport(text: string): ImportPlan {
         if (partners.length === 0 && children.length === 0) {
             warnings.push({
                 xref: record.xref,
-                message: "union without imported partners or children",
+                message: ctx.t("unionWithoutPartners"),
             });
             continue;
         }
@@ -274,13 +301,13 @@ export function planImport(text: string): ImportPlan {
         if (marr) {
             const { date } = dateOf(marr);
             if (date) {
-                const read = gedcomDateToInput(date);
+                const read = gedcomDateToInput(date, ctx.words);
                 if (read.ok) {
                     marriage = read.input;
                 } else {
                     warnings.push({
                         xref: record.xref,
-                        message: `marriage date not read: ${date}`,
+                        message: ctx.t("marriageDateNotRead", { date }),
                     });
                 }
             }

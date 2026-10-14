@@ -678,6 +678,14 @@ insert into familee.notes (tree_id, title, body, person_id, family_id, event_id,
         'Walter spoke for two hours in 2009. He asked to be heard about the engineering work, not the war.',
         pg_temp.person(14), null, null, null, null);
 
+-- Everybody who has an account when the seed runs becomes an editor of the demo tree, so that
+-- the features can be tried on it. The tree has no owner. Accounts created later are not added:
+-- run the seed again to include them.
+insert into familee.tree_members (tree_id, user_id, role)
+select '11111111-1111-4111-8111-111111111111', u.id, 'editor'
+  from familee.users u
+on conflict (tree_id, user_id) do nothing;
+
 commit;
 
 -- ─── What came out of it ────────────────────────────────────────────

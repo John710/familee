@@ -1,7 +1,7 @@
 -- Familee - migration 0004: the member roles
 --
 -- The role "contributor" is removed. The role "editor" is shown to people as
--- "Соавтор" / "Co-author" from now on. Existing contributors become editors: the
+-- "co-author" from now on. Existing contributors become editors: the
 -- two roles were the same kind of person, and the owner's decision is that they
 -- write to the archive.
 --

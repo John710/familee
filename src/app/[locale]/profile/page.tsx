@@ -3,13 +3,14 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-
+import { DemoDataButton } from "@/components/profile/demo-data-button";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { SelfPersonSelect } from "@/components/profile/self-person-select";
 import { SessionsList, type SignedInDevice } from "@/components/profile/sessions-list";
 import { db, schema } from "@/db";
 import { routing } from "@/i18n/routing";
 import { auth } from "@/lib/auth";
+import { profileCover } from "@/lib/profile-cover";
 import { requireUser } from "@/lib/session";
 import { listPersonOptions } from "@/lib/unions";
 
@@ -25,6 +26,12 @@ export default async function ProfilePage({ params }: { params: Promise<Params> 
 
     const user = await requireUser(locale, "/profile");
     const t = await getTranslations();
+    const cover = await profileCover(user.id);
+    const [me] = await db
+        .select({ role: schema.users.role })
+        .from(schema.users)
+        .where(eq(schema.users.id, user.id))
+        .limit(1);
 
     const [account] = await db
         .select({ name: schema.users.name, username: schema.users.username })
@@ -85,6 +92,22 @@ export default async function ProfilePage({ params }: { params: Promise<Params> 
                 <div className="card-body gap-4">
                     <h1 className="font-semibold font-serif text-3xl">{t("profile.title")}</h1>
                     <p className="text-base-content/60 text-sm">{user.email}</p>
+                    {cover && (
+                        <figure className="flex items-center gap-4">
+                            {/* biome-ignore lint/performance/noImgElement: the picture comes from our own route, already sized as a medium variant */}
+                            <img
+                                src={cover.photoUrl}
+                                alt={cover.personName}
+                                className="size-24 rounded-box object-cover"
+                            />
+                            <figcaption className="flex min-w-0 flex-col text-sm">
+                                <span className="truncate font-medium">{cover.personName}</span>
+                                <a href={cover.href} className="link text-base-content/60">
+                                    {cover.treeTitle}
+                                </a>
+                            </figcaption>
+                        </figure>
+                    )}
                     <ProfileForm name={account?.name ?? ""} username={account?.username ?? ""} />
                 </div>
             </section>
@@ -113,6 +136,13 @@ export default async function ProfilePage({ params }: { params: Promise<Params> 
                     ))
                 )}
             </section>
+            {me?.role === "admin" && (
+                <section className="flex flex-col gap-4 lg:col-span-2">
+                    <h2 className="font-semibold text-lg">{t("profile.demo.title")}</h2>
+                    <p className="text-base-content/60 text-sm">{t("profile.demo.hint")}</p>
+                    <DemoDataButton />
+                </section>
+            )}
         </div>
     );
 }

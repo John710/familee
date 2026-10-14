@@ -36,6 +36,8 @@ export const treeMembers = familee.table(
         selfPersonId: uuid("self_person_id").references(() => persons.id, {
             onDelete: "set null",
         }),
+        /** When the choice of self was made: the profile shows the most recent choice. */
+        selfChosenAt: timestamp("self_chosen_at", { withTimezone: true, mode: "date" }),
         invitedBy: text("invited_by").references(() => users.id, {
             onDelete: "set null",
         }),

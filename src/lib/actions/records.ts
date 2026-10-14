@@ -13,6 +13,7 @@ import { and, asc, eq, notInArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { clearedFields, diffFields, writeAudit } from "@/lib/audit";
+import { loadDateWords } from "@/lib/date-words";
 import { parseFuzzyDate } from "@/lib/fuzzy-date";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
@@ -256,7 +257,7 @@ export async function saveEventAction(
     const type = types.find((candidate) => candidate.code === input.typeCode);
     if (!type) return { ok: false, error: "validation.required" };
 
-    const date = parseFuzzyDate(input.date);
+    const date = parseFuzzyDate(input.date, await loadDateWords());
     if (!date.ok) return { ok: false, error: date.error };
 
     const values = {

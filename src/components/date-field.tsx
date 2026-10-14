@@ -4,7 +4,7 @@
  * Familee - a date field with a calendar.
  *
  * The text field takes dates as people write them: "1921-04-12", "1921-04",
- * "1921", "ок. 1920" (see src/lib/fuzzy-date.ts). The calendar button opens the
+ * "1921", "about 1920" (see src/lib/fuzzy-date.ts). The calendar button opens the
  * browser's own date picker and writes the chosen day into the text field as
  * YYYY-MM-DD. The picker is a hidden input without a name, so only the text is
  * submitted.

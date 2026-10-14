@@ -7,14 +7,19 @@
  *   12.04.1921 · 1921-04-12   exact day
  *   04.1921 · 1921-04         exact month
  *   1921                      exact year
- *   ок. 1921 · c. 1921        about              (GEDCOM ABT)
- *   оц. 1921                  estimated          (GEDCOM EST)
- *   выч. 1921                 calculated         (GEDCOM CAL)
- *   до 1921                   before             (GEDCOM BEF)
- *   после 1921                after              (GEDCOM AFT)
- *   между 1915 и 1918         between            (GEDCOM BET … AND)
- *   с 1915 по 1918            from_to            (GEDCOM FROM … TO)
+ *   about 1921 · c. 1921      about              (GEDCOM ABT)
+ *   estimated 1921            estimated          (GEDCOM EST)
+ *   calculated 1921           calculated         (GEDCOM CAL)
+ *   before 1921               before             (GEDCOM BEF)
+ *   after 1921                after              (GEDCOM AFT)
+ *   between 1915 and 1918     between            (GEDCOM BET … AND)
+ *   from 1915 to 1918         from_to            (GEDCOM FROM … TO)
  *   1915 – 1918               between (a range with spaces around the dash)
+ *
+ * The words are not written here: they come from the translation files (the
+ * dates.words keys of each locale, see src/lib/date-words.ts), so a new language
+ * teaches the parser through its messages file alone. The English words are always
+ * accepted as well, because the GEDCOM words are English.
  *
  * The original text is kept as date_original, so the record shows what was written.
  * Only the gregorian calendar is read here (see the calendar column for the rest).
@@ -41,6 +46,23 @@ export type ParsedDate = {
 
 export type DateParseResult = { ok: true; value: ParsedDate | null } | { ok: false; error: string };
 
+/** The words the parser knows, per meaning. Each list holds the alternatives of one word. */
+export type DateWords = {
+    between: string[];
+    and: string[];
+    from: string[];
+    to: string[];
+    before: string[];
+    after: string[];
+    estimated: string[];
+    calculated: string[];
+    about: string[];
+    /** Words that may follow a year in some language, such as "g." or "years"; may be empty. */
+    yearSuffixes: string[];
+};
+
+export type DateWordKey = keyof DateWords;
+
 /** One date, read on its own: the first and the last day of the period it names. */
 type Single = { precision: "day" | "month" | "year"; start: string; end: string | null };
 
@@ -49,34 +71,43 @@ const DOTTED_DAY = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
 const DOTTED_MONTH = /^(\d{1,2})\.(\d{4})$/;
 
 /** Empty input means "no date" and is not an error. */
-export function parseFuzzyDate(raw: string): DateParseResult {
+export function parseFuzzyDate(raw: string, words: DateWords): DateParseResult {
     const original = raw.trim().replace(/\s+/g, " ");
     if (original === "") return { ok: true, value: null };
 
-    // Ranges first: "между … и …", "с … по …", "… – …" (spaces around the dash, so that
-    // the dashes of ISO dates are not taken for a range).
-    const between = /^(?:между|between) (.+?) (?:и|and) (.+)$/i.exec(original);
-    if (between) return range("between", original, between[1] ?? "", between[2] ?? "");
+    // Ranges first, so that the dashes of ISO dates are not taken for a range: the dash
+    // of a range has spaces around it.
+    const between = new RegExp(
+        `^(?:${alternatives(words.between)})\\s+(.+?)\\s+(?:${alternatives(words.and)})\\s+(.+)$`,
+        "i",
+    ).exec(original);
+    if (between) return range("between", original, between[1] ?? "", between[2] ?? "", words);
 
-    const fromTo = /^(?:с|from) (.+?) (?:по|to) (.+)$/i.exec(original);
-    if (fromTo) return range("from_to", original, fromTo[1] ?? "", fromTo[2] ?? "");
+    const fromTo = new RegExp(
+        `^(?:${alternatives(words.from)})\\s+(.+?)\\s+(?:${alternatives(words.to)})\\s+(.+)$`,
+        "i",
+    ).exec(original);
+    if (fromTo) return range("from_to", original, fromTo[1] ?? "", fromTo[2] ?? "", words);
 
     const dash = /^(.+) [–-] (.+)$/.exec(original);
-    if (dash) return range("between", original, dash[1] ?? "", dash[2] ?? "");
+    if (dash) return range("between", original, dash[1] ?? "", dash[2] ?? "", words);
 
-    // Qualifiers in front of one date. The Latin forms are the GEDCOM words.
-    // The longer word goes first ("calc" before "cal", "около" before "c"), and the dot is optional.
-    const qualified: [RegExp, DateQualifier][] = [
-        [/^(?:до|bef|before) (.+)$/i, "before"],
-        [/^(?:после|aft|after) (.+)$/i, "after"],
-        [/^(?:оц|est)\.? ?(.+)$/i, "estimated"],
-        [/^(?:выч|calc|cal)\.? ?(.+)$/i, "calculated"],
-        [/^(?:около|about|abt|ок|c)\.? ?(.+)$/i, "about"],
+    // A qualifier in front of one date. The word must end at a space, a dot or a digit, so that
+    // "est" does not take the start of "estimated". The longest alternatives are tried first.
+    const qualified: [string[], DateQualifier][] = [
+        [words.before, "before"],
+        [words.after, "after"],
+        [words.estimated, "estimated"],
+        [words.calculated, "calculated"],
+        [words.about, "about"],
     ];
-    for (const [pattern, qualifier] of qualified) {
-        const match = pattern.exec(original);
+    for (const [list, qualifier] of qualified) {
+        if (list.length === 0) continue;
+        const match = new RegExp(`^(?:${alternatives(list)})(?=[\\s.\\d])\\.?\\s*(.+)$`, "i").exec(
+            original,
+        );
         if (match) {
-            const single = readSingle(match[1] ?? "");
+            const single = readSingle(match[1] ?? "", words);
             if (!single) return invalid();
             return {
                 ok: true,
@@ -91,7 +122,7 @@ export function parseFuzzyDate(raw: string): DateParseResult {
         }
     }
 
-    const single = readSingle(original);
+    const single = readSingle(original, words);
     if (!single) return invalid();
     return {
         ok: true,
@@ -105,14 +136,27 @@ export function parseFuzzyDate(raw: string): DateParseResult {
     };
 }
 
+/**
+ * The alternatives of one word as a regular expression fragment: escaped, and the longest
+ * first, so that "calculated" is tried before "calc" and "calc" before "cal".
+ */
+function alternatives(list: string[]): string {
+    return [...list]
+        .filter((word) => word.length > 0)
+        .sort((a, b) => b.length - a.length)
+        .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join("|");
+}
+
 function range(
     qualifier: "between" | "from_to",
     original: string,
     fromText: string,
     toText: string,
+    words: DateWords,
 ): DateParseResult {
-    const from = readSingle(fromText);
-    const to = readSingle(toText);
+    const from = readSingle(fromText, words);
+    const to = readSingle(toText, words);
     if (!from || !to) return invalid();
     if (to.end !== null ? to.end < from.start : to.start < from.start) return invalid();
 
@@ -136,9 +180,15 @@ function range(
 }
 
 /** One date without any qualifier: 1921, 1921-04, 1921-04-12, 04.1921 or 12.04.1921. */
-function readSingle(text: string): Single | null {
-    // Russian sources write the year with its word: "около 1901 года", "1901 г.".
-    const value = text.trim().replace(/\s*(?:года|год|г\.?)$/i, "");
+function readSingle(text: string, words: DateWords): Single | null {
+    // Some languages write the year with a word after it ("1901 g." in one, "1901 years" in another).
+    let value = text.trim();
+    if (words.yearSuffixes.length > 0) {
+        value = value.replace(
+            new RegExp(`\\s*(?:${alternatives(words.yearSuffixes)})\\.?$`, "i"),
+            "",
+        );
+    }
 
     const dotted = DOTTED_DAY.exec(value);
     if (dotted) {

@@ -9,8 +9,10 @@
  * the editor role or higher in the tree.
  */
 
+import { getTranslations } from "next-intl/server";
+import { loadDateWords } from "@/lib/date-words";
 import { importIntoTree } from "@/lib/gedcom-import";
-import { planImport } from "@/lib/gedcom-plan";
+import { type PlanContext, type PlanKey, planImport } from "@/lib/gedcom-plan";
 import { decodeGedcomBytes } from "@/lib/gedcom-text";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
@@ -66,7 +68,7 @@ export async function previewGedcomAction(input: {
     const file = readFile(input.bytes);
     if (file.error !== null) return { ok: false, error: file.error };
 
-    const plan = planImport(file.text);
+    const plan = planImport(file.text, await planContext());
     if (plan.persons.length === 0) return { ok: false, error: "gedcom.empty" };
 
     const children = plan.unions.reduce((total, union) => total + union.children.length, 0);
@@ -91,13 +93,14 @@ export async function commitGedcomAction(input: {
     const file = readFile(input.bytes);
     if (file.error !== null) return { ok: false, error: file.error };
 
-    const plan = planImport(file.text);
+    const plan = planImport(file.text, await planContext());
     if (plan.persons.length === 0) return { ok: false, error: "gedcom.empty" };
 
     const result = await importIntoTree({
         treeId: check.access.treeId,
         userId: check.user.id,
         plan,
+        words: await loadDateWords(),
     });
     if (!result.ok) return result;
     return {
@@ -106,5 +109,16 @@ export async function commitGedcomAction(input: {
         unions: result.unions,
         children: result.children,
         events: result.events,
+    };
+}
+
+/** The date words and the translated messages of the request, for the GEDCOM planner. */
+async function planContext(): Promise<PlanContext> {
+    const words = await loadDateWords();
+    const t = await getTranslations("gedcom.plan");
+    return {
+        words,
+        t: (key: PlanKey, values?: Record<string, string | number>) =>
+            t(key as Parameters<typeof t>[0], values),
     };
 }

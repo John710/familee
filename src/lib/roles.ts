@@ -7,7 +7,7 @@
  * The roles, from the strongest to the weakest:
  *   owner   - everything, including the tree itself
  *   admin   - manages members and invitations
- *   editor  - writes the archive (shown to people as "Соавтор" / "Co-author")
+ *   editor  - writes the archive (shown to people as "co-author")
  *   viewer  - reads the archive
  */
 

@@ -76,6 +76,7 @@ RUN mkdir -p /data/media && chown -R node:node /data/media
 COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/db/seed.sql ./db/seed.sql
 
 USER node
 EXPOSE 3000

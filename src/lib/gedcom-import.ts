@@ -12,7 +12,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
-import { type ParsedDate, parseFuzzyDate } from "@/lib/fuzzy-date";
+import { type DateWords, type ParsedDate, parseFuzzyDate } from "@/lib/fuzzy-date";
 import type { ImportPlan } from "@/lib/gedcom-plan";
 
 export type ImportResult =
@@ -25,8 +25,10 @@ export async function importIntoTree(input: {
     treeId: string;
     userId: string;
     plan: ImportPlan;
+    /** The date words of the request's locale, for the dates the file holds. */
+    words: DateWords;
 }): Promise<ImportResult> {
-    const { treeId, userId, plan } = input;
+    const { treeId, userId, plan, words } = input;
 
     const existingPersons = await db
         .select({ xref: schema.persons.gedcomXref })
@@ -92,8 +94,8 @@ export async function importIntoTree(input: {
                     patronymic: person.patronymic || null,
                 });
 
-                events += await lifeEvent(tx, treeId, created.id, "birth", person.birth);
-                events += await lifeEvent(tx, treeId, created.id, "death", person.death);
+                events += await lifeEvent(tx, treeId, created.id, "birth", person.birth, words);
+                events += await lifeEvent(tx, treeId, created.id, "death", person.death, words);
             }
 
             for (const union of plan.unions) {
@@ -101,7 +103,7 @@ export async function importIntoTree(input: {
                 const kids = union.children.filter((ref) => personIdOf.has(ref));
                 if (partners.length === 0 && kids.length === 0) continue;
 
-                const marriage = union.marriage ? parseFuzzyDate(union.marriage) : null;
+                const marriage = union.marriage ? parseFuzzyDate(union.marriage, words) : null;
                 const marriageValue = marriage?.ok ? marriage.value : null;
 
                 const [family] = await tx
@@ -171,9 +173,10 @@ async function lifeEvent(
     personId: string,
     typeCode: "birth" | "death",
     input: string,
+    words: DateWords,
 ): Promise<number> {
     if (input.trim() === "") return 0;
-    const parsed = parseFuzzyDate(input);
+    const parsed = parseFuzzyDate(input, words);
     if (!parsed.ok || !parsed.value) return 0;
     await tx.insert(schema.events).values({
         ...dateFields(parsed.value),

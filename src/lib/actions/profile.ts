@@ -56,7 +56,11 @@ export async function setSelfPersonAction(input: {
 
     await db
         .update(schema.treeMembers)
-        .set({ selfPersonId: input.personId, updatedAt: new Date() })
+        .set({
+            selfPersonId: input.personId,
+            selfChosenAt: input.personId ? new Date() : null,
+            updatedAt: new Date(),
+        })
         .where(
             and(
                 eq(schema.treeMembers.treeId, access.treeId),

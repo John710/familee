@@ -149,7 +149,15 @@
         "whoAmIHint": "Choose yourself among the people of the tree. The app will then show how you are related to the others.",
         "whoAmI": "Who you are",
         "notChosen": "Not chosen",
-        "personTaken": "Another member has already chosen this person"
+        "personTaken": "Another member has already chosen this person",
+        "demo": {
+            "title": "Demo data",
+            "hint": "Creates the demo tree \"demo\" with the fictional Callahan family, so that anyone who runs Familee can see every feature. An existing demo tree is replaced and its people, photographs and files are deleted. Your own trees are not touched.",
+            "button": "Create the demo tree",
+            "warning": "The demo tree \"demo\" is replaced with the fictional Callahan family. Everything in the current demo tree, including its people and photographs, is deleted. Your own trees are not touched. Continue?",
+            "done": "The demo tree is created. Open it from your trees.",
+            "failed": "The demo tree could not be created. The details are in the server log."
+        }
     },
     "logo": {
         "invalid": "Choose a PNG, JPEG or WebP picture",
@@ -605,6 +613,20 @@
         "ageAtDeath": "{years, plural, one {# year} other {# years}} at death",
         "julianHint": "Old Style date"
     },
+    "dates": {
+        "words": {
+            "between": "between|bet",
+            "and": "and",
+            "from": "from",
+            "to": "to",
+            "before": "before|bef",
+            "after": "after|aft",
+            "estimated": "estimated|est",
+            "calculated": "calculated|calc|cal",
+            "about": "about|abt|circa|c",
+            "yearSuffixes": "year|years"
+        }
+    },
     "kinship": {
         "title": "Relationship",
         "self": "the same person",
@@ -705,7 +727,21 @@
         "done": "Added: people {persons}, unions {families}, events {events}",
         "tooLarge": "The file is too large",
         "empty": "No people were found in the file",
-        "alreadyImported": "These people or unions are already in the tree: the repeated import was stopped"
+        "alreadyImported": "These people or unions are already in the tree: the repeated import was stopped",
+        "plan": {
+            "skippedLines": "{count} lines do not follow the GEDCOM grammar and were skipped",
+            "noName": "no name in the file: the person is not imported",
+            "suffixInFile": "suffix in file: {suffix}",
+            "birthPhrase": "birth date (phrase): {phrase}",
+            "birthDateInFile": "birth date in file: {date}",
+            "birthDateNotRead": "birth date not read: {date}",
+            "deathPhrase": "death date (phrase): {phrase}",
+            "deathDateInFile": "death date in file: {date}",
+            "deathDateNotRead": "death date not read: {date}",
+            "deathWithoutDate": "death without a date: the person is not marked deceased",
+            "unionWithoutPartners": "union without imported partners or children",
+            "marriageDateNotRead": "marriage date not read: {date}"
+        }
     },
     "validation": {
         "required": "Please fill this in",

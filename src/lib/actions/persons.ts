@@ -15,6 +15,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { diffFields, writeAudit } from "@/lib/audit";
+import { loadDateWords } from "@/lib/date-words";
 import { type ParsedDate, parseFuzzyDate } from "@/lib/fuzzy-date";
 import { getPersonForEdit } from "@/lib/people";
 import { atLeast, type MemberRole } from "@/lib/roles";
@@ -77,9 +78,9 @@ async function savePerson(
         return { ok: false, error: "validation.required" };
     }
 
-    const birth = parseFuzzyDate(input.birth);
+    const birth = parseFuzzyDate(input.birth, await loadDateWords());
     if (!birth.ok) return { ok: false, error: birth.error };
-    const death = parseFuzzyDate(input.death);
+    const death = parseFuzzyDate(input.death, await loadDateWords());
     if (!death.ok) return { ok: false, error: death.error };
 
     if (birth.value && death.value && death.value.dateStart < birth.value.dateStart) {

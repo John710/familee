@@ -3,8 +3,8 @@
 /**
  * Familee - importing a GEDCOM file into a tree, in two steps.
  *
- * "Проверить" reads the file and shows what would be added, with the warnings; only
- * after that "Импортировать" becomes active and writes it. The file never leaves the
+ * The "Check" button reads the file and shows what would be added, with the warnings; only
+ * after that the "Import" button becomes active and writes it. The file never leaves the
  * browser except as the text sent to the server actions.
  */
 
