@@ -11,11 +11,10 @@
  */
 
 import { Check, Languages } from "lucide-react";
-import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import { useRouter } from "@/i18n/navigation";
+import { usePathname, useRouter } from "@/i18n/navigation";
 import { localeCookieName, locales } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 
