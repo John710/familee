@@ -12,6 +12,7 @@ import { BirthdayBell } from "@/components/layout/birthday-bell";
 import { ProfileMenu } from "@/components/layout/profile-menu";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { localeNames } from "@/i18n/locale-names";
 import { Link } from "@/i18n/navigation";
 import { getCurrentUser } from "@/lib/session";
 
@@ -51,7 +52,7 @@ export async function SiteHeader() {
                             {t("auth.signIn")}
                         </Link>
                     )}
-                    <LocaleSwitcher />
+                    <LocaleSwitcher labels={await localeNames()} />
                     <ThemeToggle />
                 </div>
             </div>

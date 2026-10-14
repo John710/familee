@@ -40,10 +40,14 @@ export async function createDemoTreeAction(): Promise<DemoResult> {
             .limit(1);
         if (old) await removeTreeFiles(old.id);
 
-        // The script has its own BEGIN and COMMIT and several statements: it runs as one
-        // simple query on one connection.
         const script = await readFile(path.join(process.cwd(), "db", "seed.sql"), "utf8");
-        await client.unsafe(script);
+        // A reserved connection: the script starts its own transaction, which the pool refuses to run.
+        const connection = await client.reserve();
+        try {
+            await connection.unsafe(script);
+        } finally {
+            connection.release();
+        }
         return { ok: true };
     } catch (error) {
         console.error("demo tree: the seed failed", error);

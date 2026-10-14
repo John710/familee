@@ -13,7 +13,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const locales = ["ru", "en"];
+// The languages come from the messages folder, the same list the application reads.
+const locales = JSON.parse(readFileSync(join(root, "messages", "locales.json"), "utf8")).locales;
 
 /** Turns nested objects into a flat map: { "events.birth": "Birth", ... }. */
 function flatten(node, prefix = "", out = {}) {

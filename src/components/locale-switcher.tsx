@@ -16,10 +16,10 @@ import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { useRouter } from "@/i18n/navigation";
-import { localeLabels, locales } from "@/i18n/routing";
+import { localeCookieName, locales } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 
-export function LocaleSwitcher() {
+export function LocaleSwitcher({ labels }: { labels: Record<string, string> }) {
     const t = useTranslations("locale");
     const activeLocale = useLocale();
     const router = useRouter();
@@ -53,6 +53,10 @@ export function LocaleSwitcher() {
         setOpen(false);
         if (locale === activeLocale) return;
 
+        // The cookie is set here: the unprefixed address of the default language does not refresh it,
+        // so without this a switch back to the default language would be sent back to the other one.
+        document.cookie = `${localeCookieName}=${locale}; path=/; max-age=31536000; samesite=lax`;
+
         startTransition(() => {
             // currentPath is without the language prefix, the router adds it.
             router.replace(currentPath, { locale });
@@ -85,7 +89,7 @@ export function LocaleSwitcher() {
                                 className="flex items-center justify-between gap-2"
                                 aria-current={locale === activeLocale ? "true" : undefined}
                             >
-                                {localeLabels[locale]}
+                                {labels[locale] ?? locale}
                                 {locale === activeLocale && <Check className="size-4" />}
                             </button>
                         </li>
