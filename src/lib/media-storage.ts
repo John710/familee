@@ -31,7 +31,9 @@ export function variantKeys(treeId: string, checksum: string): Record<MediaVaria
 
 function filePath(key: string): string {
     if (!KEY_PATTERN.test(key)) throw new Error("invalid media key");
-    return path.join(mediaRoot(), ...key.split("/"));
+    // The root comes from MEDIA_ROOT at run time, not from the code: the magic comment stops the
+    // bundler from tracing the whole project as if the path were a source file.
+    return path.join(/* turbopackIgnore: true */ mediaRoot(), ...key.split("/"));
 }
 
 export async function writeMediaFile(key: string, data: Buffer): Promise<void> {
