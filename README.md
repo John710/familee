@@ -33,6 +33,17 @@ with a domain of your own.
   handed out by an administrator, the change history for owners and administrators, and the list of
   devices a person is signed in on.
 
+## Screenshots
+
+<!--
+  Put the images into the screenshots folder and uncomment the lines you want:
+
+  ![The family tree](screenshots/tree.png)
+  ![A person page: the timeline and the age](screenshots/person.png)
+  ![The library: places and sources](screenshots/library.png)
+  ![The birthdays of the next two weeks](screenshots/birthdays.png)
+-->
+
 ## What is inside
 
 Next.js 16.4 (App Router, server actions) on React 19.3 and TypeScript 7. Data lives in Postgres and
