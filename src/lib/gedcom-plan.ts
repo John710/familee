@@ -15,6 +15,7 @@ export type PlannedPerson = {
     surname: string;
     given: string;
     patronymic: string;
+    suffix: string;
     sex: "male" | "female" | "unknown";
     birth: string;
     death: string;
@@ -177,7 +178,6 @@ function plainText(value: string): string {
 export type PlanKey =
     | "skippedLines"
     | "noName"
-    | "suffixInFile"
     | "birthPhrase"
     | "birthDateInFile"
     | "birthDateNotRead"
@@ -219,7 +219,6 @@ export function planImport(text: string, ctx: PlanContext): ImportPlan {
         }
 
         const notes: string[] = [];
-        if (suffix) notes.push(ctx.t("suffixInFile", { suffix }));
         const dscr = child(record, "DSCR");
         if (dscr) {
             const description = plainText(dscr.value);
@@ -270,6 +269,7 @@ export function planImport(text: string, ctx: PlanContext): ImportPlan {
             surname,
             given,
             patronymic,
+            suffix,
             sex,
             birth,
             death,

@@ -92,6 +92,7 @@ export async function importIntoTree(input: {
                     surname: person.surname || null,
                     given: person.given || null,
                     patronymic: person.patronymic || null,
+                    suffix: person.suffix || null,
                 });
 
                 events += await lifeEvent(tx, treeId, created.id, "birth", person.birth, words);

@@ -119,7 +119,7 @@ export const personNames = familee.table(
          * the SQL word for word: concat_ws() is banned here, it is STABLE.
          */
         display: text("display").generatedAlwaysAs(
-            sql`btrim(coalesce(nullif(btrim(surname), '') || ' ', '') || coalesce(nullif(btrim(given), '') || ' ', '') || coalesce(nullif(btrim(patronymic), ''), ''))`,
+            sql`btrim(coalesce(nullif(btrim(surname), '') || ' ', '') || coalesce(nullif(btrim(given), '') || ' ', '') || coalesce(nullif(btrim(patronymic), '') || ' ', '') || coalesce(nullif(btrim(suffix), ''), ''))`,
         ),
 
         /**

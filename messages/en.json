@@ -730,7 +730,6 @@
         "plan": {
             "skippedLines": "{count} lines do not follow the GEDCOM grammar and were skipped",
             "noName": "no name in the file: the person is not imported",
-            "suffixInFile": "suffix in file: {suffix}",
             "birthPhrase": "birth date (phrase): {phrase}",
             "birthDateInFile": "birth date in file: {date}",
             "birthDateNotRead": "birth date not read: {date}",
