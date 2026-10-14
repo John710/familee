@@ -10,6 +10,8 @@
 
 import { hasLocale } from "next-intl";
 import { getRequestConfig } from "next-intl/server";
+
+import { appTimeZone } from "@/lib/age";
 import { defaultLocale, type Locale, routing } from "./routing";
 
 /** A tree of translations: a value is either a string or a nested section. */
@@ -93,7 +95,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
          * The dates of events are plain calendar dates without a time, but the
          * time of an edit is shown in the time zone of the server.
          */
-        timeZone: process.env.APP_TIME_ZONE ?? "Europe/Moscow",
+        timeZone: appTimeZone(),
 
         /**
          * A missing key means an unfinished translation, not a breakage:

@@ -12,7 +12,9 @@
 export type Relation =
     | { kind: "self" }
     | { kind: "spouse" }
-    | { kind: "blood"; up: number; down: number };
+    | { kind: "blood"; up: number; down: number }
+    /** The spouse of a blood relative: the relative's own relation, named "...-in-law". */
+    | { kind: "inLaw"; up: number; down: number };
 
 export type KinshipFamily = { partners: string[]; children: string[] };
 
@@ -82,6 +84,18 @@ export function relationsTo(
             if (better) best = { up, down };
         }
         if (best) result.set(person, { kind: "blood", up: best.up, down: best.down });
+    }
+
+    // The spouses of blood relatives (an aunt's husband, a son's wife): they are in-laws.
+    for (const person of people) {
+        if (result.has(person)) continue;
+        for (const spouse of spousesOf.get(person) ?? []) {
+            const relative = result.get(spouse);
+            if (relative?.kind === "blood") {
+                result.set(person, { kind: "inLaw", up: relative.up, down: relative.down });
+                break;
+            }
+        }
     }
     return result;
 }

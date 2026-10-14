@@ -222,6 +222,9 @@
         "noPhoto": "No photograph",
         "living": "Living",
         "deceased": "Deceased",
+        "ageNow": "Age",
+        "ageLived": "Lived to",
+        "years": "{count, plural, one {# year} other {# years}}",
         "deleteWarning": "The person will be deleted along with their events, names and links. Photographs stay in the archive.",
         "dateHint": "Write a full date as 12.04.1921 or 1921-04-12, a month as 04.1921, or just a year as 1921. In front of a date: “c. ” (about), “est. ” (estimated), “calc. ” (calculated), “before ” or “after ”. Ranges: “between 1915 and 1918”, “from 1915 to 1918” or “1915 – 1918”. A death date marks the person as deceased.",
         "additionalNames": "Other names",
@@ -480,6 +483,11 @@
         "cannotChangeSelf": "You cannot change your own access here",
         "cannotManageOwner": "The owner's access cannot be changed",
         "cannotManageAdmin": "Only the owner can change an administrator"
+    },
+    "birthdays": {
+        "title": "Birthdays in the next two weeks",
+        "today": "today",
+        "turns": "{count, plural, one {turns # year} other {turns # years}}"
     },
     "gallery": {
         "title": "Photo album",

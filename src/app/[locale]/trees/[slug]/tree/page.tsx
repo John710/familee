@@ -7,12 +7,17 @@ import { TreeCanvas } from "@/components/trees/tree-canvas";
 import { db, schema } from "@/db";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
+import { todayIn, upcomingBirthdays } from "@/lib/age";
+import { listPersonCards } from "@/lib/people";
 import { atLeast } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
 import { loadTreeView } from "@/lib/tree-view";
 
 type Params = { locale: string; slug: string };
+
+/** The birthdays of the next two weeks: the notice that opens the tree page. */
+const BIRTHDAY_DAYS = 14;
 
 export default async function TreePage({ params }: { params: Promise<Params> }) {
     const { locale, slug } = await params;
@@ -37,6 +42,24 @@ export default async function TreePage({ params }: { params: Promise<Params> }) 
     const view = await loadTreeView(access.treeId, slug, membership?.selfPersonId ?? null);
     const t = await getTranslations();
 
+    const today = todayIn();
+    const birthdays = upcomingBirthdays(
+        (await listPersonCards(access.treeId)).map((card) => ({
+            personId: card.personId,
+            name: card.fullName ?? "",
+            birthDate: card.birthDate,
+            birthPrecision: card.birthPrecision,
+            isLiving: card.isLiving,
+        })),
+        today,
+        BIRTHDAY_DAYS,
+    ).slice(0, 8);
+    const dayFormat = new Intl.DateTimeFormat(locale, {
+        day: "numeric",
+        month: "long",
+        timeZone: "UTC",
+    });
+
     return (
         <div className="flex flex-col gap-6">
             <header className="flex flex-col gap-1">
@@ -46,6 +69,34 @@ export default async function TreePage({ params }: { params: Promise<Params> }) 
                 <h1 className="font-semibold font-serif text-3xl">{t("tree.view.open")}</h1>
                 <p className="text-base-content/60 text-sm">{t("tree.view.hint")}</p>
             </header>
+
+            {birthdays.length > 0 && (
+                <section className="card card-border bg-base-100">
+                    <div className="card-body gap-3 p-4">
+                        <h2 className="font-medium text-sm">{t("birthdays.title")}</h2>
+                        <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                            {birthdays.map((entry) => (
+                                <li key={entry.personId} className="flex items-baseline gap-2">
+                                    <Link
+                                        href={`/trees/${slug}/persons/${entry.personId}`}
+                                        className="link"
+                                    >
+                                        {entry.name || t("common.unknown")}
+                                    </Link>
+                                    <span className="text-base-content/60 text-xs">
+                                        {entry.inDays === 0
+                                            ? t("birthdays.today")
+                                            : dayFormat.format(new Date(`${entry.date}T00:00:00Z`))}
+                                    </span>
+                                    <span className="text-xs">
+                                        {t("birthdays.turns", { count: entry.turns })}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </section>
+            )}
 
             {view.empty ? (
                 <section className="card card-border bg-base-100">
