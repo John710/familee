@@ -8,13 +8,16 @@
  * The script has no dependencies on purpose: it runs on a bare Node.js.
  */
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 // The languages come from the messages folder, the same list the application reads.
-const locales = JSON.parse(readFileSync(join(root, "messages", "locales.json"), "utf8")).locales;
+const locales = readdirSync(join(root, "messages"))
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => file.slice(0, -".json".length))
+    .sort();
 
 /** Turns nested objects into a flat map: { "events.birth": "Birth", ... }. */
 function flatten(node, prefix = "", out = {}) {

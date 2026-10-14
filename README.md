@@ -182,10 +182,9 @@ docker compose --profile tools run --rm migrate seed test
 
 ## Languages
 
-The interface is in English by default; Russian is available at `/ru`. Adding a language takes two steps,
-both in the `messages` folder: drop in `messages/<code>.json` (the easiest start is a copy of
-`messages/en.json`, with `locale.name` set to the name of the language in that language) and add the code
-to the `locales` array in `messages/locales.json`.
+The interface is in English by default; Russian is available at `/ru`. Adding a language takes one file:
+`messages/<code>.json`, the easiest start being a copy of `messages/en.json` with `locale.name` set to the
+name of the language in that language. The languages are read from the file names when the image is built.
 
 The file does not have to be translated in full. Any missing or empty key falls back to the default
 locale, so a half-translated file cannot break the interface — `withFallback` in

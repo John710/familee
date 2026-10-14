@@ -5,9 +5,28 @@
  * Postgres and Redis are external and already running on the server.
  */
 
+import { readdirSync } from "node:fs";
+import path from "node:path";
+
 import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+
+/**
+ * The languages are the message files: messages/<code>.json is one language. The list is read
+ * here, at build time, and handed to the application as FAMILEE_LOCALES, so that a new file
+ * is a new language without any code change. English is the base language: every other
+ * language falls back to it for the keys it has not translated, so it must always be there.
+ */
+function languagesFromMessages(): string[] {
+    const codes = readdirSync(path.join(process.cwd(), "messages"))
+        .filter((file) => file.endsWith(".json"))
+        .map((file) => file.slice(0, -".json".length))
+        .filter((code) => /^[a-z]{2}(-[A-Za-z0-9]{2,8})?$/.test(code))
+        .sort();
+    if (!codes.includes("en")) throw new Error("messages/en.json is missing: English is the base language");
+    return codes;
+}
 
 /**
  * The NextConfig type is deliberately not used: some keys (for instance
@@ -21,6 +40,11 @@ const nextConfig = {
      * bundle and the modules it needs, without dev dependencies.
      */
     output: "standalone" as const,
+
+    /** The language codes, read from the message files (see languagesFromMessages). */
+    env: {
+        FAMILEE_LOCALES: JSON.stringify(languagesFromMessages()),
+    },
 
     /** There is no need to advertise the Next.js version in the headers. */
     poweredByHeader: false,
