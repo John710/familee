@@ -159,6 +159,15 @@
         "one": "Tree",
         "many": "Trees",
         "create": "New tree",
+        "delete": {
+            "title": "Delete the tree",
+            "warning": "Everything in this tree is deleted for good: {persons} people, {photos} photographs with their files, unions, events, places, sources, citations and notes. Members lose access. This cannot be undone.",
+            "typeSlug": "To confirm, type the tree's address: {slug}",
+            "button": "Delete the tree",
+            "dialogTitle": "Delete this tree?",
+            "dialogMessage": "The tree and all of its data and files will be deleted and cannot be restored.",
+            "slugMismatch": "The address does not match the tree."
+        },
         "changeLogo": "Change logo",
         "removeLogo": "Remove logo",
         "invalidSlug": "The address may use lowercase latin letters, digits and hyphens, and must start with a letter or digit",
@@ -224,6 +233,11 @@
         "deceased": "Deceased",
         "ageNow": "Age",
         "birthdayOn": "birthday {day}",
+        "delete": {
+            "title": "Delete this person?",
+            "button": "Delete the person",
+            "warning": "The person is deleted with all of their data: names, events, citations and notes, and the {photos} photographs with their files. Unions in which they were the only partner or child go too. This cannot be undone."
+        },
         "ageLived": "Lived to",
         "years": "{count, plural, one {# year} other {# years}}",
         "deleteWarning": "The person will be deleted along with their events, names and links. Photographs stay in the archive.",

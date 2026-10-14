@@ -8,7 +8,7 @@
  * navigation, so a native <details> element would stay open.
  */
 
-import { UserRound } from "lucide-react";
+import { Settings, UserRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -69,15 +69,31 @@ export function ProfileMenu({
             </button>
 
             {open && (
-                <ul className="menu absolute right-0 z-30 mt-2 w-56 rounded-box bg-base-100 p-2 shadow-lg ring-1 ring-base-300">
-                    <li className="menu-title truncate">{title}</li>
-                    <li>
-                        <Link href="/profile">{profileLabel}</Link>
-                    </li>
-                    <li>
-                        <SignOutButton />
-                    </li>
-                </ul>
+                <div className="card card-border absolute right-0 z-30 mt-2 w-64 overflow-hidden bg-base-100 shadow-lg">
+                    <div className="flex items-center gap-3 border-base-300 border-b px-4 py-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                            <UserRound className="size-5" aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0 truncate font-medium text-sm">{title}</span>
+                    </div>
+                    <ul className="flex flex-col p-1.5">
+                        <li>
+                            <Link
+                                href="/profile"
+                                className="flex items-center gap-3 rounded-field px-3 py-2 text-sm transition-colors hover:bg-base-200"
+                            >
+                                <Settings
+                                    className="size-4 text-base-content/60"
+                                    aria-hidden="true"
+                                />
+                                {profileLabel}
+                            </Link>
+                        </li>
+                        <li className="mt-1 border-base-300 border-t pt-1">
+                            <SignOutButton />
+                        </li>
+                    </ul>
+                </div>
             )}
         </div>
     );

@@ -23,12 +23,12 @@ export function SignOutButton() {
     return (
         <button
             type="button"
-            className="btn btn-ghost btn-sm gap-2"
+            className="flex w-full items-center gap-3 rounded-field px-3 py-2 text-left text-sm transition-colors hover:bg-base-200 disabled:opacity-60"
             onClick={onClick}
             disabled={pending}
         >
-            <LogOut className="size-4" />
-            <span className="hidden sm:inline">{t("signOut")}</span>
+            <LogOut className="size-4 text-base-content/60" aria-hidden="true" />
+            {t("signOut")}
         </button>
     );
 }

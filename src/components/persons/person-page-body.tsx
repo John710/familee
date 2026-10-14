@@ -1,11 +1,13 @@
+import { and, eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-
+import { DeletePersonButton } from "@/components/persons/delete-person-button";
 import { FamilyPanel } from "@/components/persons/family-panel";
 import { PersonForm } from "@/components/persons/person-form";
 import { PersonLibraryPanel } from "@/components/persons/person-library-panel";
 import { PhotoAlbum } from "@/components/persons/photo-album";
 import { RecordsPanel } from "@/components/persons/records-panel";
+import { db, schema } from "@/db";
 import { Link } from "@/i18n/navigation";
 import { localizedPath } from "@/i18n/paths";
 import type { Locale } from "@/i18n/routing";
@@ -22,6 +24,7 @@ import { listEventPhotos, listPersonPhotos } from "@/lib/photos";
 import { atLeast } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
+import { loadTreeView } from "@/lib/tree-view";
 import { listPersonOptions, listUnionsForPerson } from "@/lib/unions";
 
 /**
@@ -97,6 +100,28 @@ export async function PersonPageBody({
     const fullName = [person.surname, person.given, person.patronymic].filter(Boolean).join(" ");
     const basePath = `/trees/${slug}/persons/${id}`;
 
+    // The same figures the card's panel shows in the tree: age, the timeline with places, the
+    // "you" mark. Read through the tree view so the two places never disagree.
+    const [membership] = await db
+        .select({ selfPersonId: schema.treeMembers.selfPersonId })
+        .from(schema.treeMembers)
+        .where(
+            and(
+                eq(schema.treeMembers.treeId, access.treeId),
+                eq(schema.treeMembers.userId, user.id),
+            ),
+        )
+        .limit(1);
+    const [headlineRow] = await db
+        .select({ headline: schema.persons.headline })
+        .from(schema.persons)
+        .where(eq(schema.persons.id, id))
+        .limit(1);
+    const headline = headlineRow?.headline ?? null;
+    const view = await loadTreeView(access.treeId, slug, membership?.selfPersonId ?? null);
+    const node = view.nodes.find((candidate) => candidate.id === `person-${id}`);
+    const card = node?.type === "person" ? node.data : null;
+
     return (
         <div className="flex flex-col gap-8">
             <header className="flex flex-col gap-3">
@@ -132,6 +157,75 @@ export async function PersonPageBody({
                     </div>
                 </div>
             </header>
+
+            {!editing && card && (
+                <section className="card card-border bg-base-100">
+                    <div className="card-body gap-5">
+                        {(headline || card.age || card.isSelf) && (
+                            <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
+                                {headline && (
+                                    <p className="w-full text-base-content/80">{headline}</p>
+                                )}
+                                {card.age && (
+                                    <dl className="flex flex-col">
+                                        <dt className="text-base-content/60 text-xs">
+                                            {card.age.living
+                                                ? t("person.ageNow")
+                                                : t("person.ageLived")}
+                                        </dt>
+                                        <dd>
+                                            {card.age.approximate ? "≈ " : ""}
+                                            {t("person.years", { count: card.age.years })}
+                                        </dd>
+                                    </dl>
+                                )}
+                                {card.isSelf && (
+                                    <span className="badge badge-primary">
+                                        {t("tree.view.you")}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-3">
+                            <h2 className="font-semibold text-lg">{t("tree.view.timeline")}</h2>
+                            {card.details.timeline.length === 0 ? (
+                                <p className="text-base-content/60 text-sm">
+                                    {t("tree.view.noTimeline")}
+                                </p>
+                            ) : (
+                                <ol className="flex flex-col gap-3 border-base-300 border-l pl-4">
+                                    {card.details.timeline.map((item) => (
+                                        <li
+                                            key={item.key}
+                                            className="relative flex flex-col gap-0.5"
+                                        >
+                                            <span className="absolute top-1.5 -left-[21px] size-2.5 rounded-full bg-primary" />
+                                            <span className="text-base-content/60 text-xs">
+                                                {[item.date ?? t("common.none"), item.place]
+                                                    .filter(Boolean)
+                                                    .join(" · ")}
+                                            </span>
+                                            <span className="text-sm">
+                                                {t(`events.${item.typeCode}` as "events.birth")}
+                                                {item.partner
+                                                    ? ` · ${t("tree.view.withPartner", { name: item.partner })}`
+                                                    : ""}
+                                                {item.value ? ` · ${item.value}` : ""}
+                                            </span>
+                                            {item.description && (
+                                                <span className="whitespace-pre-line text-base-content/70 text-xs">
+                                                    {item.description}
+                                                </span>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ol>
+                            )}
+                        </div>
+                    </div>
+                </section>
+            )}
 
             <section className="card card-border bg-base-100">
                 <div className="card-body gap-5">
@@ -253,6 +347,21 @@ export async function PersonPageBody({
                     )}
                 </div>
             </section>
+
+            {editing && (
+                <section className="card card-border border-error/40 bg-base-100">
+                    <div className="card-body gap-3">
+                        <h2 className="font-semibold text-error text-lg">
+                            {t("person.delete.title")}
+                        </h2>
+                        <DeletePersonButton
+                            slug={slug}
+                            personId={person.personId}
+                            photos={photos.length}
+                        />
+                    </div>
+                </section>
+            )}
         </div>
     );
 }

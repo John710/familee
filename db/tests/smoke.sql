@@ -29,8 +29,8 @@ begin
     end if;
 
     select count(*) into v_persons from familee.persons where tree_id = v_tree;
-    if v_persons <> 14 then
-        raise exception 'smoke: expected 14 persons in the demo tree, got %', v_persons;
+    if v_persons <> 25 then
+        raise exception 'smoke: expected 25 persons in the demo tree, got %', v_persons;
     end if;
 
     -- 2. The ancestor walk reaches a grandparent (depth 2).

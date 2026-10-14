@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { PersonThumb } from "@/components/persons/person-thumb";
+import { DeleteTreeForm } from "@/components/trees/delete-tree-form";
 import { MemberControls } from "@/components/trees/member-controls";
 import { MembersPanel, type PendingInvitation } from "@/components/trees/members-panel";
 import { ResetLinkButton } from "@/components/trees/reset-link-button";
@@ -15,6 +16,7 @@ import { todayIn, upcomingBirthdays } from "@/lib/age";
 import { BIRTHDAY_DAYS, birthdayInput } from "@/lib/birthdays";
 import { listMembers, listPendingInvitations } from "@/lib/invitations";
 import { listPersonCards } from "@/lib/people";
+import { listTreePhotos } from "@/lib/photos";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -203,6 +205,21 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
             </section>
 
             {canInvite && <MembersPanel slug={slug} invitations={pending} />}
+
+            {access.role === "owner" && (
+                <section className="card card-border border-error/40 bg-base-100">
+                    <div className="card-body gap-4">
+                        <h2 className="font-semibold text-error text-lg">
+                            {t("tree.delete.title")}
+                        </h2>
+                        <DeleteTreeForm
+                            slug={slug}
+                            persons={cards.length}
+                            photos={(await listTreePhotos(access.treeId)).length}
+                        />
+                    </div>
+                </section>
+            )}
         </div>
     );
 }

@@ -50,3 +50,17 @@ export async function readMediaFile(key: string): Promise<Buffer> {
 export async function removeMediaFiles(keys: string[]): Promise<void> {
     await Promise.all(keys.map((key) => rm(filePath(key), { force: true }).catch(() => undefined)));
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Removes the whole folder of one tree: every photograph and variant of it. The folder is named
+ * by the tree's id, which is checked as a UUID first, so the path cannot point outside the volume.
+ */
+export async function removeTreeFiles(treeId: string): Promise<void> {
+    if (!UUID.test(treeId)) throw new Error("invalid tree id");
+    await rm(path.join(/* turbopackIgnore: true */ mediaRoot(), treeId), {
+        recursive: true,
+        force: true,
+    });
+}

@@ -115,9 +115,11 @@ The `migrate` service is a throwaway container that carries nothing but `psql`, 
 to install a client on the server. Migrations are idempotent: re-running them is safe and is meant
 to happen after every code update.
 
-**5. Demo data (optional).** `db/seed.sql` creates a fictional family spanning four generations,
-including a second marriage, a stepson and approximate or incomplete dates. It is a convenient way
-to see what the tree looks like before you have entered anything of your own.
+**5. Demo data (optional).** `db/seed.sql` creates a fictional American family, the Callahans of
+Pittsburgh and Cleveland, over four generations. It uses every part of the archive: immigration, a war
+death, two marriages, an annulment, a civil union, a stepson, an adopted son, approximate and
+incomplete dates, places, sources, citations and notes. It is a convenient way to see what the archive
+looks like before you have entered anything of your own.
 
 ```bash
 docker compose --profile tools run --rm migrate seed
