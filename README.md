@@ -11,7 +11,7 @@ Redis containers that already run there — it never starts containers of its ow
 how it is reached: by the server's IP address and a port (the default), or behind Traefik over HTTPS
 with a domain of your own.
 
-Project history is in [CHANGELOG.md](CHANGELOG.md); the open work is in [TODO.md](TODO.md).
+Project history and versions are in [CHANGELOG.md](CHANGELOG.md).
 
 ## What it does
 
@@ -240,6 +240,20 @@ npm audit           # known vulnerabilities of the pinned tree
 Biome replaces ESLint and Prettier: one dependency instead of a dozen, no peer-dependency graph,
 and import and Tailwind class sorting come along for free (`useSortedClasses` in `biome.json`).
 
+## Versions
+
+Familee follows [Semantic Versioning](https://semver.org) with the usual `MAJOR.MINOR.PATCH` numbers.
+
+- While the major version is `0`, a minor release may change behaviour; `1.0.0` comes when the main
+  flows have been checked in a browser on a real archive.
+- A new feature bumps the minor number, a fix bumps the patch number. A change that needs manual
+  work on the data or the configuration is called out in the changelog; after `1.0.0` it bumps the
+  major number.
+- The version is set in `package.json` and marked in git by an annotated tag `vMAJOR.MINOR.PATCH`
+  on the release commit.
+- [CHANGELOG.md](CHANGELOG.md) collects the changes under `Unreleased` until a release; the section
+  then takes the version and the date.
+
 ## Backups
 
 The data lives in two places: the `familee` schema in Postgres and the `familee_media` volume with
@@ -255,5 +269,5 @@ docker run --rm -v familee_media:/data:ro -v "$PWD:/backup" alpine \
 
 ## What comes next
 
-The open work is in [TODO.md](TODO.md). The main items now: browser checks of the newest features,
+The main open items now: browser checks of the newest features,
 citations for families and places, and a check of the layout on real family data.
