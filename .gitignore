@@ -31,8 +31,9 @@ Thumbs.db
 # the docs folder is kept locally only: it holds personal material (e.g. GEDCOM exports)
 /docs/
 
-# the working list of open items: kept locally, not published
+# the working list of open items and the changelog: kept locally, not published
 /TODO.md
+/CHANGELOG.md
 
 # editors
 .idea/

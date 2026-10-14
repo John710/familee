@@ -11,8 +11,6 @@ Redis containers that already run there — it never starts containers of its ow
 how it is reached: by the server's IP address and a port (the default), or behind Traefik over HTTPS
 with a domain of your own.
 
-Project history and versions are in [CHANGELOG.md](CHANGELOG.md).
-
 ## What it does
 
 - **People and families.** Persons with names, sex, birth and death dates, written the way people
@@ -251,8 +249,6 @@ Familee follows [Semantic Versioning](https://semver.org) with the usual `MAJOR.
   major number.
 - The version is set in `package.json` and marked in git by an annotated tag `vMAJOR.MINOR.PATCH`
   on the release commit.
-- [CHANGELOG.md](CHANGELOG.md) collects the changes under `Unreleased` until a release; the section
-  then takes the version and the date.
 
 ## Backups
 
