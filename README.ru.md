@@ -236,11 +236,19 @@ Biome заменяет ESLint и Prettier: одна зависимость вм�
 
 ## Образы Docker
 
-Каждая версия с тегом `vX.Y.Z` собирается и публикуется в GitHub Container Registry workflow-ом
-`.github/workflows/docker.yml`: `ghcr.io/<владелец>/familee` получает теги `X.Y.Z`, `X.Y` и `latest`.
-Пока репозиторий приватный, образ тоже приватный. Чтобы запускать опубликованный образ вместо сборки на
-сервере, выполните `docker login ghcr.io` и укажите `image:` для сервиса `app` в `docker-compose.yml`;
-по умолчанию сборка идёт из исходников.
+Образ собирается и отправляется вручную с сервера, поэтому минуты GitHub Actions не расходуются. Реестр —
+`ghcr.io/<владелец>/familee`; пока репозиторий приватный, образ тоже приватный.
+
+```bash
+echo "$CR_PAT" | docker login ghcr.io -u <владелец> --password-stdin   # токен с правом write:packages
+docker build -t ghcr.io/<владелец>/familee:X.Y.Z -t ghcr.io/<владелец>/familee:latest .
+docker push ghcr.io/<владелец>/familee:X.Y.Z
+docker push ghcr.io/<владелец>/familee:latest
+```
+
+На бесплатном тарифе GitHub приватным пакетам выделен общий лимит хранилища (500 МБ, он же общий с
+артефактами Actions), поэтому образы старых версий стоит удалять, когда они не нужны. Конфигурация compose
+по умолчанию по-прежнему собирает образ из исходников.
 
 ## Версии
 

@@ -240,11 +240,19 @@ and import and Tailwind class sorting come along for free (`useSortedClasses` in
 
 ## Docker images
 
-Every version tag (`vX.Y.Z`) is built and pushed to the GitHub Container Registry by
-`.github/workflows/docker.yml`: `ghcr.io/<owner>/familee` gets the tags `X.Y.Z`, `X.Y` and `latest`.
-The image is private while the repository is private. To run a published image instead of building
-it on the server, log in with `docker login ghcr.io` and set `image:` for the `app` service in
-`docker-compose.yml`; the default still builds from the source.
+The image is built and pushed by hand, from the server, so no GitHub Actions minutes are used. The
+registry is `ghcr.io/<owner>/familee`; it stays private while the repository is private.
+
+```bash
+echo "$CR_PAT" | docker login ghcr.io -u <owner> --password-stdin   # a token with write:packages
+docker build -t ghcr.io/<owner>/familee:X.Y.Z -t ghcr.io/<owner>/familee:latest .
+docker push ghcr.io/<owner>/familee:X.Y.Z
+docker push ghcr.io/<owner>/familee:latest
+```
+
+GitHub Free gives private packages a shared storage quota (500 MB, also used by Actions artifacts), so
+delete the images of old versions when they are no longer needed. The default compose setup still
+builds from the source.
 
 ## Versions
 
