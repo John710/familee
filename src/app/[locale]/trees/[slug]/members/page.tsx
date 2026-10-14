@@ -155,9 +155,9 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                         <Users className="size-4" aria-hidden="true" />
                         {t("person.many")}
                     </Link>
-                    <Link href={`/trees/${slug}/search`} className="btn btn-sm gap-2">
-                        <Search className="size-4" aria-hidden="true" />
-                        {t("search.title")}
+                    <Link href={`/trees/${slug}/gallery`} className="btn btn-sm gap-2">
+                        <Images className="size-4" aria-hidden="true" />
+                        {t("gallery.title")}
                     </Link>
                     <Link href={`/trees/${slug}/places`} className="btn btn-sm gap-2">
                         <MapPin className="size-4" aria-hidden="true" />
@@ -167,9 +167,9 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                         <BookOpen className="size-4" aria-hidden="true" />
                         {t("source.many")}
                     </Link>
-                    <Link href={`/trees/${slug}/gallery`} className="btn btn-sm gap-2">
-                        <Images className="size-4" aria-hidden="true" />
-                        {t("gallery.title")}
+                    <Link href={`/trees/${slug}/search`} className="btn btn-sm gap-2">
+                        <Search className="size-4" aria-hidden="true" />
+                        {t("search.title")}
                     </Link>
                 </nav>
             </header>
