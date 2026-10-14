@@ -40,14 +40,11 @@ Familee — это место, где можно хранить семейный
 
 ## Скриншоты
 
-<!--
-  Положите изображения в папку screenshots и раскомментируйте нужные строки:
+![Древо семьи](screenshots/tree.png)
 
-  ![Древо семьи](screenshots/tree.png)
-  ![Страница человека: хронология и возраст](screenshots/person.png)
-  ![Библиотека: места и источники](screenshots/library.png)
-  ![Дни рождения в ближайшие две недели](screenshots/birthdays.png)
--->
+![Карточка в древе и её панель](screenshots/tree_card.png)
+
+![Страница человека: хронология и возраст](screenshots/person.png)
 
 ## Из чего сделано
 

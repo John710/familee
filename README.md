@@ -43,14 +43,11 @@ The interface is in English by default and in Russian at `/ru`.
 
 ## Screenshots
 
-<!--
-  Put the images into the screenshots folder and uncomment the lines you want:
+![The family tree](screenshots/tree.png)
 
-  ![The family tree](screenshots/tree.png)
-  ![A person page: the timeline and the age](screenshots/person.png)
-  ![The library: places and sources](screenshots/library.png)
-  ![The birthdays of the next two weeks](screenshots/birthdays.png)
--->
+![A card in the tree and its panel](screenshots/tree_card.png)
+
+![A person page: the timeline and the age](screenshots/person.png)
 
 ## Under the hood
 
