@@ -13,14 +13,36 @@ with a domain of your own.
 
 Project history is in [CHANGELOG.md](CHANGELOG.md); the open work is in [TODO.md](TODO.md).
 
+## What it does
+
+- **People and families.** Persons with names, sex, birth and death dates, written the way people
+  write them ("about 1901", "1921-04-12"), notes, additional names and other events with places.
+  Unions with partners and children; a cycle guard refuses a loop in the ancestry.
+- **The tree.** Cards with a photograph and the years, drawn from top to bottom. A click opens a
+  panel with the timeline, the notes and the album. Focus mode shows the ancestors and descendants
+  of one person; "relation to me" names how each card is related to the person chosen as oneself;
+  search centres the tree on a match. Ages are shown for the living (today's) and for the dead (the
+  age they reached).
+- **Photographs.** An album per person, one main photograph, a crop of the square the card shows,
+  photographs of events, and a gallery of the whole tree.
+- **Library.** Places (with the part-of hierarchy), sources and citations for people and events,
+  notes and stories, and search over the whole archive.
+- **Birthdays.** The next two weeks across all trees: a bell in the top bar, the home page, the tree,
+  the members and the persons pages.
+- **GEDCOM.** Import of a file of any version (the version is read from its header), with a preview
+  and a confirmation; export of a tree as GEDCOM 7.0.
+- **Access.** Roles per tree (owner, administrator, co-author, viewer), invitations, a password reset
+  handed out by an administrator, the change history for owners and administrators, and the list of
+  devices a person is signed in on.
+
 ## What is inside
 
 Next.js 16.4 (App Router, server actions) on React 19.3 and TypeScript 7. Data lives in Postgres and
 is queried through Drizzle ORM over the postgres.js driver. Sign-in is handled by better-auth:
 sessions live in Postgres and are cached in Redis (ioredis). Styling is Tailwind CSS 4 together with
 daisyUI 5 and shadcn/ui components built on radix-ui. Translations are next-intl. Linting and
-formatting are Biome. The tree will be rendered by @xyflow/react and laid out by d3-hierarchy, and
-photo previews will be produced by sharp.
+formatting are Biome. The tree is drawn by @xyflow/react; its layout is our own code in
+`src/lib/tree-layout.ts`. Photo previews are made by sharp.
 
 Every dependency is pinned to an exact version (no `^`) in `package.json`, and `package-lock.json`
 fixes the whole tree. An upgrade should be a deliberate act, not a side effect of rebuilding the
@@ -233,8 +255,5 @@ docker run --rm -v familee_media:/data:ro -v "$PWD:/backup" alpine \
 
 ## What comes next
 
-See [TODO.md](TODO.md). In short: the visual tree already draws every card and the lines between them,
-and a click on a card opens its panel. The tree can be searched by name. Every person has a photo
-album: upload, choose the main photograph and crop the part the card shows; events have their own
-photographs, and the gallery shows all of them. Still to come: focus mode (the ancestors and
-descendants of one person) and the relation to me.
+The open work is in [TODO.md](TODO.md). The main items now: browser checks of the newest features,
+citations for families and places, and a check of the layout on real family data.

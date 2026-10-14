@@ -28,6 +28,9 @@ Thumbs.db
 /backups/
 *.ged
 
+# the docs folder is kept locally only: it holds personal material (e.g. GEDCOM exports)
+/docs/
+
 # editors
 .idea/
 .vscode/*
