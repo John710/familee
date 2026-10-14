@@ -250,6 +250,11 @@ Familee follows [Semantic Versioning](https://semver.org) with the usual `MAJOR.
 - The version is set in `package.json` and marked in git by an annotated tag `vMAJOR.MINOR.PATCH`
   on the release commit.
 
+## License
+
+Familee is released under the [MIT License](LICENSE). You may use, copy, modify, fork and redistribute
+it, including for commercial purposes, as long as the copyright and permission notice stay in place.
+
 ## Backups
 
 The data lives in two places: the `familee` schema in Postgres and the `familee_media` volume with

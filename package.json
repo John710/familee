@@ -1,6 +1,7 @@
 {
     "name": "familee",
-    "version": "0.1.0",
+    "version": "0.1.1",
+    "license": "MIT",
     "private": true,
     "description": "Family tree: persons, unions, events, photographs",
     "type": "module",
