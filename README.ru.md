@@ -101,7 +101,7 @@ create extension if not exists btree_gin;
   Затем включите в `.env` файл-надстройку Traefik:
 
   ```bash
-  COMPOSE_FILE=docker-compose.yml:docker-compose.traefik.yml
+  COMPOSE_FILE=docker-compose.build.yml:docker-compose.traefik.yml
   ```
 
   В `TRUSTED_PROXIES` укажите подсеть сети Traefik, например `192.168.90.0/24`. Тогда ограничение числа
@@ -121,6 +121,8 @@ docker compose --profile tools run --rm migrate    # создаёт или об�
 docker compose up -d
 docker compose logs -f app
 ```
+
+Чтобы запускать опубликованный в реестре образ, а не собирать его на сервере, укажите в `.env` `COMPOSE_FILE=docker-compose.image.yml` и `FAMILEE_VERSION` (например `0.2.0`), а вместо `docker compose build` выполните `docker compose pull`. Оба compose-файла описывают одни и те же сервисы.
 
 Сервис `migrate` — временный контейнер, в котором есть только `psql`, так что на сервере ничего
 устанавливать не нужно. Повторный запуск миграций безопасен, и его стоит делать после каждого

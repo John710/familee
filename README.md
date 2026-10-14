@@ -104,7 +104,7 @@ must set `DATABASE_URL`, `REDIS_URL`, `DATA_NETWORK` and `BETTER_AUTH_SECRET`. F
   Then enable the Traefik overlay in `.env`:
 
   ```bash
-  COMPOSE_FILE=docker-compose.yml:docker-compose.traefik.yml
+  COMPOSE_FILE=docker-compose.build.yml:docker-compose.traefik.yml
   ```
 
   Set `TRUSTED_PROXIES` to the subnet of the Traefik network, for example `192.168.90.0/24`. That lets
@@ -125,6 +125,8 @@ docker compose --profile tools run --rm migrate    # creates or updates the tabl
 docker compose up -d
 docker compose logs -f app
 ```
+
+To run the image published to the registry instead of building it on the server, set `COMPOSE_FILE=docker-compose.image.yml` and `FAMILEE_VERSION` (for example `0.2.0`) in `.env`, then run `docker compose pull` instead of `docker compose build`. The two compose files describe the same services.
 
 The `migrate` service is a short-lived container that contains only `psql`, so you do not need to
 install anything on the server. Running the migrations again is safe, and you should do it after

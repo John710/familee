@@ -1,9 +1,9 @@
 # Familee - the Traefik overlay
 #
-# Use it together with docker-compose.yml. In .env set:
+# Use it together with docker-compose.build.yml (or docker-compose.image.yml). In .env set:
 #
 #   FAMILEE_HOST=familee.example.com
-#   COMPOSE_FILE=docker-compose.yml:docker-compose.traefik.yml
+#   COMPOSE_FILE=docker-compose.build.yml:docker-compose.traefik.yml
 #
 # Then `docker compose up -d` works as before. This file:
 #   - joins the proxy network where traefik runs (TRAEFIK_NETWORK);
@@ -15,7 +15,7 @@
 
 services:
     app:
-        # Removes the port published by docker-compose.yml.
+        # Removes the port published by the app service.
         ports: !reset []
 
         networks:

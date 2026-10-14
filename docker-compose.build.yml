@@ -1,4 +1,6 @@
-# Familee - running it on a server
+# Familee - running it on a server, building the image from the sources (the default).
+#
+# The image variant is docker-compose.image.yml: the same services, with the image pulled instead.
 #
 # Two ways to reach the application, chosen in .env:
 #
@@ -16,6 +18,8 @@
 #   docker compose build
 #   docker compose --profile tools run --rm migrate    # apply the schema
 #   docker compose up -d
+#
+# .env selects this file: COMPOSE_FILE=docker-compose.build.yml
 
 name: familee
 

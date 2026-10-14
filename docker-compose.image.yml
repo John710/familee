@@ -1,0 +1,99 @@
+# Familee - running it on a server with a ready-made image from the registry.
+#
+# The same services as docker-compose.build.yml, except that the app is pulled as
+# ghcr.io/john710/familee:${FAMILEE_VERSION} instead of being built from the sources.
+# Set FAMILEE_VERSION in .env (for example 0.2.0). Keep the two files in step.
+#
+# Two ways to reach the application, chosen in .env:
+#
+#   1. By IP address and port (default). The app is published on FAMILEE_PORT of
+#      the host, plain HTTP. Works with no reverse proxy at all.
+#
+#   2. Behind Traefik over HTTPS. Set FAMILEE_HOST to your domain and switch the
+#      compose file set in .env (see the COMPOSE_FILE comment there). The
+#      traefik overlay adds the labels and joins the proxy network, and removes
+#      the published port, so the app is reachable only through Traefik.
+#
+# Postgres and Redis are NOT created here. They must already be running, and the
+# application reaches them by container name through the DATA_NETWORK.
+#
+#   docker compose pull
+#   docker compose --profile tools run --rm migrate    # apply the schema
+#   docker compose up -d
+#
+# .env selects this file: COMPOSE_FILE=docker-compose.image.yml
+
+name: familee
+
+services:
+    app:
+        image: ghcr.io/john710/familee:${FAMILEE_VERSION:-latest}
+        restart: unless-stopped
+
+        env_file: .env
+        environment:
+            NODE_ENV: production
+            PORT: "3000"
+            HOSTNAME: 0.0.0.0
+            TZ: ${APP_TIME_ZONE:-Asia/Vladivostok}
+
+        ports:
+            # Mode 1: the address of the server and this port. Mode 2 removes it
+            # in docker-compose.traefik.yml.
+            - "${FAMILEE_PORT:-3000}:3000"
+
+        volumes:
+            # The original photographs and the previews generated ahead of time.
+            # This is the only data of the application outside Postgres -
+            # this is the volume that has to go into the backups.
+            - media:/data/media
+
+        networks:
+            # default: an ordinary network of this project. Docker publishes ports only
+            # for containers that have at least one non-internal network, and the data
+            # network may be declared internal (as it is on the server).
+            - default
+            - data
+
+        healthcheck:
+            test:
+                - CMD
+                - node
+                - -e
+                - "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+            interval: 30s
+            timeout: 5s
+            retries: 5
+            start_period: 20s
+
+        logging:
+            driver: json-file
+            options:
+                max-size: 10m
+                max-file: "3"
+
+    # A one-shot migration run: no need to install psql on the host.
+    # The image version does not matter - only the psql client is used.
+    migrate:
+        image: postgres:alpine
+        profiles:
+            - tools
+        env_file: .env
+        volumes:
+            - ./db:/db:ro
+        entrypoint:
+            - bash
+            - /db/apply.sh
+        networks:
+            - data
+        restart: "no"
+
+networks:
+    # The network postgres and redis run in.
+    data:
+        external: true
+        name: ${DATA_NETWORK:-postgres}
+
+volumes:
+    media:
+        name: familee_media

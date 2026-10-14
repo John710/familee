@@ -9,7 +9,7 @@
 
 /**
  * The archive's time zone: APP_TIME_ZONE from the environment, the same value the container
- * takes as TZ (docker-compose.yml). Read at each call, so a changed .env applies after a restart.
+ * takes as TZ (docker-compose.build.yml). Read at each call, so a changed .env applies after a restart.
  */
 export function appTimeZone(): string {
     return process.env.APP_TIME_ZONE || process.env.TZ || "UTC";
