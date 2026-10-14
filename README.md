@@ -260,11 +260,12 @@ Familee follows [Semantic Versioning](https://semver.org) with the usual `MAJOR.
 
 - While the major version is `0`, a minor release may change behaviour; `1.0.0` comes when the main
   flows have been checked in a browser on a real archive.
-- A new feature bumps the minor number, a fix bumps the patch number. A change that needs manual
+- Changes are collected until a set of them is ready for a release; the owner decides when that is.
+  A new feature bumps the minor number, a fix bumps the patch number. A change that needs manual
   work on the data or the configuration is called out in the changelog; after `1.0.0` it bumps the
   major number.
-- The version is set in `package.json` and marked in git by an annotated tag `vMAJOR.MINOR.PATCH`
-  on the release commit.
+- The version is written in `package.json` and in `package-lock.json`, and is marked in git by an
+  annotated tag `vMAJOR.MINOR.PATCH` on the release commit.
 
 ## License
 
