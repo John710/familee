@@ -33,7 +33,6 @@ services:
 
         env_file: .env
         environment:
-            # NODE_ENV, PORT and HOSTNAME are set in the Dockerfile.
             TZ: ${APP_TIME_ZONE:-Asia/Vladivostok}
 
         ports:
