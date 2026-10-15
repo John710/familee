@@ -12,6 +12,7 @@ import { and, eq, ne } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
+import { isUniqueViolation } from "@/lib/db-errors";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
 
@@ -90,14 +91,4 @@ export async function setSelfPersonAction(input: {
     });
 
     return { ok: true };
-}
-
-/** postgres.js reports a unique index violation as SQLSTATE 23505. */
-function isUniqueViolation(error: unknown): boolean {
-    return (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        (error as { code?: unknown }).code === "23505"
-    );
 }

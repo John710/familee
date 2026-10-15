@@ -7,10 +7,11 @@
  * the tree (src/lib/tree-access.ts). Nothing here trusts the browser about rights.
  */
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
+import { isUniqueViolation } from "@/lib/db-errors";
 import { createInvitationToken, INVITATION_DAYS } from "@/lib/invitation-token";
 import { atLeast, INVITABLE_ROLES, type InvitableRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
@@ -101,6 +102,24 @@ export async function createInvitationAction(input: {
         return { ok: false, error: "members.alreadyMember" };
     }
 
+    // One pending invitation per address and tree is enough; a second would only confuse.
+    const [alreadyInvited] = await db
+        .select({ id: schema.invitations.id })
+        .from(schema.invitations)
+        .where(
+            and(
+                eq(schema.invitations.treeId, access.treeId),
+                eq(schema.invitations.email, email),
+                isNull(schema.invitations.acceptedAt),
+                isNull(schema.invitations.revokedAt),
+                gt(schema.invitations.expiresAt, new Date()),
+            ),
+        )
+        .limit(1);
+    if (alreadyInvited) {
+        return { ok: false, error: "members.alreadyInvited" };
+    }
+
     const { token, tokenHash } = createInvitationToken();
     const expiresAt = new Date(Date.now() + INVITATION_DAYS * 24 * 60 * 60 * 1000);
 
@@ -170,8 +189,4 @@ export async function revokeInvitationAction(input: {
     });
 
     return { ok: true };
-}
-
-function isUniqueViolation(error: unknown): boolean {
-    return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
 }

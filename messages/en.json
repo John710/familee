@@ -501,6 +501,7 @@
         "expiresOn": "valid until {date}",
         "cancelInvitation": "Cancel",
         "alreadyMember": "This person already has access to the tree",
+        "alreadyInvited": "This address already has a pending invitation",
         "invalidRole": "This role cannot be given by invitation",
         "invitationNotFound": "The invitation is not pending any more",
         "issueReset": "Reset password",
