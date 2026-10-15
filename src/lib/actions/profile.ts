@@ -54,19 +54,32 @@ export async function setSelfPersonAction(input: {
         if (taken) return { ok: false, error: "profile.personTaken" };
     }
 
-    await db
-        .update(schema.treeMembers)
-        .set({
-            selfPersonId: input.personId,
-            selfChosenAt: input.personId ? new Date() : null,
-            updatedAt: new Date(),
-        })
-        .where(
-            and(
-                eq(schema.treeMembers.treeId, access.treeId),
-                eq(schema.treeMembers.userId, user.id),
-            ),
-        );
+    // The check above is only a fast path: two members may pass it at the same time. The unique
+    // index tree_members_self_person_key decides the race, and the loser is turned away here.
+    let updated: { userId: string }[];
+    try {
+        updated = await db
+            .update(schema.treeMembers)
+            .set({
+                selfPersonId: input.personId,
+                selfChosenAt: input.personId ? new Date() : null,
+                updatedAt: new Date(),
+            })
+            .where(
+                and(
+                    eq(schema.treeMembers.treeId, access.treeId),
+                    eq(schema.treeMembers.userId, user.id),
+                ),
+            )
+            .returning({ userId: schema.treeMembers.userId });
+    } catch (error) {
+        if (isUniqueViolation(error)) return { ok: false, error: "profile.personTaken" };
+        throw error;
+    }
+
+    // The membership can be removed between the access check and this write: nothing was
+    // updated then, and no audit entry may claim otherwise.
+    if (updated.length === 0) return { ok: false, error: "auth.noPermission" };
 
     await writeAudit({
         treeId: access.treeId,
@@ -77,4 +90,14 @@ export async function setSelfPersonAction(input: {
     });
 
     return { ok: true };
+}
+
+/** postgres.js reports a unique index violation as SQLSTATE 23505. */
+function isUniqueViolation(error: unknown): boolean {
+    return (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error as { code?: unknown }).code === "23505"
+    );
 }

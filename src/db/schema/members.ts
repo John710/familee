@@ -13,7 +13,7 @@
  * caption ("great-uncle") is composed by the app from messages/<locale>.json.
  */
 
-import { index, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 import { users } from "./auth";
 import { familee, memberRoleEnum } from "./enums";
@@ -54,6 +54,9 @@ export const treeMembers = familee.table(
             columns: [t.treeId, t.userId],
         }),
         index("tree_members_user_idx").on(t.userId),
+        // One person can be chosen as self by one member of the tree only
+        // (db/migrations/0010_self_person_unique.sql).
+        uniqueIndex("tree_members_self_person_key").on(t.treeId, t.selfPersonId),
     ],
 );
 

@@ -98,6 +98,33 @@ begin
         raise exception 'smoke: owner invitation failed with an unexpected message: %', v_message;
     end if;
 
+    -- 7. A person can be chosen as self by one member of a tree only
+    --    (tree_members_self_person_key, migration 0010).
+    insert into familee.users (id, email, name)
+    values ('smoke-self-a', 'smoke-self-a@example.com', 'Smoke A');
+
+    insert into familee.tree_members (tree_id, user_id, role, self_person_id)
+    values (v_tree, 'smoke-self-a', 'viewer', v_person);
+
+    v_message := '';
+    begin
+        insert into familee.users (id, email, name)
+        values ('smoke-self-b', 'smoke-self-b@example.com', 'Smoke B');
+
+        insert into familee.tree_members (tree_id, user_id, role, self_person_id)
+        values (v_tree, 'smoke-self-b', 'viewer', v_person);
+
+        raise exception 'smoke: two members could choose the same person as themselves';
+    exception
+        when others then
+            v_message := sqlerrm;
+    end;
+
+    if v_message not like '%tree_members_self_person_key%' then
+        raise exception 'smoke: the self-person uniqueness failed with an unexpected message: %',
+            v_message;
+    end if;
+
     raise notice 'smoke: all checks passed (persons=%, kinship=%/%)',
         v_persons, v_kinship_a, v_kinship_b;
 end;
