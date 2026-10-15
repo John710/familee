@@ -3,7 +3,8 @@
         "name": "Familee",
         "title": "Family tree",
         "tagline": "People, unions, events and photographs of one family",
-        "footer": "Family archive. All data stays on your own server."
+        "footer": "Family archive. All data stays on your own server.",
+        "skipToContent": "Skip to the content"
     },
     "common": {
         "save": "Save",
@@ -219,7 +220,7 @@
                 "generations": "Generations",
                 "off": "Show the whole tree"
             },
-            "hint": "Drag to move, scroll or pinch to zoom, click a card to open the person.",
+            "hint": "Drag to move, scroll or pinch to zoom, click a card to open the person. With the keyboard, Tab reaches the cards and the arrow keys move between them.",
             "layoutVertical": "Top to bottom",
             "layoutHorizontal": "Left to right",
             "showPhotos": "Photographs",

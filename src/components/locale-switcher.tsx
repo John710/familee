@@ -61,6 +61,8 @@ export function LocaleSwitcher({ labels }: { labels: Record<string, string> }) {
     const [open, setOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
     const rootRef = useRef<HTMLDivElement>(null);
+    // Escape puts the focus back where it was, as a menu should.
+    const buttonRef = useRef<HTMLButtonElement>(null);
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: the menu closes on each pathname change; the body does not read it
     useEffect(() => {
@@ -73,7 +75,10 @@ export function LocaleSwitcher({ labels }: { labels: Record<string, string> }) {
             if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
         }
         function onKey(event: KeyboardEvent) {
-            if (event.key === "Escape") setOpen(false);
+            if (event.key === "Escape") {
+                setOpen(false);
+                buttonRef.current?.focus();
+            }
         }
         document.addEventListener("mousedown", onPointer);
         document.addEventListener("keydown", onKey);
@@ -101,10 +106,12 @@ export function LocaleSwitcher({ labels }: { labels: Record<string, string> }) {
     return (
         <div ref={rootRef} className="relative">
             <button
+                ref={buttonRef}
                 type="button"
                 className={cn("btn btn-ghost btn-sm gap-2", isPending && "pointer-events-none")}
                 aria-label={t("label")}
                 aria-expanded={open}
+                aria-controls={open ? "locale-menu" : undefined}
                 title={t("label")}
                 onClick={() => setOpen((value) => !value)}
             >
@@ -115,7 +122,10 @@ export function LocaleSwitcher({ labels }: { labels: Record<string, string> }) {
             </button>
 
             {open && (
-                <ul className="menu absolute right-0 z-30 mt-2 w-48 rounded-box bg-base-100 p-2 shadow-lg ring-1 ring-base-300">
+                <ul
+                    id="locale-menu"
+                    className="menu absolute right-0 z-30 mt-2 w-48 rounded-box bg-base-100 p-2 shadow-lg ring-1 ring-base-300"
+                >
                     {locales.map((locale) => (
                         <li key={locale}>
                             <button

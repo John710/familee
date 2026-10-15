@@ -388,6 +388,15 @@ function TreeSearch({
         if (event.key === "Escape") onQuery("");
     }
 
+    // The count is a live region: a screen reader hears it while the query changes.
+    let status = "";
+    if (query.trim() !== "") {
+        status =
+            matches === 0
+                ? t("tree.view.searchNone")
+                : t("tree.view.searchCount", { current: cursor + 1, total: matches });
+    }
+
     return (
         <div className="card card-border absolute top-3 left-3 z-10 flex-row items-center gap-2 bg-base-100 p-2 shadow-md">
             <Search className="ml-1 size-4 text-base-content/60" aria-hidden="true" />
@@ -400,13 +409,11 @@ function TreeSearch({
                 aria-label={t("tree.view.searchPlaceholder")}
                 className="input input-sm w-52"
             />
+            <span className="min-w-20 text-center text-base-content/70 text-xs" role="status">
+                {status}
+            </span>
             {query.trim() !== "" && (
                 <>
-                    <span className="min-w-20 text-center text-base-content/70 text-xs">
-                        {matches === 0
-                            ? t("tree.view.searchNone")
-                            : t("tree.view.searchCount", { current: cursor + 1, total: matches })}
-                    </span>
                     <button
                         type="button"
                         className="btn btn-ghost btn-xs btn-square"

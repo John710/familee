@@ -95,9 +95,20 @@ export default async function LocaleLayout({
             <body className="flex min-h-dvh flex-col antialiased">
                 <NextIntlClientProvider>
                     <ThemeProvider>
+                        <a
+                            href="#content"
+                            className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-field focus:bg-base-100 focus:px-4 focus:py-2 focus:shadow-lg"
+                        >
+                            {t("skipToContent")}
+                        </a>
+
                         <SiteHeader />
 
-                        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+                        <main
+                            id="content"
+                            tabIndex={-1}
+                            className="mx-auto w-full max-w-6xl flex-1 px-4 py-8"
+                        >
                             {children}
                         </main>
 
