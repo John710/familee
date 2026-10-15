@@ -18,6 +18,41 @@ import { usePathname, useRouter } from "@/i18n/navigation";
 import { localeCookieName, locales } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 
+/** The part of the Cookie Store API used here: the browser type may be missing from the lib. */
+type CookieStoreLike = {
+    set: (init: {
+        name: string;
+        value: string;
+        path?: string;
+        maxAge?: number;
+        sameSite?: "lax" | "strict" | "none";
+    }) => Promise<void>;
+};
+
+/**
+ * Remembers the chosen language. It must land before the navigation in switchTo, because the
+ * unprefixed address of the default language does not refresh the cookie on its own.
+ *
+ * The Cookie Store API is used where the browser has it; the plain assignment is the fallback for
+ * one without it (the linter prefers the API, hence the one ignore below).
+ */
+async function rememberLocale(locale: string) {
+    const store = (globalThis as { cookieStore?: CookieStoreLike }).cookieStore;
+    if (store) {
+        await store.set({
+            name: localeCookieName,
+            value: locale,
+            path: "/",
+            maxAge: 60 * 60 * 24 * 365,
+            sameSite: "lax",
+        });
+        return;
+    }
+
+    // biome-ignore lint/suspicious/noDocumentCookie: the fallback for a browser without the Cookie Store API
+    document.cookie = `${localeCookieName}=${locale}; path=/; max-age=31536000; samesite=lax`;
+}
+
 export function LocaleSwitcher({ labels }: { labels: Record<string, string> }) {
     const t = useTranslations("locale");
     const activeLocale = useLocale();
@@ -48,13 +83,14 @@ export function LocaleSwitcher({ labels }: { labels: Record<string, string> }) {
         };
     }, [open]);
 
-    function switchTo(locale: (typeof locales)[number]) {
+    async function switchTo(locale: (typeof locales)[number]) {
         setOpen(false);
         if (locale === activeLocale) return;
 
-        // The cookie is set here: the unprefixed address of the default language does not refresh it,
-        // so without this a switch back to the default language would be sent back to the other one.
-        document.cookie = `${localeCookieName}=${locale}; path=/; max-age=31536000; samesite=lax`;
+        // The cookie has to land before the navigation below: the unprefixed address of the
+        // default language does not refresh it, so without this a switch back to the default
+        // language would be sent back to the other one.
+        await rememberLocale(locale);
 
         startTransition(() => {
             // currentPath is without the language prefix, the router adds it.
@@ -84,7 +120,7 @@ export function LocaleSwitcher({ labels }: { labels: Record<string, string> }) {
                         <li key={locale}>
                             <button
                                 type="button"
-                                onClick={() => switchTo(locale)}
+                                onClick={() => void switchTo(locale)}
                                 className="flex items-center justify-between gap-2"
                                 aria-current={locale === activeLocale ? "true" : undefined}
                             >
