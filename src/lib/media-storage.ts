@@ -2,7 +2,7 @@
  * Familee - where the photograph files live
  *
  * The files sit in MEDIA_ROOT (the familee_media volume); the database keeps only their
- * keys. A key is built here from the tree, the checksum and the variant, and it is checked
+ * keys. A key is built here from the tree, a storage digest and the variant, and it is checked
  * against a strict pattern before any path is made from it, so a key can never point
  * outside the volume.
  */

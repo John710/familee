@@ -5,7 +5,8 @@
  * media, media_variants, media_links.
  *
  * The files sit in a volume on the server; the database holds metadata only.
- * storage_key: <tree_id>/<ab>/<cd>/<sha256>.<ext>
+ * storage_key: <tree_id>/<ab>/<cd>/<digest>-<variant>.webp. The digest is random per attempt,
+ * not the content checksum, so a lost upload race cannot overwrite another's files.
  *
  * media_variants are the sizes sharp generates on upload.
  * media_links attach a file to an entity; crop_* gives the frame area as

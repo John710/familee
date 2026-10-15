@@ -7,7 +7,7 @@
  * photograph: the one on the card in the tree (see familee.person_cards).
  */
 
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { and, asc, desc, eq, ne } from "drizzle-orm";
 
 import { db, schema } from "@/db";
@@ -257,13 +257,17 @@ async function storeMedia(input: {
     if (!processed.ok) return processed;
     const photo = processed.photo;
 
-    const keys = variantKeys(input.treeId, checksum);
+    // Each attempt owns its paths. A losing checksum race must never overwrite
+    // or remove the variants belonging to the successful upload.
+    const storageId = randomBytes(32).toString("hex");
+    const keys = variantKeys(input.treeId, storageId);
     const names = Object.keys(keys) as MediaVariantName[];
     const written: string[] = [];
     try {
         for (const name of names) {
-            await writeMediaFile(keys[name], photo.variants[name].data);
+            // Include partially written files in cleanup when writeFile rejects.
             written.push(keys[name]);
+            await writeMediaFile(keys[name], photo.variants[name].data);
         }
     } catch {
         await removeMediaFiles(written);
@@ -286,8 +290,9 @@ async function storeMedia(input: {
                     height: photo.height,
                     uploadedBy: input.userId,
                 })
+                .onConflictDoNothing()
                 .returning({ id: schema.media.id });
-            if (!created) throw new Error("insert returned no row");
+            if (!created) return null;
 
             await tx.insert(schema.mediaVariants).values(
                 names.map((name) => ({
@@ -302,6 +307,22 @@ async function storeMedia(input: {
             );
             return created.id;
         });
+        if (mediaId === null) {
+            await removeMediaFiles(written);
+            const [winner] = await db
+                .select({ id: schema.media.id })
+                .from(schema.media)
+                .where(
+                    and(
+                        eq(schema.media.treeId, input.treeId),
+                        eq(schema.media.checksumSha256, checksum),
+                    ),
+                )
+                .limit(1);
+            return winner
+                ? { ok: true, mediaId: winner.id, existed: true }
+                : { ok: false, error: "media.errors.failed" };
+        }
         return { ok: true, mediaId, existed: false };
     } catch {
         await removeMediaFiles(written);
