@@ -13,6 +13,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
 
 const MB = 1024 * 1024;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const STATUS: Record<PhotoError, number> = {
     "media.errors.unsupported": 415,
@@ -32,6 +33,8 @@ export async function POST(
     { params }: { params: Promise<{ slug: string; personId: string }> },
 ) {
     const { slug, personId } = await params;
+    // The id comes from the address: it is checked before it reaches the database.
+    if (!UUID.test(personId)) return reply(404, "person.notFound");
 
     const user = await getCurrentUser();
     if (!user) return reply(401, "auth.needSignIn");
