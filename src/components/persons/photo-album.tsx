@@ -3,22 +3,29 @@
 /**
  * Familee - the photograph album of a person
  *
- * Everybody in the tree sees the album; editors also upload, choose the main photograph
- * (the one on the card in the tree) and take photographs off the person. Files go to the
- * upload route one by one, so a large batch shows its progress and one bad file does not
- * stop the others. The server checks everything again. A click on a picture opens the
- * shared window (components/media/lightbox.tsx).
+ * Everybody in the tree sees the album; editors also upload - with the button or by dropping the
+ * files onto the album - choose the main photograph (the one on the card in the tree), write a
+ * caption under a picture, put the pictures in the order they want, say who is in a picture, and
+ * take photographs off the person. Files go to the upload route one by one, so a large batch shows
+ * its progress and one bad file does not stop the others. The server checks everything again. A
+ * click on a picture opens the shared window (components/media/lightbox.tsx).
  */
 
-import { ImagePlus, Star, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ImagePlus, Pencil, Star, Tags, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { type DragEvent, useState, useTransition } from "react";
 
 import { ConfirmDialog } from "@/components/layout/confirm-dialog";
 import { Lightbox, photoUrl } from "@/components/media/lightbox";
 import { CropDialog } from "@/components/persons/crop-dialog";
 import { useRouter } from "@/i18n/navigation";
-import { removePersonPhotoAction, setMainPhotoAction } from "@/lib/actions/photos";
+import {
+    movePhotoAction,
+    removePersonPhotoAction,
+    setMainPhotoAction,
+    setPhotoCaptionAction,
+    tagPhotoPeopleAction,
+} from "@/lib/actions/photos";
 import type { PhotoCrop } from "@/lib/photo-crop";
 
 export type AlbumPhoto = {
@@ -28,6 +35,12 @@ export type AlbumPhoto = {
     crop: PhotoCrop | null;
     /** Height over width of the picture; null when the size is not known. */
     ratio: number | null;
+    /** What stands under the photograph in this album. */
+    caption: string | null;
+    /** Who is in the picture, by name, as the tree names them. */
+    people: string[];
+    /** The identifiers of those people, for the tagging window. */
+    personIds: string[];
 };
 
 const ACCEPT = "image/jpeg,image/png,image/webp";
@@ -36,11 +49,14 @@ export function PhotoAlbum({
     slug,
     personId,
     photos,
+    people,
     canEdit,
 }: {
     slug: string;
     personId: string;
     photos: AlbumPhoto[];
+    /** Everybody in the tree, for the tagging window. */
+    people: { personId: string; name: string }[];
     canEdit: boolean;
 }) {
     const t = useTranslations();
@@ -48,10 +64,18 @@ export function PhotoAlbum({
     const [error, setError] = useState<string | null>(null);
     const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
     const [viewing, setViewing] = useState<number | null>(null);
+    const [dragging, setDragging] = useState(false);
     /** The photograph waiting for the confirmation dialog, if any. */
     const [removing, setRemoving] = useState<string | null>(null);
     /** The main photograph whose crop is being chosen, if any. */
     const [cropping, setCropping] = useState<AlbumPhoto | null>(null);
+    /** The photograph whose caption is being written, if any. */
+    const [writing, setWriting] = useState<string | null>(null);
+    const [draft, setDraft] = useState("");
+    /** The photograph whose people are being picked, if any. */
+    const [tagging, setTagging] = useState<AlbumPhoto | null>(null);
+    const [tagFilter, setTagFilter] = useState("");
+    const [tagDraft, setTagDraft] = useState<string[]>([]);
     const [pending, startTransition] = useTransition();
 
     function translate(key: string, values?: Record<string, string | number>) {
@@ -75,7 +99,7 @@ export function PhotoAlbum({
         });
     }
 
-    async function onFiles(files: FileList | null) {
+    async function onFiles(files: FileList | File[] | null) {
         if (!files || files.length === 0) return;
         setError(null);
         const list = Array.from(files);
@@ -90,10 +114,69 @@ export function PhotoAlbum({
         router.refresh();
     }
 
+    function onDrop(event: DragEvent<HTMLDivElement>) {
+        event.preventDefault();
+        setDragging(false);
+        if (!canEdit) return;
+        void onFiles(event.dataTransfer.files);
+    }
+
     function onMain(mediaId: string) {
         setError(null);
         startTransition(async () => {
             const result = await setMainPhotoAction({ slug, personId, mediaId });
+            if (!result.ok) {
+                setError(translate(result.error));
+                return;
+            }
+            router.refresh();
+        });
+    }
+
+    function saveCaption(mediaId: string, current: string | null) {
+        setWriting(null);
+        const caption = draft.trim();
+        if (caption === (current ?? "")) return;
+        setError(null);
+        startTransition(async () => {
+            const result = await setPhotoCaptionAction({ slug, personId, mediaId, caption });
+            if (!result.ok) {
+                setError(translate(result.error));
+                return;
+            }
+            router.refresh();
+        });
+    }
+
+    function move(mediaId: string, delta: -1 | 1) {
+        setError(null);
+        startTransition(async () => {
+            const result = await movePhotoAction({ slug, personId, mediaId, delta });
+            if (!result.ok) {
+                setError(translate(result.error));
+                return;
+            }
+            router.refresh();
+        });
+    }
+
+    function openTags(photo: AlbumPhoto) {
+        setTagging(photo);
+        setTagFilter("");
+        setTagDraft(photo.personIds);
+    }
+
+    function saveTags() {
+        const photo = tagging;
+        setTagging(null);
+        if (!photo) return;
+        setError(null);
+        startTransition(async () => {
+            const result = await tagPhotoPeopleAction({
+                slug,
+                mediaId: photo.mediaId,
+                personIds: tagDraft,
+            });
             if (!result.ok) {
                 setError(translate(result.error));
                 return;
@@ -117,9 +200,25 @@ export function PhotoAlbum({
         });
     }
 
+    const filter = tagFilter.trim().toLowerCase();
+    const shown = people.filter((person) => person.name.toLowerCase().includes(filter));
+
     return (
-        <div className="flex flex-col gap-4">
+        // biome-ignore lint/a11y/noStaticElementInteractions: dropping files is an addition to the upload button below, which does the same work from the keyboard
+        <div
+            className={`flex flex-col gap-4 rounded-box border-2 border-dashed p-2 ${
+                dragging ? "border-primary bg-primary/5" : "border-transparent"
+            }`}
+            onDragOver={(event) => {
+                if (!canEdit) return;
+                event.preventDefault();
+                setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
+        >
             <p className="text-base-content/60 text-sm">{t("media.hint")}</p>
+            {dragging && canEdit && <p className="text-primary text-sm">{t("media.dropHint")}</p>}
 
             {photos.length === 0 ? (
                 <p className="text-base-content/60 text-sm">{t("media.empty")}</p>
@@ -149,38 +248,129 @@ export function PhotoAlbum({
                                     </span>
                                 )}
                             </button>
-                            {canEdit && (
-                                <div className="flex items-center justify-between gap-2 p-2">
-                                    {photo.isPrimary ? (
-                                        <button
-                                            type="button"
-                                            className="btn btn-ghost btn-xs"
-                                            disabled={pending}
-                                            onClick={() => setCropping(photo)}
-                                        >
-                                            {t("media.crop")}
-                                        </button>
+
+                            {canEdit ? (
+                                <div className="flex flex-col gap-1.5 p-2">
+                                    <div className="flex items-center justify-between gap-1">
+                                        <div className="flex items-center">
+                                            <button
+                                                type="button"
+                                                className="btn btn-ghost btn-xs btn-square"
+                                                aria-label={t("media.moveUp")}
+                                                title={t("media.moveUp")}
+                                                disabled={pending || index === 0}
+                                                onClick={() => move(photo.mediaId, -1)}
+                                            >
+                                                <ArrowUp className="size-3.5" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-ghost btn-xs btn-square"
+                                                aria-label={t("media.moveDown")}
+                                                title={t("media.moveDown")}
+                                                disabled={pending || index === photos.length - 1}
+                                                onClick={() => move(photo.mediaId, 1)}
+                                            >
+                                                <ArrowDown className="size-3.5" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-ghost btn-xs btn-square"
+                                                aria-label={t("media.tagPerson")}
+                                                title={t("media.tagPerson")}
+                                                disabled={pending}
+                                                onClick={() => openTags(photo)}
+                                            >
+                                                <Tags className="size-3.5" />
+                                            </button>
+                                        </div>
+                                        <div className="flex items-center">
+                                            {photo.isPrimary ? (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-ghost btn-xs"
+                                                    disabled={pending}
+                                                    onClick={() => setCropping(photo)}
+                                                >
+                                                    {t("media.crop")}
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-ghost btn-xs"
+                                                    disabled={pending}
+                                                    onClick={() => onMain(photo.mediaId)}
+                                                >
+                                                    {t("media.setPortrait")}
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                className="btn btn-ghost btn-xs btn-square text-error"
+                                                aria-label={t("media.remove")}
+                                                title={t("media.remove")}
+                                                disabled={pending}
+                                                onClick={() => setRemoving(photo.mediaId)}
+                                            >
+                                                <Trash2 className="size-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {writing === photo.mediaId ? (
+                                        <input
+                                            // biome-ignore lint/a11y/noAutofocus: the field appears because the reader asked for it
+                                            autoFocus
+                                            className="input input-xs w-full"
+                                            maxLength={500}
+                                            placeholder={t("media.captionPlaceholder")}
+                                            value={draft}
+                                            onChange={(event) => setDraft(event.target.value)}
+                                            onKeyDown={(event) => {
+                                                if (event.key === "Enter") {
+                                                    saveCaption(photo.mediaId, photo.caption);
+                                                }
+                                                if (event.key === "Escape") setWriting(null);
+                                            }}
+                                            onBlur={() => saveCaption(photo.mediaId, photo.caption)}
+                                        />
                                     ) : (
                                         <button
                                             type="button"
-                                            className="btn btn-ghost btn-xs"
-                                            disabled={pending}
-                                            onClick={() => onMain(photo.mediaId)}
+                                            className="flex items-start gap-1 text-left text-base-content/70 text-xs hover:text-base-content"
+                                            onClick={() => {
+                                                setWriting(photo.mediaId);
+                                                setDraft(photo.caption ?? "");
+                                            }}
                                         >
-                                            {t("media.setPortrait")}
+                                            <Pencil className="mt-0.5 size-3 shrink-0" />
+                                            <span className="line-clamp-2">
+                                                {photo.caption || t("media.captionAdd")}
+                                            </span>
                                         </button>
                                     )}
-                                    <button
-                                        type="button"
-                                        className="btn btn-ghost btn-xs btn-square text-error"
-                                        aria-label={t("media.remove")}
-                                        title={t("media.remove")}
-                                        disabled={pending}
-                                        onClick={() => setRemoving(photo.mediaId)}
-                                    >
-                                        <Trash2 className="size-3.5" />
-                                    </button>
+
+                                    {photo.people.length > 0 && (
+                                        <span className="text-base-content/50 text-xs">
+                                            {photo.people.join(", ")}
+                                        </span>
+                                    )}
                                 </div>
+                            ) : (
+                                (photo.caption || photo.people.length > 0) && (
+                                    <div className="flex flex-col gap-0.5 p-2 text-xs">
+                                        {photo.caption && (
+                                            <span className="text-base-content/70">
+                                                {photo.caption}
+                                            </span>
+                                        )}
+                                        {photo.people.length > 0 && (
+                                            <span className="text-base-content/50">
+                                                {photo.people.join(", ")}
+                                            </span>
+                                        )}
+                                    </div>
+                                )
                             )}
                         </li>
                     ))}
@@ -236,10 +426,80 @@ export function PhotoAlbum({
                 />
             )}
 
+            {tagging && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={t("media.tagPerson")}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                >
+                    <div className="card w-full max-w-md bg-base-100">
+                        <div className="card-body gap-3">
+                            <h2 className="font-semibold">{t("media.peopleOnPhoto")}</h2>
+                            <input
+                                className="input input-sm"
+                                placeholder={t("media.tagFilter")}
+                                value={tagFilter}
+                                onChange={(event) => setTagFilter(event.target.value)}
+                            />
+                            <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto">
+                                {shown.map((person) => (
+                                    <li key={person.personId}>
+                                        <label className="flex cursor-pointer items-center gap-2 text-sm">
+                                            <input
+                                                type="checkbox"
+                                                className="checkbox checkbox-sm"
+                                                checked={tagDraft.includes(person.personId)}
+                                                onChange={(event) =>
+                                                    setTagDraft((current) =>
+                                                        event.target.checked
+                                                            ? [...current, person.personId]
+                                                            : current.filter(
+                                                                  (id) => id !== person.personId,
+                                                              ),
+                                                    )
+                                                }
+                                            />
+                                            {person.name || t("common.unknown")}
+                                        </label>
+                                    </li>
+                                ))}
+                                {shown.length === 0 && (
+                                    <li className="text-base-content/60 text-sm">
+                                        {t("common.empty")}
+                                    </li>
+                                )}
+                            </ul>
+                            <div className="flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    className="btn btn-ghost btn-sm"
+                                    onClick={() => setTagging(null)}
+                                >
+                                    {t("common.cancel")}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-primary btn-sm"
+                                    disabled={pending}
+                                    onClick={saveTags}
+                                >
+                                    {t("common.save")}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {viewing !== null && photos[viewing] && (
                 <Lightbox
                     slug={slug}
-                    photos={photos}
+                    photos={photos.map((photo) => ({
+                        mediaId: photo.mediaId,
+                        caption: photo.caption,
+                        tagged: photo.people,
+                    }))}
                     index={viewing}
                     onIndex={setViewing}
                     onClose={() => setViewing(null)}

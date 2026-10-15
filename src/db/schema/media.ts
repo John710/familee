@@ -107,6 +107,8 @@ export const media = familee.table(
         ),
         index("media_tree_idx").on(t.treeId, t.createdAt.desc()),
         index("media_place_idx").on(t.placeId),
+        /** The composite key the tags of media_people point at (migration 0014). */
+        unique("media_tree_id_id_key").on(t.treeId, t.id),
     ],
 );
 
@@ -219,9 +221,50 @@ export const mediaLinks = familee.table(
     ],
 );
 
+/**
+ * The people who are in a photograph (migration 0014). An album link says whose photograph it is;
+ * a tag says who is on it, and a photograph may have both without the two being the same person.
+ */
+export const mediaPeople = familee.table(
+    "media_people",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        treeId: uuid("tree_id")
+            .notNull()
+            .references(() => trees.id, { onDelete: "cascade" }),
+        mediaId: uuid("media_id").notNull(),
+        personId: uuid("person_id").notNull(),
+
+        createdBy: text("created_by").references(() => users.id, {
+            onDelete: "set null",
+        }),
+        createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+            .notNull()
+            .defaultNow(),
+    },
+    (t) => [
+        /** The identifiers never cross trees. */
+        foreignKey({
+            name: "media_people_media_fk",
+            columns: [t.treeId, t.mediaId],
+            foreignColumns: [media.treeId, media.id],
+        }).onDelete("cascade"),
+        foreignKey({
+            name: "media_people_person_fk",
+            columns: [t.treeId, t.personId],
+            foreignColumns: [persons.treeId, persons.id],
+        }).onDelete("cascade"),
+
+        uniqueIndex("media_people_media_person_key").on(t.mediaId, t.personId),
+        index("media_people_person_idx").on(t.personId),
+    ],
+);
+
 export type Media = typeof media.$inferSelect;
 export type NewMedia = typeof media.$inferInsert;
 export type MediaVariantRow = typeof mediaVariants.$inferSelect;
 export type NewMediaVariantRow = typeof mediaVariants.$inferInsert;
 export type MediaLink = typeof mediaLinks.$inferSelect;
 export type NewMediaLink = typeof mediaLinks.$inferInsert;
+export type MediaPerson = typeof mediaPeople.$inferSelect;
+export type NewMediaPerson = typeof mediaPeople.$inferInsert;

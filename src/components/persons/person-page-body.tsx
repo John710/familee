@@ -22,7 +22,7 @@ import {
     listSources,
 } from "@/lib/library";
 import { getPersonForEdit, listAdditionalNames, listOtherEvents } from "@/lib/people";
-import { listEventPhotos, listPersonPhotos } from "@/lib/photos";
+import { listEventPhotos, listPersonPhotos, listPhotoPeople } from "@/lib/photos";
 import { atLeast } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -62,12 +62,33 @@ export async function PersonPageBody({
         redirect(localizedPath(locale, `/trees/${slug}/persons/${id}`));
     const editing = mode === "edit";
 
-    const photos = (await listPersonPhotos(access.treeId, id)).map((photo) => ({
-        mediaId: photo.mediaId,
-        isPrimary: photo.isPrimary,
-        crop: photo.crop,
-        ratio: photo.width && photo.height ? photo.height / photo.width : null,
-    }));
+    // The album, with the people who are in each picture: the tags are read for the pictures of
+    // this person only, and the names come from the same view the rest of the page uses.
+    const album = await listPersonPhotos(access.treeId, id);
+    const tags = await listPhotoPeople(
+        access.treeId,
+        album.map((photo) => photo.mediaId),
+    );
+    const photos = album.map((photo) => {
+        const tagged = tags.get(photo.mediaId) ?? [];
+        return {
+            mediaId: photo.mediaId,
+            isPrimary: photo.isPrimary,
+            crop: photo.crop,
+            ratio: photo.width && photo.height ? photo.height / photo.width : null,
+            caption: photo.caption,
+            people: tagged.map((person) => person.name ?? "").filter((name) => name !== ""),
+            personIds: tagged.map((person) => person.personId),
+        };
+    });
+
+    // The tagging window needs everybody in the tree, and only the editor opens it.
+    const people = editing
+        ? (await listPersonOptions(access.treeId)).map((option) => ({
+              personId: option.personId,
+              name: option.name ?? "",
+          }))
+        : [];
     const names = await listAdditionalNames(id);
     const otherEvents = await listOtherEvents(id);
     const eventCitations = await listEventCitations(
@@ -263,6 +284,7 @@ export async function PersonPageBody({
                         slug={slug}
                         personId={person.personId}
                         photos={photos}
+                        people={people}
                         canEdit={editing}
                     />
                 </div>

@@ -8,7 +8,7 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
-import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
@@ -38,6 +38,8 @@ export type PersonPhoto = {
     height: number | null;
     /** The part of the picture shown on the card, as fractions of the picture. */
     crop: PhotoCrop | null;
+    /** What was written under the photograph in this person's album; null when nothing was. */
+    caption: string | null;
 };
 
 export type TreePhoto = {
@@ -55,7 +57,7 @@ export type TreePhoto = {
     }[];
 };
 
-/** The photographs of a person, the main one first. */
+/** The photographs of a person, the main one first and the rest in the order set by hand. */
 export async function listPersonPhotos(treeId: string, personId: string): Promise<PersonPhoto[]> {
     const rows = await db
         .select({
@@ -67,11 +69,16 @@ export async function listPersonPhotos(treeId: string, personId: string): Promis
             cropY: schema.mediaLinks.cropY,
             cropW: schema.mediaLinks.cropW,
             cropH: schema.mediaLinks.cropH,
+            caption: schema.mediaLinks.caption,
         })
         .from(schema.mediaLinks)
         .innerJoin(schema.media, eq(schema.media.id, schema.mediaLinks.mediaId))
         .where(and(eq(schema.mediaLinks.personId, personId), eq(schema.media.treeId, treeId)))
-        .orderBy(desc(schema.mediaLinks.isPrimary), asc(schema.mediaLinks.createdAt));
+        .orderBy(
+            desc(schema.mediaLinks.isPrimary),
+            asc(schema.mediaLinks.sortOrder),
+            asc(schema.mediaLinks.createdAt),
+        );
 
     return rows.map((row) => ({
         mediaId: row.mediaId,
@@ -82,7 +89,230 @@ export async function listPersonPhotos(treeId: string, personId: string): Promis
             row.cropX === null || row.cropY === null || row.cropW === null || row.cropH === null
                 ? null
                 : { x: row.cropX, y: row.cropY, w: row.cropW, h: row.cropH },
+        caption: row.caption,
     }));
+}
+
+/** Who is in a photograph, as the album shows it. */
+export type PhotoPerson = { personId: string; name: string | null };
+
+/** Who is in each of these photographs, by the name the tree gives the people. */
+export async function listPhotoPeople(
+    treeId: string,
+    mediaIds: string[],
+): Promise<Map<string, PhotoPerson[]>> {
+    const people = new Map<string, PhotoPerson[]>();
+    if (mediaIds.length === 0) return people;
+
+    const rows = await db
+        .select({
+            mediaId: schema.mediaPeople.mediaId,
+            personId: schema.mediaPeople.personId,
+            name: schema.personCards.fullName,
+        })
+        .from(schema.mediaPeople)
+        .innerJoin(schema.personCards, eq(schema.personCards.personId, schema.mediaPeople.personId))
+        .where(
+            and(
+                eq(schema.mediaPeople.treeId, treeId),
+                inArray(schema.mediaPeople.mediaId, mediaIds),
+            ),
+        )
+        .orderBy(asc(schema.personCards.fullName));
+
+    for (const row of rows) {
+        const entry = { personId: row.personId, name: row.name };
+        const list = people.get(row.mediaId);
+        if (list) list.push(entry);
+        else people.set(row.mediaId, [entry]);
+    }
+    return people;
+}
+
+/** Writes what stands under one photograph in one person's album; an empty caption clears it. */
+export async function setPhotoCaption(input: {
+    treeId: string;
+    personId: string;
+    mediaId: string;
+    caption: string;
+    userId: string;
+}): Promise<{ ok: true } | { ok: false; error: PhotoError }> {
+    if (!(await personInTree(input.treeId, input.personId))) {
+        return { ok: false, error: "person.notFound" };
+    }
+
+    const [link] = await db
+        .select({ id: schema.mediaLinks.id, caption: schema.mediaLinks.caption })
+        .from(schema.mediaLinks)
+        .innerJoin(schema.media, eq(schema.media.id, schema.mediaLinks.mediaId))
+        .where(
+            and(
+                eq(schema.mediaLinks.mediaId, input.mediaId),
+                eq(schema.mediaLinks.personId, input.personId),
+                eq(schema.media.treeId, input.treeId),
+            ),
+        )
+        .limit(1);
+    if (!link) return { ok: false, error: "media.errors.failed" };
+
+    const caption = input.caption.trim() === "" ? null : input.caption.trim().slice(0, 500);
+
+    await db
+        .update(schema.mediaLinks)
+        .set({ caption, updatedAt: new Date() })
+        .where(eq(schema.mediaLinks.id, link.id));
+
+    await writeAudit({
+        treeId: input.treeId,
+        userId: input.userId,
+        action: "update",
+        entityType: "person_photo",
+        entityId: input.personId,
+        changes: { caption: { from: link.caption, to: caption } },
+    });
+    return { ok: true };
+}
+
+/**
+ * Moves one photograph of an album one place towards the front or the back. The main photograph
+ * stays where it is - the order is rewritten for the whole album, so two photographs that carry the
+ * same sort order from before still end up in a defined order.
+ */
+export async function movePhoto(input: {
+    treeId: string;
+    personId: string;
+    mediaId: string;
+    /** -1 towards the front, 1 towards the back. */
+    delta: number;
+    userId: string;
+}): Promise<{ ok: true } | { ok: false; error: PhotoError }> {
+    const rows = await db
+        .select({
+            id: schema.mediaLinks.id,
+            mediaId: schema.mediaLinks.mediaId,
+            isPrimary: schema.mediaLinks.isPrimary,
+        })
+        .from(schema.mediaLinks)
+        .innerJoin(schema.media, eq(schema.media.id, schema.mediaLinks.mediaId))
+        .where(
+            and(
+                eq(schema.mediaLinks.personId, input.personId),
+                eq(schema.media.treeId, input.treeId),
+            ),
+        )
+        .orderBy(
+            desc(schema.mediaLinks.isPrimary),
+            asc(schema.mediaLinks.sortOrder),
+            asc(schema.mediaLinks.createdAt),
+        );
+
+    const index = rows.findIndex((row) => row.mediaId === input.mediaId);
+    if (index < 0) return { ok: false, error: "media.errors.failed" };
+
+    // The main photograph is always the first; the others move below it.
+    const floor = rows[0]?.isPrimary ? 1 : 0;
+    const target = Math.min(Math.max(index + input.delta, floor), rows.length - 1);
+    if (target === index) return { ok: true };
+
+    const order = [...rows];
+    const [moved] = order.splice(index, 1);
+    if (!moved) return { ok: false, error: "media.errors.failed" };
+    order.splice(target, 0, moved);
+
+    await db.transaction(async (tx) => {
+        for (const [position, row] of order.entries()) {
+            await tx
+                .update(schema.mediaLinks)
+                .set({ sortOrder: position, updatedAt: new Date() })
+                .where(eq(schema.mediaLinks.id, row.id));
+        }
+    });
+
+    await writeAudit({
+        treeId: input.treeId,
+        userId: input.userId,
+        action: "update",
+        entityType: "person_photo",
+        entityId: input.personId,
+        changes: { order: { from: index, to: target } },
+    });
+    return { ok: true };
+}
+
+/**
+ * Sets who is in a photograph. The tags are replaced whole, so the caller sends the people who
+ * should be there and nothing else; a person who is not in the tree, or is in its trash, is
+ * refused. The photograph itself is not touched - tagging is not an album link.
+ */
+export async function setPhotoPeople(input: {
+    treeId: string;
+    mediaId: string;
+    personIds: string[];
+    userId: string;
+}): Promise<{ ok: true } | { ok: false; error: PhotoError }> {
+    const [photo] = await db
+        .select({ id: schema.media.id })
+        .from(schema.media)
+        .where(and(eq(schema.media.id, input.mediaId), eq(schema.media.treeId, input.treeId)))
+        .limit(1);
+    if (!photo) return { ok: false, error: "media.errors.failed" };
+
+    const wanted = [...new Set(input.personIds)].slice(0, 200);
+    if (wanted.length > 0) {
+        const live = await db
+            .select({ id: schema.persons.id })
+            .from(schema.persons)
+            .where(
+                and(
+                    eq(schema.persons.treeId, input.treeId),
+                    isNull(schema.persons.deletedAt),
+                    inArray(schema.persons.id, wanted),
+                ),
+            );
+        if (live.length !== wanted.length) return { ok: false, error: "person.notFound" };
+    }
+
+    const before = await db
+        .select({ personId: schema.mediaPeople.personId })
+        .from(schema.mediaPeople)
+        .where(
+            and(
+                eq(schema.mediaPeople.treeId, input.treeId),
+                eq(schema.mediaPeople.mediaId, input.mediaId),
+            ),
+        );
+
+    await db.transaction(async (tx) => {
+        await tx
+            .delete(schema.mediaPeople)
+            .where(
+                and(
+                    eq(schema.mediaPeople.treeId, input.treeId),
+                    eq(schema.mediaPeople.mediaId, input.mediaId),
+                ),
+            );
+        if (wanted.length > 0) {
+            await tx.insert(schema.mediaPeople).values(
+                wanted.map((personId) => ({
+                    treeId: input.treeId,
+                    mediaId: input.mediaId,
+                    personId,
+                    createdBy: input.userId,
+                })),
+            );
+        }
+    });
+
+    const list = (ids: string[]) => (ids.length > 0 ? ids.join(", ") : null);
+    await writeAudit({
+        treeId: input.treeId,
+        userId: input.userId,
+        action: "update",
+        entityType: "photo_people",
+        entityId: input.mediaId,
+        changes: { people: { from: list(before.map((row) => row.personId)), to: list(wanted) } },
+    });
+    return { ok: true };
 }
 
 /**
@@ -148,17 +378,24 @@ export async function setPortraitCrop(input: {
     return { ok: true };
 }
 
+/** A photograph of an event. The caption is the one written at the event, not in an album. */
+export type EventPhoto = {
+    mediaId: string;
+    isPrimary: boolean;
+    width: number | null;
+    height: number | null;
+    caption: string | null;
+};
+
 /** The photographs of an event, in the order they were added. */
-export async function listEventPhotos(
-    treeId: string,
-    eventId: string,
-): Promise<Omit<PersonPhoto, "crop">[]> {
+export async function listEventPhotos(treeId: string, eventId: string): Promise<EventPhoto[]> {
     return db
         .select({
             mediaId: schema.media.id,
             isPrimary: schema.mediaLinks.isPrimary,
             width: schema.media.width,
             height: schema.media.height,
+            caption: schema.mediaLinks.caption,
         })
         .from(schema.mediaLinks)
         .innerJoin(schema.media, eq(schema.media.id, schema.mediaLinks.mediaId))

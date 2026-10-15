@@ -35,7 +35,9 @@ The interface is in English by default and in Russian at `/ru`.
   people who have died show the age they reached.
 - **Photographs.** Each person has an album with one main photo, which you can crop to the square
   the card shows. Events can have their own photos, and the gallery shows the photos of the whole
-  tree.
+  tree. A photograph takes a caption, you put the album in the order you want, and you can say who
+  is in a picture - the names follow it into the viewing window. Files can be dropped onto the album
+  as well as chosen, and a whole batch goes in at once.
 - **Library.** Places, arranged inside each other (a city inside a region, a cemetery inside a
   city). Sources, such as a census page or a letter, and the citations that point from a person or
   an event to a source. Stories and notes. A search across all of it.

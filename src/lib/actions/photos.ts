@@ -8,10 +8,13 @@
  */
 
 import {
+    movePhoto,
     type PhotoCrop,
     removePersonPhoto,
     removePhotoLink,
     setMainPhoto,
+    setPhotoCaption,
+    setPhotoPeople,
     setPortraitCrop,
 } from "@/lib/photos";
 import { atLeast, type MemberRole } from "@/lib/roles";
@@ -124,6 +127,77 @@ export async function setPortraitCropAction(input: {
         personId: input.personId,
         mediaId: input.mediaId,
         crop,
+        userId: access.userId,
+    });
+    return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+/** Writes what stands under one photograph of an album; an empty line clears the caption. */
+export async function setPhotoCaptionAction(input: {
+    slug: string;
+    personId: string;
+    mediaId: string;
+    caption: string;
+}): Promise<PhotoResult> {
+    if (!UUID.test(input.personId) || !UUID.test(input.mediaId)) {
+        return { ok: false, error: "media.errors.failed" };
+    }
+    const access = await editorAccess(input.slug);
+    if (!access.ok) return access;
+
+    const result = await setPhotoCaption({
+        treeId: access.treeId,
+        personId: input.personId,
+        mediaId: input.mediaId,
+        caption: input.caption,
+        userId: access.userId,
+    });
+    return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+/** Moves one photograph of an album one place; the main one stays first. */
+export async function movePhotoAction(input: {
+    slug: string;
+    personId: string;
+    mediaId: string;
+    delta: number;
+}): Promise<PhotoResult> {
+    if (!UUID.test(input.personId) || !UUID.test(input.mediaId)) {
+        return { ok: false, error: "media.errors.failed" };
+    }
+    if (input.delta !== -1 && input.delta !== 1) {
+        return { ok: false, error: "media.errors.failed" };
+    }
+    const access = await editorAccess(input.slug);
+    if (!access.ok) return access;
+
+    const result = await movePhoto({
+        treeId: access.treeId,
+        personId: input.personId,
+        mediaId: input.mediaId,
+        delta: input.delta,
+        userId: access.userId,
+    });
+    return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+/** Sets who is in a photograph. The tags are replaced whole, so the caller sends them all. */
+export async function tagPhotoPeopleAction(input: {
+    slug: string;
+    mediaId: string;
+    personIds: string[];
+}): Promise<PhotoResult> {
+    if (!UUID.test(input.mediaId)) return { ok: false, error: "media.errors.failed" };
+    if (!input.personIds.every((personId) => UUID.test(personId))) {
+        return { ok: false, error: "media.errors.failed" };
+    }
+    const access = await editorAccess(input.slug);
+    if (!access.ok) return access;
+
+    const result = await setPhotoPeople({
+        treeId: access.treeId,
+        mediaId: input.mediaId,
+        personIds: input.personIds,
         userId: access.userId,
     });
     return result.ok ? { ok: true } : { ok: false, error: result.error };

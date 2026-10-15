@@ -31,7 +31,8 @@ export function Lightbox({
     onClose,
 }: {
     slug: string;
-    photos: { mediaId: string }[];
+    /** The people of the album link, if the caller wants them; the tags of the picture go in `tagged`. */
+    photos: { mediaId: string; caption?: string | null; tagged?: string[] }[];
     index: number;
     onIndex: (index: number) => void;
     onClose: () => void;
@@ -94,16 +95,24 @@ export function Lightbox({
                     alt=""
                     className="max-h-[80dvh] max-w-[92vw] rounded-box object-contain"
                 />
-                <div className="flex items-center gap-3 text-sm text-white/90">
-                    <span>{t("media.counter", { current: index + 1, total })}</span>
-                    <a
-                        href={photoUrl(slug, current.mediaId, "original")}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="link"
-                    >
-                        {t("media.openOriginal")}
-                    </a>
+                <div className="flex flex-col items-center gap-1 text-sm text-white/90">
+                    <div className="flex items-center gap-3">
+                        <span>{t("media.counter", { current: index + 1, total })}</span>
+                        <a
+                            href={photoUrl(slug, current.mediaId, "original")}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="link"
+                        >
+                            {t("media.openOriginal")}
+                        </a>
+                    </div>
+                    {current.caption && (
+                        <p className="max-w-[80dvh] text-center text-white/80">{current.caption}</p>
+                    )}
+                    {(current.tagged?.length ?? 0) > 0 && (
+                        <p className="text-white/60 text-xs">{current.tagged?.join(", ")}</p>
+                    )}
                 </div>
             </div>
 
