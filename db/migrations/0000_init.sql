@@ -213,7 +213,7 @@ create table if not exists familee.accounts (
     access_token_expires_at   timestamptz,
     refresh_token_expires_at  timestamptz,
     scope                     text,
-    password                  text,       -- argon2id hash for the credentials provider
+    password                  text,       -- scrypt hash for the credentials provider
     created_at                timestamptz not null default now(),
     updated_at                timestamptz not null default now(),
     constraint accounts_provider_account_key unique (provider_id, account_id)

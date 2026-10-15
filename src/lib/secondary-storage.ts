@@ -38,16 +38,17 @@ export function redisSecondaryStorage(client: Redis, prefix: string): SecondaryS
         },
 
         /**
-         * Counts attempts in a window: the window starts with the first attempt
-         * and ends `ttl` seconds later, so a burst cannot keep extending it.
+         * Counts attempts in a window: the window starts with the first attempt and ends `ttl`
+         * seconds later, so a burst cannot keep extending it. The counter and its expiry go as
+         * one atomic command: two separate commands could leave a key without an expiry if the
+         * process died between them, and that key would count forever. `expire ... NX` keeps the
+         * window set by the first attempt.
          */
         async increment(name, ttl) {
             const counter = key(name);
-            const value = await client.incr(counter);
-            if (value === 1) {
-                await client.expire(counter, ttl);
-            }
-            return value;
+            const replies = await client.multi().incr(counter).expire(counter, ttl, "NX").exec();
+            const value = replies?.[0]?.[1];
+            return typeof value === "number" ? value : Number(value ?? 0);
         },
     };
 }

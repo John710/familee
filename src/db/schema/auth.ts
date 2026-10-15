@@ -102,7 +102,9 @@ export const accounts = familee.table(
         }),
         scope: text("scope"),
 
-        /** The argon2id hash for password sign-in. Never sent to the client. */
+        /**
+         * The password hash for sign-in: better-auth's default scrypt. Never sent to the client.
+         */
         password: text("password"),
 
         createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
