@@ -5,6 +5,11 @@
 # The workflow can be started by hand for an existing tag: gh workflow run docker.yml --ref vX.Y.Z.
 # Nothing runs on ordinary pushes, which keeps the free Actions minutes for releases.
 #
+# The image is published only once the "test" job is green: the checks (npm test) and the database
+# (the migrations, the demo seed and the smoke tests) run first, so a broken tag never reaches the
+# registry. The image is built for linux/amd64 and linux/arm64; the second one is emulated on an
+# amd64 runner, which is why the build job is slow.
+#
 # Third-party actions are pinned to a full commit SHA; the version is kept in the comment next to it.
 
 name: docker
@@ -23,9 +28,49 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
-    image:
+    test:
         runs-on: ubuntu-latest
-        timeout-minutes: 30
+        timeout-minutes: 20
+        container: node:26-alpine
+        services:
+            postgres:
+                image: postgres:18-alpine
+                env:
+                    POSTGRES_USER: familee
+                    POSTGRES_PASSWORD: familee
+                    POSTGRES_DB: familee
+                options: >-
+                    --health-cmd "pg_isready -U familee"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 30
+        steps:
+            # The Node image carries no git (checkout needs it) and no psql (the seed and the smoke
+            # tests are written for psql). libc6-compat is what sharp wants on musl.
+            - name: The tools the later steps need
+              run: apk add --no-cache bash git libc6-compat postgresql-client
+
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: The dependencies
+              run: npm ci
+
+            - name: Types, linter and messages
+              run: npm test
+
+            - name: Migrations, the demo seed and the smoke tests
+              env:
+                  DATABASE_URL: postgres://familee:familee@postgres:5432/familee
+              run: |
+                  node db/migrate.mjs
+                  bash db/apply.sh seed test
+
+    image:
+        needs: test
+        runs-on: ubuntu-latest
+        timeout-minutes: 60
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -42,6 +87,11 @@ jobs:
             # Registry paths must be lowercase; the owner's login may contain capitals.
             - name: Image name
               run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+            # arm64 is built on an amd64 runner, so the emulation has to be registered first.
+            - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+              with:
+                  platforms: arm64
 
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
@@ -66,6 +116,7 @@ jobs:
             - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
               with:
                   context: .
+                  platforms: linux/amd64,linux/arm64
                   push: true
                   tags: ${{ steps.meta.outputs.tags }}
                   labels: ${{ steps.meta.outputs.labels }}
