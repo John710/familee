@@ -11,7 +11,7 @@ import { and, asc, eq, isNotNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { type AgeInfo, ageOf, todayIn, upcomingBirthdays } from "@/lib/age";
 import { BIRTHDAY_DAYS } from "@/lib/birthdays";
-import { type Relation, relationsTo } from "@/lib/kinship";
+import { type KinshipFamily, type Relation, relationsTo } from "@/lib/kinship";
 import { listPersonCards } from "@/lib/people";
 import { CARD_HEIGHT, CARD_WIDTH, layoutTree } from "@/lib/tree-layout";
 
@@ -85,6 +85,47 @@ export type TreeView = {
     empty: boolean;
 };
 
+/** One union of a tree: the partners, the children, and the row's own id. */
+export type TreeFamily = KinshipFamily & { id: string };
+
+/**
+ * The unions of one tree, in the shape the kinship functions take. Shared by the tree page (which
+ * also lays the cards out) and by the person page's "related to" panel.
+ */
+export async function loadFamilies(treeId: string): Promise<TreeFamily[]> {
+    const familyRows = await db
+        .select({ id: schema.families.id })
+        .from(schema.families)
+        .where(eq(schema.families.treeId, treeId))
+        .orderBy(asc(schema.families.createdAt));
+
+    const partnerRows = await db
+        .select({
+            familyId: schema.familyPartners.familyId,
+            personId: schema.familyPartners.personId,
+        })
+        .from(schema.familyPartners)
+        .where(eq(schema.familyPartners.treeId, treeId))
+        .orderBy(asc(schema.familyPartners.sortOrder));
+
+    const childRows = await db
+        .select({
+            familyId: schema.familyChildren.familyId,
+            personId: schema.familyChildren.personId,
+        })
+        .from(schema.familyChildren)
+        .where(eq(schema.familyChildren.treeId, treeId))
+        .orderBy(asc(schema.familyChildren.birthOrder));
+
+    return familyRows.map((family) => ({
+        id: family.id,
+        partners: partnerRows
+            .filter((row) => row.familyId === family.id)
+            .map((row) => row.personId),
+        children: childRows.filter((row) => row.familyId === family.id).map((row) => row.personId),
+    }));
+}
+
 /** The size of a junction dot; the node is placed by its top-left corner. */
 const JUNCTION_SIZE = 12;
 
@@ -110,37 +151,7 @@ export async function loadTreeView(
         ).map((entry) => [entry.personId, { date: entry.date, inDays: entry.inDays }]),
     );
 
-    const familyRows = await db
-        .select({ id: schema.families.id })
-        .from(schema.families)
-        .where(eq(schema.families.treeId, treeId))
-        .orderBy(asc(schema.families.createdAt));
-
-    const partnerRows = await db
-        .select({
-            familyId: schema.familyPartners.familyId,
-            personId: schema.familyPartners.personId,
-        })
-        .from(schema.familyPartners)
-        .where(eq(schema.familyPartners.treeId, treeId))
-        .orderBy(asc(schema.familyPartners.sortOrder));
-
-    const childRows = await db
-        .select({
-            familyId: schema.familyChildren.familyId,
-            personId: schema.familyChildren.personId,
-        })
-        .from(schema.familyChildren)
-        .where(eq(schema.familyChildren.treeId, treeId))
-        .orderBy(asc(schema.familyChildren.birthOrder));
-
-    const families = familyRows.map((family) => ({
-        id: family.id,
-        partners: partnerRows
-            .filter((row) => row.familyId === family.id)
-            .map((row) => row.personId),
-        children: childRows.filter((row) => row.familyId === family.id).map((row) => row.personId),
-    }));
+    const families = await loadFamilies(treeId);
 
     const layout = layoutTree(
         cards.map((card) => card.personId),

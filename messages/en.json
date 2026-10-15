@@ -631,6 +631,8 @@
         "title": "Relationship",
         "self": "the same person",
         "unrelated": "no relationship found",
+        "with": "Relationship with",
+        "choose": "Choose a person",
         "ancestor": {
             "1": "{sex, select, male {father} female {mother} other {parent}}",
             "2": "{sex, select, male {grandfather} female {grandmother} other {grandparent}}",

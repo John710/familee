@@ -7,6 +7,7 @@ import { PersonForm } from "@/components/persons/person-form";
 import { PersonLibraryPanel } from "@/components/persons/person-library-panel";
 import { PhotoAlbum } from "@/components/persons/photo-album";
 import { RecordsPanel } from "@/components/persons/records-panel";
+import { RelationFinder } from "@/components/persons/relation-finder";
 import { db, schema } from "@/db";
 import { Link } from "@/i18n/navigation";
 import { localizedPath } from "@/i18n/paths";
@@ -25,7 +26,7 @@ import { listEventPhotos, listPersonPhotos } from "@/lib/photos";
 import { atLeast } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
-import { loadTreeView } from "@/lib/tree-view";
+import { loadFamilies, loadTreeView } from "@/lib/tree-view";
 import { listPersonOptions, listUnionsForPerson } from "@/lib/unions";
 
 /**
@@ -97,6 +98,8 @@ export async function PersonPageBody({
     const options = (await listPersonOptions(access.treeId))
         .filter((option) => option.personId !== id)
         .map((option) => ({ personId: option.personId, name: option.name ?? "" }));
+    // The unions as the kinship functions want them, for the "related to" panel below.
+    const families = await loadFamilies(access.treeId);
     const t = await getTranslations();
     const fullName = [person.surname, person.given, person.patronymic, person.suffix]
         .filter(Boolean)
@@ -242,6 +245,15 @@ export async function PersonPageBody({
                         </div>
                     </div>
                 </section>
+            )}
+
+            {!editing && card && options.length > 0 && (
+                <RelationFinder
+                    personId={id}
+                    personSex={card.sex}
+                    people={options}
+                    families={families}
+                />
             )}
 
             <section className="card card-border bg-base-100">

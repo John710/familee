@@ -631,6 +631,8 @@
         "title": "Степень родства",
         "self": "это он сам",
         "unrelated": "родство не найдено",
+        "with": "Родство с",
+        "choose": "Выберите человека",
         "ancestor": {
             "1": "{sex, select, male {отец} female {мать} other {родитель}}",
             "2": "{sex, select, male {дед} female {бабушка} other {дед или бабушка}}",

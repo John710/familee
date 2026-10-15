@@ -99,3 +99,16 @@ export function relationsTo(
     }
     return result;
 }
+
+/**
+ * How `personId` is related to `otherId`, in the words of relationsTo but with the other person as
+ * the origin: the phrase then reads "this person is the other's ...". Null when there is no link.
+ */
+export function relationBetween(
+    personId: string,
+    otherId: string,
+    families: KinshipFamily[],
+): Relation | null {
+    if (personId === otherId) return { kind: "self" };
+    return relationsTo(otherId, families, [personId]).get(personId) ?? null;
+}
