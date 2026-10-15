@@ -12,12 +12,7 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import {
-    AccountExistsError,
-    createAccount,
-    hasAnyAccount,
-    SetupClosedError,
-} from "@/lib/accounts";
+import { AccountExistsError, createAccount, hasAnyAccount, SetupClosedError } from "@/lib/accounts";
 import { writeAudit } from "@/lib/audit";
 import { hashInvitationToken } from "@/lib/invitation-token";
 import { getCurrentUser } from "@/lib/session";

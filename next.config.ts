@@ -24,7 +24,8 @@ function languagesFromMessages(): string[] {
         .map((file) => file.slice(0, -".json".length))
         .filter((code) => /^[a-z]{2}(-[A-Za-z0-9]{2,8})?$/.test(code))
         .sort();
-    if (!codes.includes("en")) throw new Error("messages/en.json is missing: English is the base language");
+    if (!codes.includes("en"))
+        throw new Error("messages/en.json is missing: English is the base language");
     return codes;
 }
 
