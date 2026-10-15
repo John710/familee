@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 #
-# Familee - applying the migrations
+# Familee - the psql tools for the database (the "tools" compose service)
 #
-# Postgres is already running on the server, so this script only connects
-# to it and replays db/migrations/*.sql in file-name order.
-# Every migration is idempotent: running it again is safe.
+# The application image applies the migrations itself on start (db/migrate.mjs), so this script is
+# not part of a deploy. It stays for what needs psql: the demo seed and the smoke tests. It also
+# replays db/migrations/*.sql in file-name order, which is handy where Node is not installed.
 #
-# Each file opens and closes its own transaction, which is why
-# --single-transaction is not used here.
+# Every migration is idempotent: running it again is safe. Each file opens and
+# closes its own transaction, which is why --single-transaction is not used here.
 #
 # On the server:
-#   DATABASE_URL=postgres://familee:password@127.0.0.1:5432/familee ./db/apply.sh
+#   DATABASE_URL=postgres://familee:password@127.0.0.1:5432/familee ./db/tools.sh
 #
-# Or through Docker, without installing psql on the server (the migrate
+# Or through Docker, without installing psql on the server (the tools
 # service takes DATABASE_URL from .env and connects to your postgres):
-#   docker compose run --rm migrate
+#   docker compose --profile tools run --rm tools
 #
 # Pass "seed" to load the demo family from db/seed.sql after the
 # migrations. That script drops and recreates the tree with the slug
 # 'demo', so it must stay an explicit choice:
-#   docker compose run --rm migrate seed
+#   docker compose --profile tools run --rm tools seed
 
 set -euo pipefail
 
@@ -57,7 +57,7 @@ psql "$DATABASE_URL" --no-psqlrc --tuples-only --command \
 # "test" runs the smoke tests from db/tests/smoke.sql. They run in a transaction
 # that is rolled back, so they never change the data. Run them after "seed",
 # because they expect the demo tree to exist:
-#   docker compose run --rm migrate seed test
+#   docker compose --profile tools run --rm tools seed test
 for arg in "$@"; do
     case "$arg" in
         seed)

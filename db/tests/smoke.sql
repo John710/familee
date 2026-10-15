@@ -1,7 +1,7 @@
 -- Familee - smoke tests of the database
 --
--- Run after the migrations and the demo seed, through the migrate service:
---   docker compose --profile tools run --rm migrate test
+-- Run after the migrations and the demo seed, through the tools service:
+--   docker compose --profile tools run --rm tools test
 --
 -- Everything happens inside one transaction that is rolled back at the end,
 -- so the demo tree is left exactly as it was. Any failed check raises an

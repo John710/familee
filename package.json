@@ -17,7 +17,7 @@
         "format": "biome check --write .",
         "test:i18n": "node scripts/check-messages.mjs",
         "test": "npm run typecheck && npm run lint && npm run test:i18n",
-        "db:apply": "bash db/apply.sh",
+        "db:tools": "bash db/tools.sh",
         "db:check": "drizzle-kit check",
         "db:pull": "drizzle-kit pull",
         "db:studio": "drizzle-kit studio"

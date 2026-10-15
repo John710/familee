@@ -10,7 +10,7 @@
  * familee.schema_migrations, so only the versions that are not there yet are
  * applied. An advisory lock keeps two instances that start at once from racing.
  *
- * db/apply.sh (psql) stays for the tools profile: it can also load the demo
+ * db/tools.sh (psql) stays for the tools profile: it can also load the demo
  * seed and run the smoke tests, which are written for psql.
  *
  * By hand:

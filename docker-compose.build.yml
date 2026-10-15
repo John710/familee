@@ -72,7 +72,7 @@ services:
     # A one-shot run of the SQL by hand: the demo seed (`seed`) and the smoke
     # tests (`test`). The application image applies the migrations itself on
     # start; this service is only psql, so nothing is installed on the host.
-    migrate:
+    tools:
         image: postgres:alpine
         profiles:
             - tools
@@ -81,7 +81,7 @@ services:
             - ./db:/db:ro
         entrypoint:
             - bash
-            - /db/apply.sh
+            - /db/tools.sh
         networks:
             - data
         restart: "no"

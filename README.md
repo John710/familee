@@ -133,7 +133,7 @@ To run the image published to the registry instead of building it on the server,
 
 The container brings the schema up to the version of the image before the server starts, so there is
 no migration step of its own: an update is `pull` (or `build`) and `up -d`. Set `SKIP_MIGRATIONS=1`
-to skip that. The `migrate` service is a short-lived container that contains only `psql`, so you do
+to skip that. The `tools` service is a short-lived container that contains only `psql`, so you do
 not need to install anything on the server; it stays for the demo seed and the smoke tests.
 
 **5. Demo data (optional).** The demo shows the program with a made-up family, the Callahans of
@@ -145,7 +145,7 @@ enter your own family.
 You can create it in two ways. The first is the command line:
 
 ```bash
-docker compose --profile tools run --rm migrate seed
+docker compose --profile tools run --rm tools seed
 ```
 
 The second is a button on the profile page of an administrator, which asks for a confirmation first.
@@ -178,7 +178,7 @@ two weeks are also counted from the day in this zone.
 
 The structure of the database is written in plain SQL, in the `db/migrations` folder. Each file adds
 one change and is applied once, in order. The container applies the pending ones itself on start, so
-an update is `pull` (or `build`) and `up -d`. The `migrate` service can apply them by hand as well,
+an update is `pull` (or `build`) and `up -d`. The `tools` service can apply them by hand as well,
 and it also loads the demo seed (`seed`) and runs the smoke tests (`test`).
 
 ## Languages

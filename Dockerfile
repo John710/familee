@@ -12,7 +12,7 @@
 #
 # On start the container brings the schema up to the version of the image:
 # docker-entrypoint.sh runs db/migrate.mjs before the server starts
-# (SKIP_MIGRATIONS=1 skips it). The compose files keep a psql-based migrate
+# (SKIP_MIGRATIONS=1 skips it). The compose files keep a psql-based tools
 # service under the tools profile for the demo seed and the smoke tests.
 
 ARG NODE_IMAGE=node:26-alpine

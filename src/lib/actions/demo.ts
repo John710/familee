@@ -3,8 +3,8 @@
 /**
  * Familee - creating the demo tree from the profile of an administrator
  *
- * The same script that "docker compose run --rm migrate seed" runs (db/seed.sql) is run here,
- * through the application's own database connection, so that anyone who started the project can
+ * The same script that the "tools" compose service runs (db/seed.sql) is run here, through the
+ * application's own database connection, so that anyone who started the project can
  * create the demo without a command line. The script replaces the tree with the slug "demo"; the
  * files of the old demo tree are removed with it. Only an administrator of the archive may do it.
  */

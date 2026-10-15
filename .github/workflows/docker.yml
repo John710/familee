@@ -65,7 +65,7 @@ jobs:
                   DATABASE_URL: postgres://familee:familee@postgres:5432/familee
               run: |
                   node db/migrate.mjs
-                  bash db/apply.sh seed test
+                  bash db/tools.sh seed test
 
     image:
         needs: test

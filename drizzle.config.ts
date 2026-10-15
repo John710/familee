@@ -12,7 +12,7 @@
  *   drizzle-kit studio  - browse the data in a web UI
  *   drizzle-kit pull    - pull the schema out of the database (to compare)
  *
- * The migrations are applied by db/apply.sh (psql), never by drizzle-kit.
+ * The migrations are applied by the image (db/migrate.mjs), never by drizzle-kit.
  */
 
 import { defineConfig } from "drizzle-kit";
