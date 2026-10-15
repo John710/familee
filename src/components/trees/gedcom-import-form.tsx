@@ -143,6 +143,25 @@ export function GedcomImportForm({ slug, personsHref }: { slug: string; personsH
                                 </ul>
                             </div>
                         )}
+                        {preview.duplicates.length > 0 && (
+                            <div className="flex flex-col gap-1">
+                                <span className="font-medium text-sm">
+                                    {t("gedcom.duplicates")}
+                                </span>
+                                <p className="text-base-content/60 text-xs">
+                                    {t("gedcom.duplicatesHint", {
+                                        count: preview.duplicates.length,
+                                    })}
+                                </p>
+                                <ul className="max-h-64 overflow-y-auto text-xs">
+                                    {preview.duplicates.map((duplicate) => (
+                                        <li key={duplicate.xref}>
+                                            {duplicate.name} — {duplicate.existing}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                     </div>
                 </section>
             )}
@@ -157,6 +176,9 @@ export function GedcomImportForm({ slug, personsHref }: { slug: string; personsH
                             events: done.events,
                         })}
                     </p>
+                    {done.joined > 0 && (
+                        <p className="text-xs">{t("gedcom.doneJoined", { count: done.joined })}</p>
+                    )}
                     <Link href={personsHref} className="link">
                         {t("person.many")}
                     </Link>

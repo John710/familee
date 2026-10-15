@@ -24,6 +24,10 @@ The interface is in English by default and in Russian at `/ru`.
   (maiden, married, nickname) and life events with places. Dates can be as vague as the sources
   are: "about 1901" or "between 1915 and 1918". A family links partners and children, and the
   program will not let someone become their own ancestor.
+- **Possible duplicates.** The archive looks for people who carry the same name (whatever the case or
+  the accents) and the same years of birth and death, and shows them on a page of the tree. It never
+  merges anything by itself: you keep the record that is right, and the names, events, notes,
+  photographs and unions of the others move onto it.
 - **The tree.** Cards with a photo and the years, drawn from top to bottom. A click opens a panel
   with the timeline, the notes and the photo album. Focus mode shows only the ancestors and
   descendants of one person. If you choose yourself in the tree, every card shows how it is related
@@ -38,8 +42,9 @@ The interface is in English by default and in Russian at `/ru`.
 - **Birthdays.** The birthdays of the next two weeks from all your trees: in the bell in the top bar,
   on the home page, on the tree page, and on the members and people pages.
 - **GEDCOM.** You can import a GEDCOM file of any version; the program reads the version from the
-  file itself. You see a preview first and confirm before anything is written. A whole tree can be
-  exported as GEDCOM 7.0.
+  file itself. You see a preview first and confirm before anything is written. A person of the file
+  who already has the same name and years in the tree is joined to their record instead of being
+  added a second time - the preview shows which ones. A whole tree can be exported as GEDCOM 7.0.
 - **Calendar.** The birthdays and the wedding days of a tree go out as an iCalendar feed. The
   address is on the tree page (it carries the tree's own key, so keep it to yourself); a calendar
   app on a phone subscribes to it beside everything else. Only dates with a full day are in the

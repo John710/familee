@@ -11,9 +11,11 @@
 
 import { getTranslations } from "next-intl/server";
 import { loadDateWords } from "@/lib/date-words";
-import { importIntoTree } from "@/lib/gedcom-import";
+import { bestMatch, cardToDuplicate, indexByName } from "@/lib/duplicates";
+import { importIntoTree, planDuplicate } from "@/lib/gedcom-import";
 import { type PlanContext, type PlanKey, planImport } from "@/lib/gedcom-plan";
 import { decodeGedcomBytes } from "@/lib/gedcom-text";
+import { listPersonCards } from "@/lib/people";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -26,11 +28,21 @@ export type PreviewResult =
           unions: number;
           children: number;
           warnings: { xref: string; message: string }[];
+          /** The people of the file who look like somebody already in the tree. */
+          duplicates: { xref: string; name: string; existing: string }[];
       }
     | { ok: false; error: string };
 
 export type CommitResult =
-    | { ok: true; persons: number; unions: number; children: number; events: number }
+    | {
+          ok: true;
+          persons: number;
+          unions: number;
+          children: number;
+          events: number;
+          /** The people of the file who joined a record already in the tree. */
+          joined: number;
+      }
     | { ok: false; error: string };
 
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -73,6 +85,26 @@ export async function previewGedcomAction(input: {
 
     const children = plan.unions.reduce((total, union) => total + union.children.length, 0);
     const notes = file.note ? [{ xref: "file", message: file.note }] : [];
+
+    // Who of the file looks like somebody already in the tree. The import joins those people to the
+    // record that is there instead of creating them again, so the reader has to see them first.
+    const cards = await listPersonCards(check.access.treeId);
+    const index = indexByName(cards.map(cardToDuplicate));
+    const namesById = new Map(cards.map((card) => [card.personId, card.fullName ?? ""]));
+    const duplicates: { xref: string; name: string; existing: string }[] = [];
+    const taken = new Set<string>();
+    for (const person of plan.persons) {
+        const shape = planDuplicate(person);
+        const match = bestMatch(shape, index);
+        if (!match || taken.has(match.personId)) continue;
+        taken.add(match.personId);
+        duplicates.push({
+            xref: person.xref,
+            name: shape.fullName ?? "",
+            existing: namesById.get(match.personId) ?? "",
+        });
+    }
+
     return {
         ok: true,
         version: plan.version,
@@ -80,6 +112,7 @@ export async function previewGedcomAction(input: {
         unions: plan.unions.length,
         children,
         warnings: [...notes, ...plan.warnings].slice(0, 200),
+        duplicates: duplicates.slice(0, 100),
     };
 }
 
@@ -109,6 +142,7 @@ export async function commitGedcomAction(input: {
         unions: result.unions,
         children: result.children,
         events: result.events,
+        joined: result.joined,
     };
 }
 

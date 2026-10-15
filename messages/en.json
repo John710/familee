@@ -557,6 +557,23 @@
         "purgeWarning": "{name} and everything that belonged only to them will be gone: names, events, citations, notes, and the photographs nobody else is linked to, with their files. This cannot be undone.",
         "notFound": "That person is not in the trash"
     },
+    "duplicates": {
+        "title": "Possible duplicates",
+        "link": "Possible duplicates",
+        "hint": "People who carry the same name and the same years. The archive shows them but never merges them by itself: look at each group and keep the record that is right.",
+        "empty": "No two people look like the same person twice",
+        "because": "Why they look alike",
+        "sameName": "the same name",
+        "sameBirthYear": "the same year of birth",
+        "sameDeathYear": "the same year of death",
+        "birthYearsUnknown": "no year of birth in any of them",
+        "keep": "Keep this one",
+        "confirmTitle": "Merge into this record?",
+        "confirmMessage": "Everything of the other {count} moves to {name} - names, events, citations, notes, photographs and unions - and the other records disappear. There is no way back from here.",
+        "merged": "Merged: {names} names, {events} events, {photos} photographs and {unions} unions moved",
+        "samePerson": "A person cannot be merged with themselves",
+        "notFound": "That person is not in this tree"
+    },
     "gallery": {
         "title": "Photo album",
         "hint": "An album for each person who has photographs. The card shows the main photograph; a click opens the album.",
@@ -750,6 +767,9 @@
         "tooLarge": "The file is too large",
         "empty": "No people were found in the file",
         "alreadyImported": "These people or unions are already in the tree: the repeated import was stopped",
+        "duplicates": "People who look like somebody already here",
+        "duplicatesHint": "{count, plural, one {# person of the file carries the same name and the same years as somebody in the tree: the import joins him to that record instead of adding him twice.} other {# people of the file carry the same name and the same years as somebody in the tree: the import joins them to those records instead of adding them twice.}}",
+        "doneJoined": "{count, plural, one {# of them joined a record already in the tree} other {# of them joined records already in the tree}}",
         "plan": {
             "skippedLines": "{count} lines do not follow the GEDCOM grammar and were skipped",
             "noName": "no name in the file: the person is not imported",

@@ -16,6 +16,9 @@ export async function listPersonCards(treeId: string) {
         .select({
             personId: schema.personCards.personId,
             fullName: schema.personCards.fullName,
+            surname: schema.personCards.surname,
+            given: schema.personCards.given,
+            patronymic: schema.personCards.patronymic,
             sex: schema.personCards.sex,
             birthYear: schema.personCards.birthYear,
             deathYear: schema.personCards.deathYear,

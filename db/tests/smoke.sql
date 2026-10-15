@@ -21,6 +21,8 @@ declare
     v_message   text := '';
     v_kinship_a int;
     v_kinship_b int;
+    v_merge_keep uuid;
+    v_merge_drop uuid;
 begin
     -- 1. The demo tree is present and complete.
     select id into v_tree from familee.trees where slug = 'demo';
@@ -149,6 +151,51 @@ begin
                     where parent_id = v_person or child_id = v_person) then
         raise exception 'smoke: the parent-child edges of a person did not come back';
     end if;
+
+    -- 9. Merging two records of one person: the record that goes leaves nothing behind but its
+    --    names, its events and its file identifiers follow the survivor (migration 0013).
+    v_merge_keep := v_person;
+
+    insert into familee.persons (tree_id, sex, gedcom_xref)
+    values (v_tree, 'male', '@SMOKE-MERGE@')
+    returning id into v_merge_drop;
+
+    insert into familee.person_names (person_id, type, is_primary, given, surname)
+    values (v_merge_drop, 'birth', true, 'Smoke', 'Duplicate');
+
+    insert into familee.events (tree_id, person_id, type_code, is_primary, date_start, date_precision)
+    values (v_tree, v_merge_drop, 'birth', true, '1900-01-01', 'day');
+
+    perform familee.merge_persons(v_tree, v_merge_keep, v_merge_drop);
+
+    if exists (select 1 from familee.persons where id = v_merge_drop) then
+        raise exception 'smoke: the merged record is still in the tree';
+    end if;
+
+    if not exists (select 1 from familee.person_names
+                    where person_id = v_merge_keep and surname = 'Duplicate') then
+        raise exception 'smoke: the name of the merged record did not follow';
+    end if;
+
+    if not exists (select 1 from familee.events
+                    where person_id = v_merge_keep and date_start = '1900-01-01') then
+        raise exception 'smoke: the event of the merged record did not follow';
+    end if;
+
+    if not exists (select 1 from familee.person_xrefs
+                    where person_id = v_merge_keep and xref = '@SMOKE-MERGE@') then
+        raise exception 'smoke: the file identifier of the merged record did not follow';
+    end if;
+
+    begin
+        perform familee.merge_persons(v_tree, v_merge_keep, v_merge_keep);
+        raise exception 'smoke: a person was merged with themselves';
+    exception
+        when others then
+            if sqlerrm not like '%merge_self%' then
+                raise;
+            end if;
+    end;
 
     raise notice 'smoke: all checks passed (persons=%, kinship=%/%)',
         v_persons, v_kinship_a, v_kinship_b;

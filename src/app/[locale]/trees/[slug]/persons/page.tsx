@@ -8,6 +8,7 @@ import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { todayIn, upcomingBirthdays } from "@/lib/age";
 import { BIRTHDAY_DAYS, birthdayInput } from "@/lib/birthdays";
+import { cardToDuplicate, findDuplicates } from "@/lib/duplicates";
 import { listPersonCards } from "@/lib/people";
 import { atLeast } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
@@ -27,6 +28,8 @@ export default async function PersonsPage({ params }: { params: Promise<Params> 
     const canEdit = atLeast(access.role, "editor");
     const cards = await listPersonCards(access.treeId);
     const t = await getTranslations();
+    // The people who look like one person entered twice, counted for the link below.
+    const duplicateGroups = canEdit ? findDuplicates(cards.map(cardToDuplicate)).length : 0;
     const birthdays = upcomingBirthdays(
         cards.map((card) => birthdayInput(card, slug)),
         todayIn(),
@@ -51,6 +54,12 @@ export default async function PersonsPage({ params }: { params: Promise<Params> 
                 {canEdit && (
                     <Link href={`/trees/${slug}/trash`} className="text-primary text-sm">
                         {t("trash.link")}
+                    </Link>
+                )}
+                {canEdit && (
+                    <Link href={`/trees/${slug}/duplicates`} className="text-primary text-sm">
+                        {t("duplicates.link")}
+                        {duplicateGroups > 0 && ` (${duplicateGroups})`}
                     </Link>
                 )}
             </header>

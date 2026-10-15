@@ -18,6 +18,7 @@ export * from "./invitations";
 export * from "./media";
 export * from "./members";
 export * from "./notes";
+export * from "./person-xrefs";
 export * from "./persons";
 export * from "./places";
 export * from "./relations";
