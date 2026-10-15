@@ -12,6 +12,7 @@ import { and, asc, desc, eq, ne } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
+import { isUniqueViolation } from "@/lib/db-errors";
 import {
     type MediaVariantName,
     removeMediaFiles,
@@ -352,29 +353,19 @@ export async function addPersonPhoto(input: {
             ),
         )
         .limit(1);
+    // Only a fast path: two uploads may pass it at once. The guarded insert below decides which
+    // of them takes the one main place of the person.
     const becomesMain = mainLink === undefined;
 
     const stored = await storeMedia(input);
     if (!stored.ok) return stored;
 
-    const [linked] = await db
-        .select({ id: schema.mediaLinks.id })
-        .from(schema.mediaLinks)
-        .where(
-            and(
-                eq(schema.mediaLinks.mediaId, stored.mediaId),
-                eq(schema.mediaLinks.personId, input.personId),
-            ),
-        )
-        .limit(1);
-    if (linked) return { ok: false, error: "media.errors.duplicate" };
-
-    await db.insert(schema.mediaLinks).values({
+    const linked = await linkPhoto({
         mediaId: stored.mediaId,
         personId: input.personId,
-        role: becomesMain ? "portrait" : "gallery",
-        isPrimary: becomesMain,
+        wantsMain: becomesMain,
     });
+    if (!linked) return { ok: false, error: "media.errors.duplicate" };
 
     await writeAudit({
         treeId: input.treeId,
@@ -399,6 +390,48 @@ export async function addPersonPhoto(input: {
         });
     }
     return { ok: true, mediaId: stored.mediaId };
+}
+
+/**
+ * Links a photograph to a person, giving it the one main place when asked. The tree's partial
+ * unique indexes allow one main photograph per person and one link of a file to a person, so two
+ * uploads racing for the first place must not fail: the later one becomes a gallery photograph.
+ * Returns false when the file is already in the person's album.
+ */
+async function linkPhoto(input: {
+    mediaId: string;
+    personId: string;
+    wantsMain: boolean;
+}): Promise<boolean> {
+    const insert = (isPrimary: boolean) =>
+        db
+            .insert(schema.mediaLinks)
+            .values({
+                mediaId: input.mediaId,
+                personId: input.personId,
+                role: isPrimary ? "portrait" : "gallery",
+                isPrimary,
+            })
+            .onConflictDoNothing()
+            .returning({ id: schema.mediaLinks.id });
+
+    const [created] = await insert(input.wantsMain);
+    if (created) return true;
+
+    // Nothing was inserted: the file is either already linked, or another upload took the main
+    // place. A second attempt as a gallery photograph tells the two apart.
+    const [retry] = await insert(false);
+    return retry !== undefined;
+}
+
+/** Runs `run` again once after a unique-index race; a re-read of the links settles it. */
+async function retryOnUniqueViolation<T>(run: () => Promise<T>): Promise<T> {
+    try {
+        return await run();
+    } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+        return run();
+    }
 }
 
 /** Adds a photograph to an event (a document, a place, the event itself). */
@@ -471,46 +504,50 @@ export async function setMainPhoto(input: {
         return { ok: false, error: "person.notFound" };
     }
 
-    const updated = await db.transaction(async (tx) => {
-        const [link] = await tx
-            .select({ id: schema.mediaLinks.id })
-            .from(schema.mediaLinks)
-            .where(
-                and(
-                    eq(schema.mediaLinks.mediaId, input.mediaId),
-                    eq(schema.mediaLinks.personId, input.personId),
-                ),
-            )
-            .limit(1);
-        if (!link) return null;
+    // A concurrent change of the main photograph may commit between the two updates below; the
+    // unique index then refuses this one. Re-reading the links settles it, so it is tried again.
+    const updated = await retryOnUniqueViolation(() =>
+        db.transaction(async (tx) => {
+            const [link] = await tx
+                .select({ id: schema.mediaLinks.id })
+                .from(schema.mediaLinks)
+                .where(
+                    and(
+                        eq(schema.mediaLinks.mediaId, input.mediaId),
+                        eq(schema.mediaLinks.personId, input.personId),
+                    ),
+                )
+                .limit(1);
+            if (!link) return null;
 
-        const [previous] = await tx
-            .select({ mediaId: schema.mediaLinks.mediaId })
-            .from(schema.mediaLinks)
-            .where(
-                and(
-                    eq(schema.mediaLinks.personId, input.personId),
-                    eq(schema.mediaLinks.isPrimary, true),
-                ),
-            )
-            .limit(1);
+            const [previous] = await tx
+                .select({ mediaId: schema.mediaLinks.mediaId })
+                .from(schema.mediaLinks)
+                .where(
+                    and(
+                        eq(schema.mediaLinks.personId, input.personId),
+                        eq(schema.mediaLinks.isPrimary, true),
+                    ),
+                )
+                .limit(1);
 
-        // Clear the old main photograph first: the index allows one per person at a time.
-        await tx
-            .update(schema.mediaLinks)
-            .set({ isPrimary: false, role: "gallery", updatedAt: new Date() })
-            .where(
-                and(
-                    eq(schema.mediaLinks.personId, input.personId),
-                    ne(schema.mediaLinks.id, link.id),
-                ),
-            );
-        await tx
-            .update(schema.mediaLinks)
-            .set({ isPrimary: true, role: "portrait", updatedAt: new Date() })
-            .where(eq(schema.mediaLinks.id, link.id));
-        return { previous: previous?.mediaId ?? null };
-    });
+            // Clear the old main photograph first: the index allows one per person at a time.
+            await tx
+                .update(schema.mediaLinks)
+                .set({ isPrimary: false, role: "gallery", updatedAt: new Date() })
+                .where(
+                    and(
+                        eq(schema.mediaLinks.personId, input.personId),
+                        ne(schema.mediaLinks.id, link.id),
+                    ),
+                );
+            await tx
+                .update(schema.mediaLinks)
+                .set({ isPrimary: true, role: "portrait", updatedAt: new Date() })
+                .where(eq(schema.mediaLinks.id, link.id));
+            return { previous: previous?.mediaId ?? null };
+        }),
+    );
 
     if (!updated) return { ok: false, error: "media.errors.failed" };
 
@@ -577,42 +614,44 @@ export async function removePhotoLink(input: {
         .limit(1);
     const fileName = photoRow?.name ?? null;
 
-    const orphanKeys = await db.transaction(async (tx) => {
-        const [removed] = await tx
-            .delete(schema.mediaLinks)
-            .where(targetMatches)
-            .returning({ wasMain: schema.mediaLinks.isPrimary });
-        if (!removed) return null;
+    const orphanKeys = await retryOnUniqueViolation(() =>
+        db.transaction(async (tx) => {
+            const [removed] = await tx
+                .delete(schema.mediaLinks)
+                .where(targetMatches)
+                .returning({ wasMain: schema.mediaLinks.isPrimary });
+            if (!removed) return null;
 
-        if (removed.wasMain && "personId" in input.target) {
-            const [next] = await tx
+            if (removed.wasMain && "personId" in input.target) {
+                const [next] = await tx
+                    .select({ id: schema.mediaLinks.id })
+                    .from(schema.mediaLinks)
+                    .where(eq(schema.mediaLinks.personId, input.target.personId))
+                    .orderBy(desc(schema.mediaLinks.createdAt))
+                    .limit(1);
+                if (next) {
+                    await tx
+                        .update(schema.mediaLinks)
+                        .set({ isPrimary: true, role: "portrait", updatedAt: new Date() })
+                        .where(eq(schema.mediaLinks.id, next.id));
+                }
+            }
+
+            const [stillUsed] = await tx
                 .select({ id: schema.mediaLinks.id })
                 .from(schema.mediaLinks)
-                .where(eq(schema.mediaLinks.personId, input.target.personId))
-                .orderBy(desc(schema.mediaLinks.createdAt))
+                .where(eq(schema.mediaLinks.mediaId, input.mediaId))
                 .limit(1);
-            if (next) {
-                await tx
-                    .update(schema.mediaLinks)
-                    .set({ isPrimary: true, role: "portrait", updatedAt: new Date() })
-                    .where(eq(schema.mediaLinks.id, next.id));
-            }
-        }
+            if (stillUsed) return [];
 
-        const [stillUsed] = await tx
-            .select({ id: schema.mediaLinks.id })
-            .from(schema.mediaLinks)
-            .where(eq(schema.mediaLinks.mediaId, input.mediaId))
-            .limit(1);
-        if (stillUsed) return [];
-
-        const variants = await tx
-            .select({ key: schema.mediaVariants.storageKey })
-            .from(schema.mediaVariants)
-            .where(eq(schema.mediaVariants.mediaId, input.mediaId));
-        await tx.delete(schema.media).where(eq(schema.media.id, input.mediaId));
-        return variants.map((variant) => variant.key);
-    });
+            const variants = await tx
+                .select({ key: schema.mediaVariants.storageKey })
+                .from(schema.mediaVariants)
+                .where(eq(schema.mediaVariants.mediaId, input.mediaId));
+            await tx.delete(schema.media).where(eq(schema.media.id, input.mediaId));
+            return variants.map((variant) => variant.key);
+        }),
+    );
 
     if (orphanKeys === null) return { ok: false, error: "media.errors.failed" };
     if (orphanKeys.length > 0) await removeMediaFiles(orphanKeys);
