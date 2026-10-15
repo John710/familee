@@ -1,19 +1,35 @@
 /**
- * Familee - creating accounts on the server
+ * Familee - atomic creation of password accounts
  *
- * Public sign-up is closed (see src/lib/auth.ts), so the only two ways to get an
- * account are the first-run setup and an invitation. Both go through here: the
- * user row and the password hash are written with better-auth's own internal
- * adapter, so the password is hashed exactly the way sign-in expects.
+ * Better Auth supplies the password hasher; Drizzle writes the user and credential in
+ * one transaction. Calling the internal adapter here would use a different connection
+ * and leave a user without credentials if the second write failed.
  */
+
+import { randomUUID } from "node:crypto";
+import { sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { auth } from "@/lib/auth";
+
+/**
+ * The identity of the account-creation lock. Any number pair works; these two are fixed so every
+ * server that creates accounts takes the same lock and the setup predicate cannot be raced.
+ */
+const ACCOUNT_LOCK_NS = 1451837801;
+const ACCOUNT_LOCK_ID = 1;
 
 export class AccountExistsError extends Error {
     constructor() {
         super("account already exists");
         this.name = "AccountExistsError";
+    }
+}
+
+export class SetupClosedError extends Error {
+    constructor() {
+        super("setup is closed");
+        this.name = "SetupClosedError";
     }
 }
 
@@ -23,36 +39,50 @@ export async function hasAnyAccount(): Promise<boolean> {
     return row !== undefined;
 }
 
-/** Creates a user with a password. Throws AccountExistsError when the email is taken. */
+/** Creates both rows atomically, optionally claiming the first administrator slot. */
 export async function createAccount(input: {
     email: string;
     name: string;
     password: string;
+    setup?: boolean;
 }): Promise<{ id: string; email: string }> {
     const ctx = await auth.$context;
     const email = input.email.trim().toLowerCase();
+    // Hash before taking the lock: expensive work must not hold up other requests.
+    const password = await ctx.password.hash(input.password);
 
-    const existing = await ctx.internalAdapter.findUserByEmail(email);
-    if (existing) {
-        throw new AccountExistsError();
-    }
+    return db.transaction(async (tx) => {
+        // All account creation shares this lock, including invitations. The setup
+        // predicate is checked only after acquiring it, on the same connection.
+        await tx.execute(
+            sql`select pg_advisory_xact_lock(${ACCOUNT_LOCK_NS}::int, ${ACCOUNT_LOCK_ID}::int)`,
+        );
+        if (input.setup) {
+            const [existing] = await tx.select({ id: schema.users.id }).from(schema.users).limit(1);
+            if (existing) throw new SetupClosedError();
+        }
 
-    const user = await ctx.internalAdapter.createUser(
-        {
-            email,
-            name: input.name.trim(),
-            emailVerified: false,
-        },
-        { method: "email-password" },
-    );
+        const id = randomUUID();
+        const [user] = await tx
+            .insert(schema.users)
+            .values({
+                id,
+                email,
+                name: input.name.trim(),
+                emailVerified: false,
+                role: input.setup ? "admin" : "viewer",
+            })
+            .onConflictDoNothing({ target: schema.users.email })
+            .returning({ id: schema.users.id, email: schema.users.email });
+        if (!user) throw new AccountExistsError();
 
-    const passwordHash = await ctx.password.hash(input.password);
-    await ctx.internalAdapter.linkAccount({
-        userId: user.id,
-        providerId: "credential",
-        accountId: user.id,
-        password: passwordHash,
+        await tx.insert(schema.accounts).values({
+            id: randomUUID(),
+            userId: id,
+            providerId: "credential",
+            accountId: id,
+            password,
+        });
+        return user;
     });
-
-    return { id: user.id, email: user.email };
 }

@@ -12,7 +12,12 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { AccountExistsError, createAccount, hasAnyAccount } from "@/lib/accounts";
+import {
+    AccountExistsError,
+    createAccount,
+    hasAnyAccount,
+    SetupClosedError,
+} from "@/lib/accounts";
 import { writeAudit } from "@/lib/audit";
 import { hashInvitationToken } from "@/lib/invitation-token";
 import { getCurrentUser } from "@/lib/session";
@@ -41,11 +46,12 @@ export async function setupAction(input: {
     if (password !== null) return { ok: false, error: password };
 
     try {
-        const user = await createAccount({ email, name, password: input.password });
-        // The first account is the global administrator of the installation.
-        await db.update(schema.users).set({ role: "admin" }).where(eq(schema.users.id, user.id));
+        await createAccount({ email, name, password: input.password, setup: true });
         return { ok: true, email };
     } catch (error) {
+        if (error instanceof SetupClosedError) {
+            return { ok: false, error: "auth.setupClosed" };
+        }
         if (error instanceof AccountExistsError) {
             return { ok: false, error: "auth.accountExists" };
         }
