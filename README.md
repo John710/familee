@@ -121,20 +121,20 @@ must set `DATABASE_URL`, `REDIS_URL`, `DATA_NETWORK` and `BETTER_AUTH_SECRET`. F
 `BETTER_AUTH_URL` must be exactly the address your browser uses, with the scheme and the port. If it
 differs, sign-in is refused as coming from another site.
 
-**4. Build, schema, start.**
+**4. Build and start.**
 
 ```bash
 docker compose build
-docker compose --profile tools run --rm migrate    # creates or updates the tables
 docker compose up -d
 docker compose logs -f app
 ```
 
-To run the image published to the registry instead of building it on the server, set `COMPOSE_FILE=docker-compose.image.yml` and `FAMILEE_VERSION` (for example `0.2.0`) in `.env`, then run `docker compose pull` instead of `docker compose build`. The two compose files describe the same services.
+To run the image published to the registry instead of building it on the server, set `COMPOSE_FILE=docker-compose.image.yml` and `FAMILEE_VERSION` (for example `0.2.3`) in `.env`, then run `docker compose pull` instead of `docker compose build`. The two compose files describe the same services.
 
-The `migrate` service is a short-lived container that contains only `psql`, so you do not need to
-install anything on the server. Running the migrations again is safe, and you should do it after
-every update of the code.
+The container brings the schema up to the version of the image before the server starts, so there is
+no migration step of its own: an update is `pull` (or `build`) and `up -d`. Set `SKIP_MIGRATIONS=1`
+to skip that. The `migrate` service is a short-lived container that contains only `psql`, so you do
+not need to install anything on the server; it stays for the demo seed and the smoke tests.
 
 **5. Demo data (optional).** The demo shows the program with a made-up family, the Callahans of
 Pittsburgh and Cleveland, over four generations. The family uses almost everything Familee can store:
@@ -177,8 +177,9 @@ two weeks are also counted from the day in this zone.
 ## Database changes
 
 The structure of the database is written in plain SQL, in the `db/migrations` folder. Each file adds
-one change and is applied once, in order, by the `migrate` service. That is all you need to do after
-an update: run the command from step 4 again.
+one change and is applied once, in order. The container applies the pending ones itself on start, so
+an update is `pull` (or `build`) and `up -d`. The `migrate` service can apply them by hand as well,
+and it also loads the demo seed (`seed`) and runs the smoke tests (`test`).
 
 ## Languages
 

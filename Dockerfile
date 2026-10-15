@@ -9,6 +9,11 @@
 #
 # Build:  docker compose build
 # Start:  docker compose up -d
+#
+# On start the container brings the schema up to the version of the image:
+# docker-entrypoint.sh runs db/migrate.mjs before the server starts
+# (SKIP_MIGRATIONS=1 skips it). The compose files keep a psql-based migrate
+# service under the tools profile for the demo seed and the smoke tests.
 
 ARG NODE_IMAGE=node:26-alpine
 
@@ -76,10 +81,22 @@ RUN mkdir -p /data/media && chown -R node:node /data/media
 COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+
+# postgres.js is bundled into the server chunk, so the standalone output has no
+# node_modules/postgres of its own. The migration runner loads the package
+# directly, so it gets a copy here (the package has no dependencies).
+COPY --from=deps --chown=node:node /app/node_modules/postgres ./node_modules/postgres
+
+# The SQL travels with the image: the entry point applies db/migrations before
+# the server starts, so a deploy is `pull` and `up -d` with no migrate step of
+# its own. The seed is kept for the demo.
+COPY --from=builder --chown=node:node /app/db/migrations ./db/migrations
+COPY --from=builder --chown=node:node /app/db/migrate.mjs ./db/migrate.mjs
 COPY --from=builder --chown=node:node /app/db/seed.sql ./db/seed.sql
+COPY --chmod=755 --chown=node:node docker-entrypoint.sh ./docker-entrypoint.sh
 
 USER node
 EXPOSE 3000
 
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "--", "/app/docker-entrypoint.sh"]
 CMD ["node", "server.js"]
