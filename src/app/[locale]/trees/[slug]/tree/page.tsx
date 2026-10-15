@@ -43,6 +43,18 @@ export default async function TreePage({ params }: { params: Promise<Params> }) 
     const view = await loadTreeView(access.treeId, slug, membership?.selfPersonId ?? null);
     const t = await getTranslations();
 
+    const [settings] = await db
+        .select({ calendarToken: schema.trees.calendarToken })
+        .from(schema.trees)
+        .where(eq(schema.trees.id, access.treeId))
+        .limit(1);
+
+    // A calendar app needs the whole address; BETTER_AUTH_URL is the address of the browser
+    // (see .env.example). Without it the path alone is still useful behind the same host.
+    const calendarUrl = settings
+        ? `${(process.env.BETTER_AUTH_URL ?? "").replace(/\/$/, "")}/api/calendar/${settings.calendarToken}`
+        : null;
+
     const today = todayIn();
     const birthdays = upcomingBirthdays(
         (await listPersonCards(access.treeId)).map((card) => birthdayInput(card, slug)),
@@ -113,6 +125,18 @@ export default async function TreePage({ params }: { params: Promise<Params> }) 
                         edges={view.edges}
                         canEdit={atLeast(access.role, "editor")}
                     />
+                </section>
+            )}
+
+            {calendarUrl && (
+                <section className="card card-border bg-base-100">
+                    <div className="card-body gap-2 p-4">
+                        <h2 className="font-medium text-sm">{t("calendar.title")}</h2>
+                        <p className="text-base-content/60 text-sm">{t("calendar.hint")}</p>
+                        <code className="break-all rounded-box bg-base-200 px-3 py-2 text-xs">
+                            {calendarUrl}
+                        </code>
+                    </div>
                 </section>
             )}
         </div>

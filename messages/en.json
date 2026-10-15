@@ -537,6 +537,12 @@
         "none": "No birthdays in the next two weeks",
         "turns": "{count, plural, one {turns # year} other {turns # years}}"
     },
+    "calendar": {
+        "title": "Calendar",
+        "hint": "Birthdays and wedding days of this tree, for the calendar app on a phone. Add the address below; it is the key to the feed, so keep it to yourself.",
+        "birthday": "{name} — birthday",
+        "wedding": "{names} — wedding day"
+    },
     "gallery": {
         "title": "Photo album",
         "hint": "An album for each person who has photographs. The card shows the main photograph; a click opens the album.",

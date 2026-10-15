@@ -12,7 +12,7 @@
  */
 
 import { sql } from "drizzle-orm";
-import { check, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { check, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 import { users } from "./auth";
 import { familee } from "./enums";
@@ -42,6 +42,12 @@ export const trees = familee.table(
         /** The default language of the tree when the user has none of their own. */
         defaultLocale: text("default_locale").notNull().default("ru"),
 
+        /**
+         * The secret of the calendar feed (/api/calendar/<token>): a calendar app on a phone has no
+         * session. Replacing the value retires the old address.
+         */
+        calendarToken: uuid("calendar_token").notNull().defaultRandom(),
+
         createdBy: text("created_by").references(() => users.id, {
             onDelete: "set null",
         }),
@@ -54,6 +60,7 @@ export const trees = familee.table(
     },
     (t) => [
         unique("trees_slug_key").on(t.slug),
+        uniqueIndex("trees_calendar_token_key").on(t.calendarToken),
         check("trees_slug_format", sql`${t.slug} ~ '^[a-z0-9][a-z0-9-]{0,62}$'`),
     ],
 );

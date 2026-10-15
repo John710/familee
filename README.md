@@ -40,6 +40,10 @@ The interface is in English by default and in Russian at `/ru`.
 - **GEDCOM.** You can import a GEDCOM file of any version; the program reads the version from the
   file itself. You see a preview first and confirm before anything is written. A whole tree can be
   exported as GEDCOM 7.0.
+- **Calendar.** The birthdays and the wedding days of a tree go out as an iCalendar feed. The
+  address is on the tree page (it carries the tree's own key, so keep it to yourself); a calendar
+  app on a phone subscribes to it beside everything else. Only dates with a full day are in the
+  feed: an event known to the month would land on a day nobody recorded.
 - **Access.** Each tree has its own members with roles: owner, administrator, co-author or viewer.
   Members come in through invitation links, and an administrator can hand out a password reset.
   The owner and administrators can see the change history and the devices each person is signed in
