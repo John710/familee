@@ -9,7 +9,7 @@
  * to translation keys, so the person sees a sentence, not a database error.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
@@ -57,7 +57,7 @@ export async function createUnionAction(input: {
     const people = await db
         .select({ id: schema.persons.id, sex: schema.persons.sex })
         .from(schema.persons)
-        .where(eq(schema.persons.treeId, access.treeId));
+        .where(and(eq(schema.persons.treeId, access.treeId), isNull(schema.persons.deletedAt)));
     const sexOf = new Map(people.map((row) => [row.id, row.sex]));
     if (!sexOf.has(input.personId) || (input.partnerId && !sexOf.has(input.partnerId))) {
         return { ok: false, error: "person.notFound" };

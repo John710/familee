@@ -9,7 +9,7 @@
  * above write; every change goes to the audit log with the fields that changed.
  */
 
-import { and, asc, eq, notInArray } from "drizzle-orm";
+import { and, asc, eq, isNull, notInArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { clearedFields, diffFields, writeAudit } from "@/lib/audit";
@@ -37,7 +37,13 @@ async function editorFor(slug: string, personId: string) {
     const [person] = await db
         .select({ id: schema.persons.id })
         .from(schema.persons)
-        .where(and(eq(schema.persons.id, personId), eq(schema.persons.treeId, access.treeId)))
+        .where(
+            and(
+                eq(schema.persons.id, personId),
+                eq(schema.persons.treeId, access.treeId),
+                isNull(schema.persons.deletedAt),
+            ),
+        )
         .limit(1);
     if (!person) return { ok: false as const, error: "person.notFound" };
 

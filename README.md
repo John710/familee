@@ -47,7 +47,11 @@ The interface is in English by default and in Russian at `/ru`.
 - **Access.** Each tree has its own members with roles: owner, administrator, co-author or viewer.
   Members come in through invitation links, and an administrator can hand out a password reset.
   The owner and administrators can see the change history and the devices each person is signed in
-  on. An owner can delete a tree; an editor can delete a person.
+  on. An owner can delete a tree; an editor can move a person to the trash.
+- **Trash.** Moving a person out of the tree puts them in its trash instead of destroying anything:
+  the names, the events, the notes, the photographs and the unions stay, and the tree simply stops
+  showing them. Anybody can be brought back at any time. The owner and the administrators can also
+  delete them for good, and only then do the files go.
 
 ## Screenshots
 

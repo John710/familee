@@ -125,6 +125,31 @@ begin
             v_message;
     end if;
 
+    -- 8. The trash: a person with deleted_at is gone from the cards and from the
+    --    parent-child edges, and comes back the moment the mark is cleared
+    --    (migration 0012). The place of a person in the trash is not forgotten.
+    update familee.persons set deleted_at = now(), deleted_by = null where id = v_person;
+
+    if exists (select 1 from familee.person_cards where person_id = v_person) then
+        raise exception 'smoke: a person in the trash still has a card';
+    end if;
+
+    if exists (select 1 from familee.parent_child
+                where parent_id = v_person or child_id = v_person) then
+        raise exception 'smoke: a person in the trash is still a parent or a child';
+    end if;
+
+    update familee.persons set deleted_at = null where id = v_person;
+
+    if not exists (select 1 from familee.person_cards where person_id = v_person) then
+        raise exception 'smoke: a person did not come back from the trash';
+    end if;
+
+    if not exists (select 1 from familee.parent_child
+                    where parent_id = v_person or child_id = v_person) then
+        raise exception 'smoke: the parent-child edges of a person did not come back';
+    end if;
+
     raise notice 'smoke: all checks passed (persons=%, kinship=%/%)',
         v_persons, v_kinship_a, v_kinship_b;
 end;

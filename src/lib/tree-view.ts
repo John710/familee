@@ -6,7 +6,7 @@
  * the canvas itself (components/trees/tree-canvas.tsx) only draws what it receives.
  */
 
-import { and, asc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { type AgeInfo, ageOf, todayIn, upcomingBirthdays } from "@/lib/age";
@@ -105,7 +105,8 @@ export async function loadFamilies(treeId: string): Promise<TreeFamily[]> {
             personId: schema.familyPartners.personId,
         })
         .from(schema.familyPartners)
-        .where(eq(schema.familyPartners.treeId, treeId))
+        .innerJoin(schema.persons, eq(schema.persons.id, schema.familyPartners.personId))
+        .where(and(eq(schema.familyPartners.treeId, treeId), isNull(schema.persons.deletedAt)))
         .orderBy(asc(schema.familyPartners.sortOrder));
 
     const childRows = await db
@@ -114,16 +115,24 @@ export async function loadFamilies(treeId: string): Promise<TreeFamily[]> {
             personId: schema.familyChildren.personId,
         })
         .from(schema.familyChildren)
-        .where(eq(schema.familyChildren.treeId, treeId))
+        .innerJoin(schema.persons, eq(schema.persons.id, schema.familyChildren.personId))
+        .where(and(eq(schema.familyChildren.treeId, treeId), isNull(schema.persons.deletedAt)))
         .orderBy(asc(schema.familyChildren.birthOrder));
 
-    return familyRows.map((family) => ({
-        id: family.id,
-        partners: partnerRows
-            .filter((row) => row.familyId === family.id)
-            .map((row) => row.personId),
-        children: childRows.filter((row) => row.familyId === family.id).map((row) => row.personId),
-    }));
+    // A person in the trash is neither a partner nor a child anywhere - the join to persons is the
+    // filter. A union left without partners is not returned at all: there is nothing to draw, and
+    // when the person comes back the union is exactly as it was.
+    return familyRows
+        .map((family) => ({
+            id: family.id,
+            partners: partnerRows
+                .filter((row) => row.familyId === family.id)
+                .map((row) => row.personId),
+            children: childRows
+                .filter((row) => row.familyId === family.id)
+                .map((row) => row.personId),
+        }))
+        .filter((family) => family.partners.length > 0);
 }
 
 /** The size of a junction dot; the node is placed by its top-left corner. */
@@ -162,7 +171,7 @@ export async function loadTreeView(
     const noteRows = await db
         .select({ id: schema.persons.id, notes: schema.persons.notes })
         .from(schema.persons)
-        .where(eq(schema.persons.treeId, treeId));
+        .where(and(eq(schema.persons.treeId, treeId), isNull(schema.persons.deletedAt)));
     const notesOf = new Map(noteRows.map((row) => [row.id, row.notes ?? ""]));
 
     const personEventRows = await db
@@ -246,10 +255,13 @@ export async function loadTreeView(
         });
     }
 
-    // The relation of every card to the signed-in person, when that person is chosen.
-    const relations = selfPersonId
+    // The relation of every card to the signed-in person, when that person is chosen. A member's
+    // chosen person may be in the trash: nobody is "me" until the person comes back.
+    const selfId =
+        selfPersonId && cards.some((card) => card.personId === selfPersonId) ? selfPersonId : null;
+    const relations = selfId
         ? relationsTo(
-              selfPersonId,
+              selfId,
               families,
               cards.map((card) => card.personId),
           )
@@ -281,7 +293,7 @@ export async function loadTreeView(
                     card.cropH === null
                         ? null
                         : { x: card.cropX, y: card.cropY, w: card.cropW, h: card.cropH },
-                isSelf: card.personId === selfPersonId,
+                isSelf: card.personId === selfId,
                 kinship: relations.get(card.personId) ?? null,
                 birthday: soonBirthdays.get(card.personId) ?? null,
                 age: ageOf(

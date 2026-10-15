@@ -8,7 +8,7 @@
  * chosen by one member only.
  */
 
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
@@ -36,6 +36,7 @@ export async function setSelfPersonAction(input: {
                 and(
                     eq(schema.persons.id, input.personId),
                     eq(schema.persons.treeId, access.treeId),
+                    isNull(schema.persons.deletedAt),
                 ),
             )
             .limit(1);

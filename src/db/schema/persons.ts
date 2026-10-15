@@ -55,6 +55,17 @@ export const persons = familee.table(
         /** Manual ordering of the cards when the dates are unknown. */
         sortOrder: integer("sort_order"),
 
+        /**
+         * When the person went to the trash; null means the person is in the tree.
+         * person_cards and parent_child hide such a person, so no read has to
+         * remember the flag except the ones that list the trash itself.
+         */
+        deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
+        /** Who moved the person to the trash. */
+        deletedBy: text("deleted_by").references(() => users.id, {
+            onDelete: "set null",
+        }),
+
         createdBy: text("created_by").references(() => users.id, {
             onDelete: "set null",
         }),
@@ -74,6 +85,7 @@ export const persons = familee.table(
         unique("persons_gedcom_xref_key").on(t.treeId, t.gedcomXref),
         index("persons_tree_id_idx").on(t.treeId),
         index("persons_tree_sort_idx").on(t.treeId, t.sortOrder.asc().nullsLast()),
+        index("persons_trash_idx").on(t.treeId, t.deletedAt).where(sql`deleted_at is not null`),
     ],
 );
 

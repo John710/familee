@@ -7,7 +7,7 @@
  * checked here, not only in the page, and goes to the audit log.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
@@ -239,7 +239,13 @@ export async function saveCitationAction(input: {
     const [person] = await db
         .select({ id: schema.persons.id })
         .from(schema.persons)
-        .where(and(eq(schema.persons.id, input.personId), eq(schema.persons.treeId, access.treeId)))
+        .where(
+            and(
+                eq(schema.persons.id, input.personId),
+                eq(schema.persons.treeId, access.treeId),
+                isNull(schema.persons.deletedAt),
+            ),
+        )
         .limit(1);
     const [source] = await db
         .select({ id: schema.sources.id })
@@ -409,7 +415,13 @@ export async function saveNoteAction(input: {
     const [person] = await db
         .select({ id: schema.persons.id })
         .from(schema.persons)
-        .where(and(eq(schema.persons.id, input.personId), eq(schema.persons.treeId, access.treeId)))
+        .where(
+            and(
+                eq(schema.persons.id, input.personId),
+                eq(schema.persons.treeId, access.treeId),
+                isNull(schema.persons.deletedAt),
+            ),
+        )
         .limit(1);
     if (!person) return { ok: false, error: "person.notFound" };
 

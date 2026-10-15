@@ -8,7 +8,7 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
@@ -219,7 +219,13 @@ async function personInTree(treeId: string, personId: string): Promise<boolean> 
     const [row] = await db
         .select({ id: schema.persons.id })
         .from(schema.persons)
-        .where(and(eq(schema.persons.id, personId), eq(schema.persons.treeId, treeId)))
+        .where(
+            and(
+                eq(schema.persons.id, personId),
+                eq(schema.persons.treeId, treeId),
+                isNull(schema.persons.deletedAt),
+            ),
+        )
         .limit(1);
     return row !== undefined;
 }

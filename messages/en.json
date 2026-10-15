@@ -242,9 +242,9 @@
         "ageNow": "Age",
         "birthdayOn": "birthday {day}",
         "delete": {
-            "title": "Delete this person?",
-            "button": "Delete the person",
-            "warning": "The person is deleted with all of their data: names, events, citations and notes, and the {photos} photographs with their files. Unions in which they were the only partner or child go too. This cannot be undone."
+            "title": "Move this person to the trash?",
+            "button": "Move to the trash",
+            "warning": "The person disappears from the tree, and nothing is lost: names, events, citations, notes, the {photos} photographs and the unions all stay. Bring them back from the trash whenever you like; only deleting them for good removes the files."
         },
         "ageLived": "Lived to",
         "years": "{count, plural, one {# year} other {# years}}",
@@ -543,6 +543,19 @@
         "hint": "Birthdays and wedding days of this tree, for the calendar app on a phone. Add the address below; it is the key to the feed, so keep it to yourself.",
         "birthday": "{name} — birthday",
         "wedding": "{names} — wedding day"
+    },
+    "trash": {
+        "title": "Trash",
+        "link": "Trash",
+        "hint": "The people you moved out of the tree. Nothing is lost until you delete them for good: bring anyone back, or let them go with the photographs that belonged to nobody else.",
+        "empty": "The trash is empty",
+        "deletedAt": "moved out {when}",
+        "deletedBy": "by {name}",
+        "restore": "Bring back",
+        "purge": "Delete for good",
+        "purgeTitle": "Delete for good?",
+        "purgeWarning": "{name} and everything that belonged only to them will be gone: names, events, citations, notes, and the photographs nobody else is linked to, with their files. This cannot be undone.",
+        "notFound": "That person is not in the trash"
     },
     "gallery": {
         "title": "Photo album",

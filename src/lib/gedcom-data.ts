@@ -185,5 +185,5 @@ export async function loadTreeForExport(treeId: string): Promise<{
         };
     });
 
-    return { persons, unions };
+    return { persons, unions: unions.filter((union) => union.partners.length > 0) };
 }

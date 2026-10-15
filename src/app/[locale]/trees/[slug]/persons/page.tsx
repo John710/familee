@@ -48,6 +48,11 @@ export default async function PersonsPage({ params }: { params: Promise<Params> 
                 <Link href={`/trees/${slug}/tree`} className="text-primary text-sm">
                     {t("tree.view.open")}
                 </Link>
+                {canEdit && (
+                    <Link href={`/trees/${slug}/trash`} className="text-primary text-sm">
+                        {t("trash.link")}
+                    </Link>
+                )}
             </header>
 
             <section className="flex flex-col gap-3">
