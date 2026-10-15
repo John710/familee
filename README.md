@@ -209,6 +209,18 @@ docker run --rm -v familee_media:/data:ro -v "$PWD:/backup" alpine \
     tar czf /backup/familee-media-$(date +%F).tar.gz -C /data .
 ```
 
+## Monitoring
+
+The container's healthcheck uses `/api/health`, which only says that the process is up: it never
+asks the database, so restarting Postgres does not make Docker restart a healthy application. For an
+external monitor (Uptime Kuma, Gatus, a `curl` from cron), `/api/ready` answers 200 only when both
+Postgres and Redis answer, and names the one that is down otherwise:
+
+```bash
+curl -fsS https://familee.example.com/api/ready
+# {"status":"ready","checks":{"database":true,"redis":true},"time":"..."}
+```
+
 ## What comes next
 
 The main items still open are: checking the newest features in a browser, citations for families and

@@ -205,6 +205,18 @@ docker run --rm -v familee_media:/data:ro -v "$PWD:/backup" alpine \
     tar czf /backup/familee-media-$(date +%F).tar.gz -C /data .
 ```
 
+## Мониторинг
+
+Healthcheck контейнера использует `/api/health`: он говорит только, что процесс жив, и не трогает
+базу — иначе перезапуск Postgres заставил бы Docker перезапустить здоровое приложение. Для внешнего
+монитора (Uptime Kuma, Gatus, `curl` из cron) есть `/api/ready`: он отвечает 200, только когда
+отвечают и Postgres, и Redis, а иначе называет, что не ответило:
+
+```bash
+curl -fsS https://familee.example.com/api/ready
+# {"status":"ready","checks":{"database":true,"redis":true},"time":"..."}
+```
+
 ## Что дальше
 
 Главное, что ещё предстоит: проверить новые возможности в браузере, добавить цитаты для семей и мест,
