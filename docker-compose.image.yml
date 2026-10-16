@@ -2,7 +2,7 @@
 #
 # The same services as docker-compose.build.yml, except that the app is pulled as
 # ghcr.io/john710/familee:${FAMILEE_VERSION} instead of being built from the sources.
-# Set FAMILEE_VERSION in .env (for example 0.2.0). Keep the two files in step.
+# Keep the two files in step.
 #
 # Two ways to reach the application, chosen in .env:
 #
@@ -26,12 +26,40 @@ name: familee
 
 services:
     app:
-        image: ghcr.io/john710/familee:${FAMILEE_VERSION:-latest}
+        # A fixed name: `docker logs familee`, the health checks and the tools below find it.
+        container_name: familee
+
+        # An exact release, never `latest`: set FAMILEE_VERSION in .env (the default is the release
+        # this file was published with). To move to another version, change it and run
+        # `docker compose pull && docker compose up -d`.
+        image: ghcr.io/john710/familee:${FAMILEE_VERSION:-0.3.0}
+
+        # The application may not gain rights it did not start with.
+        security_opt:
+            - no-new-privileges:true
+
         restart: unless-stopped
 
-        env_file: .env
+        # Every setting the application reads, spelled out one by one; the values come from .env
+        # (see .env.example). Adding a variable means adding a line here as well - that is the point
+        # of the list: what the container gets is visible in one place.
         environment:
             TZ: ${APP_TIME_ZONE:-Asia/Vladivostok}
+            # Postgres and Redis, already running (see the header).
+            DATABASE_URL: ${DATABASE_URL}
+            DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-10}
+            REDIS_URL: ${REDIS_URL}
+            # Sign-in: the address the browser uses and the secret that signs the sessions.
+            BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+            BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+            # The time zone of the dates shown, and the proxies in front of the archive.
+            APP_TIME_ZONE: ${APP_TIME_ZONE:-Asia/Vladivostok}
+            TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+            # The photographs inside the container (the media volume below), their size limit, and
+            # the switch that skips the migrations for a second instance.
+            MEDIA_ROOT: ${MEDIA_ROOT:-/data/media}
+            MEDIA_MAX_UPLOAD_MB: ${MEDIA_MAX_UPLOAD_MB:-25}
+            SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-0}
 
         ports:
             # Mode 1: the address of the server and this port. Mode 2 removes it
@@ -39,9 +67,9 @@ services:
             - "${FAMILEE_PORT:-3000}:3000"
 
         volumes:
-            # The original photographs and the previews generated ahead of time.
-            # This is the only data of the application outside Postgres -
-            # this is the volume that has to go into the backups.
+            # The original photographs and the previews generated ahead of time: the only data of
+            # the application outside Postgres. The volume keeps its name across `down` and `up`, so
+            # it can be found for a backup (see the README) and survives an upgrade.
             - media:/data/media
 
         networks:
@@ -52,15 +80,19 @@ services:
             - data
 
         healthcheck:
+            # Readiness, not liveness: the probe asks Postgres and Redis as well, so a container
+            # whose database is gone shows as unhealthy instead of pretending to work. The image
+            # applies the migrations before the server starts, which is why the start period is
+            # generous.
             test:
                 - CMD
                 - node
                 - -e
-                - "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+                - "fetch('http://127.0.0.1:3000/api/ready').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
             interval: 30s
             timeout: 5s
             retries: 5
-            start_period: 20s
+            start_period: 60s
 
         logging:
             driver: json-file
@@ -75,7 +107,8 @@ services:
         image: postgres:alpine
         profiles:
             - tools
-        env_file: .env
+        environment:
+            DATABASE_URL: ${DATABASE_URL}
         volumes:
             - ./db:/db:ro
         entrypoint:
@@ -92,5 +125,7 @@ networks:
         name: ${DATA_NETWORK:-postgres}
 
 volumes:
+    # The photographs of every tree. Pinned to one name, so a second installation of the same
+    # project on the host cannot quietly take over the photographs of the first one.
     media:
         name: familee_media

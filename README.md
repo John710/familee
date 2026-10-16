@@ -144,7 +144,11 @@ docker compose up -d
 docker compose logs -f app
 ```
 
-To run the image published to the registry instead of building it on the server, set `COMPOSE_FILE=docker-compose.image.yml` and `FAMILEE_VERSION` (for example `0.2.3`) in `.env`, then run `docker compose pull` instead of `docker compose build`. The two compose files describe the same services.
+To run the image published to the registry instead of building it on the server, set
+`COMPOSE_FILE=docker-compose.image.yml` in `.env` and run `docker compose pull` instead of
+`docker compose build`. The file pins an exact release in `FAMILEE_VERSION` - its default is the
+release the file was published with, never `latest` - so an upgrade is a change of that number and
+`up -d`. The two compose files describe the same services.
 
 The container brings the schema up to the version of the image before the server starts, so there is
 no migration step of its own: an update is `pull` (or `build`) and `up -d`. Set `SKIP_MIGRATIONS=1`
@@ -226,15 +230,18 @@ docker run --rm -v familee_media:/data:ro -v "$PWD:/backup" alpine \
 
 ## Monitoring
 
-The container's healthcheck uses `/api/health`, which only says that the process is up: it never
-asks the database, so restarting Postgres does not make Docker restart a healthy application. For an
-external monitor (Uptime Kuma, Gatus, a `curl` from cron), `/api/ready` answers 200 only when both
-Postgres and Redis answer, and names the one that is down otherwise:
+The container's healthcheck asks `/api/ready`, which answers 200 only when both Postgres and Redis
+answer and names the one that is down otherwise. `docker ps` therefore shows a container whose
+database is gone as unhealthy instead of as working. The same address serves an external monitor
+(Uptime Kuma, Gatus, a `curl` from cron):
 
 ```bash
 curl -fsS https://familee.example.com/api/ready
 # {"status":"ready","checks":{"database":true,"redis":true},"time":"..."}
 ```
+
+`/api/health` stays as the cheap liveness check - the process answers, the database is not asked -
+for a load balancer that must not pay for a query on every request.
 
 ## What comes next
 
