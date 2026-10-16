@@ -9,6 +9,25 @@ import { and, asc, desc, eq, ilike, inArray, or } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A place of this tree, or null. Both the events of a person and the events of a union link a
+ * place, and neither may link one of another tree; the answer is the identifier to store.
+ */
+export async function findPlaceInTree(
+    treeId: string,
+    placeId: string | null,
+): Promise<string | null> {
+    if (!placeId || !UUID.test(placeId)) return null;
+    const [place] = await db
+        .select({ id: schema.places.id })
+        .from(schema.places)
+        .where(and(eq(schema.places.id, placeId), eq(schema.places.treeId, treeId)))
+        .limit(1);
+    return place?.id ?? null;
+}
+
 export async function listPlaces(treeId: string) {
     return db
         .select({

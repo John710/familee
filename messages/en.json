@@ -330,6 +330,12 @@
         "noPartner": "No partner (single parent)",
         "noChildren": "No children yet",
         "chooseChild": "Choose a person as a child",
+        "events": "Events of this union",
+        "addEvent": "Add an event",
+        "noEvents": "No events yet",
+        "removeEventTitle": "Remove this event?",
+        "removeEventConfirm": "The event of the union is removed, with its citations.",
+        "notFound": "This union is not in the tree",
         "fields": {
             "type": "Union type",
             "status": "Status",

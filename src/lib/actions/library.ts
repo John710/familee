@@ -306,10 +306,15 @@ export async function deleteCitationAction(input: {
 
 // ─── citations for an event: the source of a fact such as a baptism or an occupation ───
 
-/** A citation of an event belongs to the event, not to the person, so the person is not set. */
+/**
+ * A citation of an event belongs to the event, and an event belongs to a person or to a union. The
+ * caller says which one it is looking at, with exactly one of `personId` and `familyId`, so that a
+ * marriage can be documented like a baptism without opening a way to cite an event of another tree.
+ */
 export async function saveEventCitationAction(input: {
     slug: string;
-    personId: string;
+    personId?: string;
+    familyId?: string;
     eventId: string;
     sourceId: string;
     page: string;
@@ -317,18 +322,21 @@ export async function saveEventCitationAction(input: {
 }): Promise<LibraryResult> {
     const access = await editorAccess(input.slug);
     if (!access.ok) return access;
-    if (![input.personId, input.eventId, input.sourceId].every((id) => UUID.test(id))) {
+    const owner = input.personId ?? input.familyId ?? "";
+    if (![owner, input.eventId, input.sourceId].every((id) => UUID.test(id))) {
         return { ok: false, error: "validation.required" };
     }
 
-    // The event must be one of this person's events, and the source must be in this tree.
+    // The event must be one of this person's or this union's events, and the source of this tree.
     const [event] = await db
         .select({ id: schema.events.id })
         .from(schema.events)
         .where(
             and(
                 eq(schema.events.id, input.eventId),
-                eq(schema.events.personId, input.personId),
+                input.personId
+                    ? eq(schema.events.personId, input.personId)
+                    : eq(schema.events.familyId, owner),
                 eq(schema.events.treeId, access.treeId),
             ),
         )
@@ -338,7 +346,9 @@ export async function saveEventCitationAction(input: {
         .from(schema.sources)
         .where(and(eq(schema.sources.id, input.sourceId), eq(schema.sources.treeId, access.treeId)))
         .limit(1);
-    if (!event || !source) return { ok: false, error: "person.notFound" };
+    if (!event || !source) {
+        return { ok: false, error: input.personId ? "person.notFound" : "family.notFound" };
+    }
 
     const [created] = await db
         .insert(schema.citations)
@@ -362,16 +372,18 @@ export async function saveEventCitationAction(input: {
 
 export async function deleteEventCitationAction(input: {
     slug: string;
-    personId: string;
+    personId?: string;
+    familyId?: string;
     citationId: string;
 }): Promise<LibraryResult> {
     const access = await editorAccess(input.slug);
     if (!access.ok) return access;
-    if (!UUID.test(input.citationId) || !UUID.test(input.personId)) {
+    const owner = input.personId ?? input.familyId ?? "";
+    if (!UUID.test(input.citationId) || !UUID.test(owner)) {
         return { ok: false, error: "validation.required" };
     }
 
-    // Only a citation of one of this person's events can be removed here.
+    // Only a citation of one of this person's or this union's events can be removed here.
     const [owned] = await db
         .select({ id: schema.citations.id })
         .from(schema.citations)
@@ -379,7 +391,9 @@ export async function deleteEventCitationAction(input: {
         .where(
             and(
                 eq(schema.citations.id, input.citationId),
-                eq(schema.events.personId, input.personId),
+                input.personId
+                    ? eq(schema.events.personId, input.personId)
+                    : eq(schema.events.familyId, owner),
                 eq(schema.events.treeId, access.treeId),
             ),
         )

@@ -24,14 +24,15 @@ export type EventCitationRow = {
 
 export function EventCitations({
     slug,
-    personId,
+    owner,
     eventId,
     citations,
     sources,
     canEdit,
 }: {
     slug: string;
-    personId: string;
+    /** Whose event it is: a person's or a union's; it decides which list the write is checked on. */
+    owner: { personId: string } | { familyId: string };
     eventId: string;
     citations: EventCitationRow[];
     sources: { id: string; title: string }[];
@@ -50,7 +51,7 @@ export function EventCitations({
         startTransition(async () => {
             const result = await saveEventCitationAction({
                 slug,
-                personId,
+                ...owner,
                 eventId,
                 sourceId: String(form.get("sourceId") ?? ""),
                 page: String(form.get("page") ?? ""),
@@ -68,7 +69,7 @@ export function EventCitations({
     function onRemove(citationId: string) {
         setError(null);
         startTransition(async () => {
-            const result = await deleteEventCitationAction({ slug, personId, citationId });
+            const result = await deleteEventCitationAction({ slug, ...owner, citationId });
             if (!result.ok) {
                 setError(t(result.error as Parameters<typeof t>[0]));
                 return;

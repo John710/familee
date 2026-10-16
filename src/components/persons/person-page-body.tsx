@@ -27,7 +27,7 @@ import { atLeast } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
 import { loadFamilies, loadTreeView } from "@/lib/tree-view";
-import { listPersonOptions, listUnionsForPerson } from "@/lib/unions";
+import { listFamilyEventTypes, listPersonOptions, listUnionsForPerson } from "@/lib/unions";
 
 /**
  * The page of one person. Everybody who can see the tree reads it: the names, the events, the
@@ -119,6 +119,8 @@ export async function PersonPageBody({
         title: source.title,
     }));
     const unions = await listUnionsForPerson(access.treeId, id);
+    // The event types a union can have: the reference data marks the marriage and the divorce.
+    const familyEventTypes = await listFamilyEventTypes();
     const options = (await listPersonOptions(access.treeId))
         .filter((option) => option.personId !== id)
         .map((option) => ({ personId: option.personId, name: option.name ?? "" }));
@@ -318,6 +320,10 @@ export async function PersonPageBody({
                             personId={person.personId}
                             unions={unions}
                             options={options}
+                            eventTypes={familyEventTypes}
+                            places={places}
+                            sources={sources}
+                            canEdit={editing}
                         />
                     ) : unions.length === 0 ? (
                         <p className="text-base-content/60 text-sm">{t("family.none")}</p>

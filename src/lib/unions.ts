@@ -6,18 +6,53 @@
  * names come from familee.person_cards.
  */
 
-import { and, asc, eq, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 
 import { db, schema } from "@/db";
+import { listEventCitations } from "@/lib/library";
+
+/** One event of a union: the marriage, the divorce, the day they met. */
+export type UnionEvent = {
+    id: string;
+    typeCode: string;
+    value: string | null;
+    description: string | null;
+    /** The date as it was written ("12 April 1921"), not as it was parsed. */
+    dateOriginal: string | null;
+    placeId: string | null;
+    placeName: string | null;
+    citations: {
+        id: string;
+        sourceTitle: string;
+        page: string | null;
+        textExcerpt: string | null;
+    }[];
+};
 
 export type UnionView = {
     familyId: string;
     type: string;
     partner: { personId: string; name: string } | null;
     children: { personId: string; name: string; relation: string }[];
+    events: UnionEvent[];
 };
 
-/** The unions a person belongs to, with the other partner and the children of each. */
+/** The event types a union can have (the reference data marks them for a family). */
+export async function listFamilyEventTypes(): Promise<
+    { code: string; hasValue: boolean; isVital: boolean }[]
+> {
+    return db
+        .select({
+            code: schema.eventTypes.code,
+            hasValue: schema.eventTypes.hasValue,
+            isVital: schema.eventTypes.isVital,
+        })
+        .from(schema.eventTypes)
+        .where(eq(schema.eventTypes.appliesTo, "family"))
+        .orderBy(asc(schema.eventTypes.sortOrder), asc(schema.eventTypes.code));
+}
+
+/** The unions a person belongs to, with the other partner, the children and the events of each. */
 export async function listUnionsForPerson(treeId: string, personId: string): Promise<UnionView[]> {
     const memberships = await db
         .select({
@@ -32,6 +67,37 @@ export async function listUnionsForPerson(treeId: string, personId: string): Pro
                 eq(schema.familyPartners.personId, personId),
             ),
         );
+
+    // The events of every union of this person, read in one query: a marriage belongs to the
+    // union, not to a partner, so nothing would find it by the person alone.
+    const familyIds = memberships.map((membership) => membership.familyId);
+    const eventRows =
+        familyIds.length === 0
+            ? []
+            : await db
+                  .select({
+                      id: schema.events.id,
+                      familyId: schema.events.familyId,
+                      typeCode: schema.events.typeCode,
+                      value: schema.events.value,
+                      description: schema.events.description,
+                      dateOriginal: schema.events.dateOriginal,
+                      placeId: schema.events.placeId,
+                      placeName: schema.places.name,
+                  })
+                  .from(schema.events)
+                  .leftJoin(schema.places, eq(schema.places.id, schema.events.placeId))
+                  .where(
+                      and(
+                          eq(schema.events.treeId, treeId),
+                          inArray(schema.events.familyId, familyIds),
+                      ),
+                  )
+                  .orderBy(asc(schema.events.sortDate), asc(schema.events.createdAt));
+    const citations = await listEventCitations(
+        treeId,
+        eventRows.map((event) => event.id),
+    );
 
     const views: UnionView[] = [];
     for (const membership of memberships) {
@@ -74,6 +140,18 @@ export async function listUnionsForPerson(treeId: string, personId: string): Pro
                 name: child.name ?? "",
                 relation: child.relation,
             })),
+            events: eventRows
+                .filter((event) => event.familyId === membership.familyId)
+                .map((event) => ({
+                    id: event.id,
+                    typeCode: event.typeCode,
+                    value: event.value,
+                    description: event.description,
+                    dateOriginal: event.dateOriginal,
+                    placeId: event.placeId,
+                    placeName: event.placeName,
+                    citations: citations.get(event.id) ?? [],
+                })),
         });
     }
     return views;
