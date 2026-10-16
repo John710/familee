@@ -47,7 +47,7 @@ export type OtherEvent = {
         page: string | null;
         textExcerpt: string | null;
     }[];
-    photos: { mediaId: string }[];
+    photos: { mediaId: string; caption: string | null; date: string | null }[];
 };
 
 export type EventTypeOption = { code: string; hasValue: boolean };

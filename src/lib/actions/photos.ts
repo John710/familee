@@ -14,6 +14,7 @@ import {
     removePhotoLink,
     setMainPhoto,
     setPhotoCaption,
+    setPhotoDate,
     setPhotoPeople,
     setPortraitCrop,
 } from "@/lib/photos";
@@ -176,6 +177,28 @@ export async function movePhotoAction(input: {
         personId: input.personId,
         mediaId: input.mediaId,
         delta: input.delta,
+        userId: access.userId,
+    });
+    return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+/** Writes the day a photograph was taken; an empty value clears it. */
+export async function setPhotoDateAction(input: {
+    slug: string;
+    mediaId: string;
+    date: string | null;
+}): Promise<PhotoResult> {
+    if (!UUID.test(input.mediaId)) return { ok: false, error: "media.errors.failed" };
+    if (input.date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
+        return { ok: false, error: "media.errors.failed" };
+    }
+    const access = await editorAccess(input.slug);
+    if (!access.ok) return access;
+
+    const result = await setPhotoDate({
+        treeId: access.treeId,
+        mediaId: input.mediaId,
+        date: input.date,
         userId: access.userId,
     });
     return result.ok ? { ok: true } : { ok: false, error: result.error };

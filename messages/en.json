@@ -401,6 +401,9 @@
         "moveDown": "Move towards the back",
         "captionAdd": "Add a caption",
         "captionPlaceholder": "What is on this photograph?",
+        "dateAdd": "Add the date taken",
+        "dateLabel": "The day the photograph was taken",
+        "taggedIn": "In the picture",
         "tagFilter": "Find a person",
         "setPortrait": "Use as main portrait",
         "portrait": "Portrait",
@@ -599,6 +602,7 @@
         "found": "{count, plural, one {# result} other {# results}}",
         "kinds": {
             "person": "People",
+            "photo": "Photographs",
             "place": "Places",
             "source": "Sources",
             "note": "Notes and stories",

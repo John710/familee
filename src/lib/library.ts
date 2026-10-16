@@ -116,7 +116,7 @@ export async function listPersonNotes(treeId: string, personId: string) {
 }
 
 export type SearchHit = {
-    kind: "person" | "place" | "source" | "note" | "event";
+    kind: "person" | "place" | "source" | "note" | "event" | "photo";
     id: string;
     /** The person a hit belongs to, for events and notes (the link goes there). */
     personId: string | null;
@@ -126,8 +126,9 @@ export type SearchHit = {
 
 /**
  * The search over the whole archive: people by name, places by name, sources by title and author,
- * notes and stories by their text, and events by their value and description. The query is matched
- * anywhere in the text, case-insensitively, and limited to the tree.
+ * notes and stories by their text, events by their value and description, and photographs by what is
+ * written under them, their own title and the name of the file. The query is matched anywhere in the
+ * text, case-insensitively, and limited to the tree.
  */
 export async function searchTree(treeId: string, query: string): Promise<SearchHit[]> {
     const needle = query.trim();
@@ -210,6 +211,35 @@ export async function searchTree(treeId: string, query: string): Promise<SearchH
         )
         .limit(limit);
 
+    // A photograph is found by its caption, by its own title and description, and by the name of
+    // the file it came from: after an import that name is often the only text a picture carries.
+    const photos = await db
+        .select({
+            mediaId: schema.media.id,
+            title: schema.media.title,
+            description: schema.media.description,
+            originalFilename: schema.media.originalFilename,
+            takenStart: schema.media.takenStart,
+            caption: schema.mediaLinks.caption,
+            personId: schema.mediaLinks.personId,
+            eventPersonId: schema.events.personId,
+        })
+        .from(schema.media)
+        .leftJoin(schema.mediaLinks, eq(schema.mediaLinks.mediaId, schema.media.id))
+        .leftJoin(schema.events, eq(schema.events.id, schema.mediaLinks.eventId))
+        .where(
+            and(
+                eq(schema.media.treeId, treeId),
+                or(
+                    ilike(schema.media.title, pattern),
+                    ilike(schema.media.description, pattern),
+                    ilike(schema.media.originalFilename, pattern),
+                    ilike(schema.mediaLinks.caption, pattern),
+                ),
+            ),
+        )
+        .limit(limit);
+
     const hits: SearchHit[] = [];
     for (const person of people) {
         hits.push({
@@ -256,5 +286,28 @@ export async function searchTree(treeId: string, query: string): Promise<SearchH
             detail: event.value ?? event.description ?? "",
         });
     }
+
+    // One photograph can be in several albums, and a search must not list the same picture twice.
+    const photoHits = new Map<string, SearchHit>();
+    for (const photo of photos) {
+        const title = photo.title ?? photo.caption ?? photo.originalFilename ?? "";
+        const detail = photo.description ?? photo.takenStart ?? "";
+        const owner = photo.personId ?? photo.eventPersonId ?? null;
+        const hit = photoHits.get(photo.mediaId);
+        if (!hit) {
+            photoHits.set(photo.mediaId, {
+                kind: "photo",
+                id: photo.mediaId,
+                personId: owner,
+                title,
+                detail,
+            });
+            continue;
+        }
+        if (!hit.title && title) hit.title = title;
+        if (!hit.detail && detail) hit.detail = detail;
+        if (!hit.personId && owner) hit.personId = owner;
+    }
+    hits.push(...photoHits.values());
     return hits;
 }

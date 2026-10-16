@@ -26,7 +26,7 @@ export function EventPhotos({
 }: {
     slug: string;
     eventId: string;
-    photos: { mediaId: string }[];
+    photos: { mediaId: string; caption: string | null; date: string | null }[];
     canEdit: boolean;
 }) {
     const t = useTranslations();
@@ -152,7 +152,11 @@ export function EventPhotos({
             {viewing !== null && photos[viewing] && (
                 <Lightbox
                     slug={slug}
-                    photos={photos}
+                    photos={photos.map((photo) => ({
+                        mediaId: photo.mediaId,
+                        caption: photo.caption,
+                        date: photo.date,
+                    }))}
                     index={viewing}
                     onIndex={setViewing}
                     onClose={() => setViewing(null)}

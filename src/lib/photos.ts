@@ -8,11 +8,12 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
-import { and, asc, desc, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
 import { isUniqueViolation } from "@/lib/db-errors";
+import { exifDateFrom, exifDay } from "@/lib/exif-date";
 import {
     type MediaVariantName,
     removeMediaFiles,
@@ -40,12 +41,23 @@ export type PersonPhoto = {
     crop: PhotoCrop | null;
     /** What was written under the photograph in this person's album; null when nothing was. */
     caption: string | null;
+    /** The day the photograph was taken, as "2007-04-21"; null when the file did not say. */
+    takenStart: string | null;
 };
 
 export type TreePhoto = {
     mediaId: string;
     width: number | null;
     height: number | null;
+    /** The day the photograph was taken, as "2007-04-21"; null when the file did not say. */
+    takenStart: string | null;
+    /**
+     * What is written under the photograph, one entry per album that holds it: the same picture can
+     * have a different caption on the card of a father and of a son.
+     */
+    captions: string[];
+    /** Who is in the photograph, by the name the tree gives them (see media_people). */
+    tagged: string[];
     /** The people and the events the photograph is attached to, by their names. */
     links: {
         personId: string | null;
@@ -70,6 +82,7 @@ export async function listPersonPhotos(treeId: string, personId: string): Promis
             cropW: schema.mediaLinks.cropW,
             cropH: schema.mediaLinks.cropH,
             caption: schema.mediaLinks.caption,
+            takenStart: schema.media.takenStart,
         })
         .from(schema.mediaLinks)
         .innerJoin(schema.media, eq(schema.media.id, schema.mediaLinks.mediaId))
@@ -90,6 +103,7 @@ export async function listPersonPhotos(treeId: string, personId: string): Promis
                 ? null
                 : { x: row.cropX, y: row.cropY, w: row.cropW, h: row.cropH },
         caption: row.caption,
+        takenStart: row.takenStart,
     }));
 }
 
@@ -169,6 +183,45 @@ export async function setPhotoCaption(input: {
         entityType: "person_photo",
         entityId: input.personId,
         changes: { caption: { from: link.caption, to: caption } },
+    });
+    return { ok: true };
+}
+
+/**
+ * Writes the day a photograph was taken. The date lives on the picture itself, not on one album, so
+ * the same correction reaches every card that shows it. An empty value clears it: most scanned
+ * pictures have no Exif date at all, and a wrong one is worse than none.
+ */
+export async function setPhotoDate(input: {
+    treeId: string;
+    mediaId: string;
+    /** "2007-04-21", or null to clear the date. */
+    date: string | null;
+    userId: string;
+}): Promise<{ ok: true } | { ok: false; error: PhotoError }> {
+    if (input.date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
+        return { ok: false, error: "media.errors.failed" };
+    }
+
+    const [photo] = await db
+        .select({ id: schema.media.id, takenStart: schema.media.takenStart })
+        .from(schema.media)
+        .where(and(eq(schema.media.id, input.mediaId), eq(schema.media.treeId, input.treeId)))
+        .limit(1);
+    if (!photo) return { ok: false, error: "media.errors.failed" };
+
+    await db
+        .update(schema.media)
+        .set({ takenStart: input.date, takenPrecision: "day", updatedAt: new Date() })
+        .where(eq(schema.media.id, photo.id));
+
+    await writeAudit({
+        treeId: input.treeId,
+        userId: input.userId,
+        action: "update",
+        entityType: "photo",
+        entityId: photo.id,
+        changes: { takenStart: { from: photo.takenStart, to: input.date } },
     });
     return { ok: true };
 }
@@ -385,6 +438,8 @@ export type EventPhoto = {
     width: number | null;
     height: number | null;
     caption: string | null;
+    /** The day the photograph was taken, as "2007-04-21"; null when the file did not say. */
+    takenStart: string | null;
 };
 
 /** The photographs of an event, in the order they were added. */
@@ -396,6 +451,7 @@ export async function listEventPhotos(treeId: string, eventId: string): Promise<
             width: schema.media.width,
             height: schema.media.height,
             caption: schema.mediaLinks.caption,
+            takenStart: schema.media.takenStart,
         })
         .from(schema.mediaLinks)
         .innerJoin(schema.media, eq(schema.media.id, schema.mediaLinks.mediaId))
@@ -411,6 +467,8 @@ export async function listTreePhotos(treeId: string): Promise<TreePhoto[]> {
             width: schema.media.width,
             height: schema.media.height,
             createdAt: schema.media.createdAt,
+            takenStart: schema.media.takenStart,
+            caption: schema.mediaLinks.caption,
             personId: schema.mediaLinks.personId,
             eventId: schema.mediaLinks.eventId,
             eventType: schema.events.typeCode,
@@ -421,7 +479,9 @@ export async function listTreePhotos(treeId: string): Promise<TreePhoto[]> {
         .leftJoin(schema.mediaLinks, eq(schema.mediaLinks.mediaId, schema.media.id))
         .leftJoin(schema.events, eq(schema.events.id, schema.mediaLinks.eventId))
         .where(eq(schema.media.treeId, treeId))
-        .orderBy(desc(schema.media.createdAt));
+        // The photographs whose day is known come first, newest of them leading; the rest - the
+        // scans and the pictures of an unknown year - follow by the day they were uploaded.
+        .orderBy(sql`${schema.media.takenStart} desc nulls last`, desc(schema.media.createdAt));
 
     // The names of the people, so that a photograph of an event names the person the event belongs to.
     const cards = await db
@@ -434,8 +494,19 @@ export async function listTreePhotos(treeId: string): Promise<TreePhoto[]> {
     for (const row of rows) {
         let photo = byId.get(row.mediaId);
         if (!photo) {
-            photo = { mediaId: row.mediaId, width: row.width, height: row.height, links: [] };
+            photo = {
+                mediaId: row.mediaId,
+                width: row.width,
+                height: row.height,
+                takenStart: row.takenStart,
+                captions: [],
+                tagged: [],
+                links: [],
+            };
             byId.set(row.mediaId, photo);
+        }
+        if (row.caption && !photo.captions.includes(row.caption)) {
+            photo.captions.push(row.caption);
         }
         if (row.personId || row.eventId) {
             // A photograph of an event is attributed to the person the event belongs to.
@@ -448,6 +519,13 @@ export async function listTreePhotos(treeId: string): Promise<TreePhoto[]> {
                 eventValue: row.eventValue,
             });
         }
+    }
+
+    const tagged = await listPhotoPeople(treeId, [...byId.keys()]);
+    for (const [mediaId, people] of tagged) {
+        const photo = byId.get(mediaId);
+        if (!photo) continue;
+        photo.tagged = people.flatMap((person) => (person.name ? [person.name] : []));
     }
     return [...byId.values()];
 }
@@ -519,6 +597,9 @@ async function storeMedia(input: {
     }
 
     try {
+        // The moment the camera wrote into the file, when it wrote one: the reader is pure and
+        // never throws, so a broken Exif block costs nothing but a missing date.
+        const moment = exifDateFrom(input.source);
         const mediaId = await db.transaction(async (tx) => {
             const [created] = await tx
                 .insert(schema.media)
@@ -532,6 +613,9 @@ async function storeMedia(input: {
                     byteSize: photo.variants.original.data.length,
                     width: photo.width,
                     height: photo.height,
+                    takenStart: moment ? exifDay(moment) : null,
+                    takenQualifier: "exact",
+                    takenPrecision: "day",
                     uploadedBy: input.userId,
                 })
                 .onConflictDoNothing()
@@ -956,7 +1040,15 @@ export async function findVariantKey(
 export async function listPersonAlbum(
     treeId: string,
     personId: string,
-): Promise<{ mediaId: string; eventType: string | null; eventValue: string | null }[]> {
+): Promise<
+    {
+        mediaId: string;
+        eventType: string | null;
+        eventValue: string | null;
+        caption: string | null;
+        takenStart: string | null;
+    }[]
+> {
     const own = await listPersonPhotos(treeId, personId);
     const events = await db
         .select({
@@ -974,12 +1066,20 @@ export async function listPersonAlbum(
                 mediaId: photo.mediaId,
                 eventType: event.typeCode,
                 eventValue: event.value,
+                caption: photo.caption,
+                takenStart: photo.takenStart,
             })),
         ),
     );
 
     return [
-        ...own.map((photo) => ({ mediaId: photo.mediaId, eventType: null, eventValue: null })),
+        ...own.map((photo) => ({
+            mediaId: photo.mediaId,
+            eventType: null,
+            eventValue: null,
+            caption: photo.caption,
+            takenStart: photo.takenStart,
+        })),
         ...eventPhotos.flat(),
     ];
 }

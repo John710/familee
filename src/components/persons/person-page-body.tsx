@@ -77,6 +77,7 @@ export async function PersonPageBody({
             crop: photo.crop,
             ratio: photo.width && photo.height ? photo.height / photo.width : null,
             caption: photo.caption,
+            date: photo.takenStart,
             people: tagged.map((person) => person.name ?? "").filter((name) => name !== ""),
             personIds: tagged.map((person) => person.personId),
         };
@@ -101,6 +102,8 @@ export async function PersonPageBody({
             citations: eventCitations.get(event.id) ?? [],
             photos: (await listEventPhotos(access.treeId, event.id)).map((photo) => ({
                 mediaId: photo.mediaId,
+                caption: photo.caption,
+                date: photo.takenStart,
             })),
         })),
     );

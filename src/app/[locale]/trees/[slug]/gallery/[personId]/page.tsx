@@ -6,7 +6,7 @@ import { GalleryGrid, type GalleryPhoto } from "@/components/media/gallery-grid"
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { listPersonCards } from "@/lib/people";
-import { listPersonAlbum } from "@/lib/photos";
+import { listPersonAlbum, listPhotoPeople } from "@/lib/photos";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
 
@@ -34,13 +34,26 @@ export default async function PersonAlbumPage({ params }: { params: Promise<Para
     const owner = [{ personId, name }];
 
     // A photograph can be in the album twice (as the person's and under an event): one entry, both captions.
+    const items = await listPersonAlbum(access.treeId, personId);
+    const tags = await listPhotoPeople(
+        access.treeId,
+        items.map((item) => item.mediaId),
+    );
     const byMedia = new Map<string, GalleryPhoto>();
-    for (const item of await listPersonAlbum(access.treeId, personId)) {
+    for (const item of items) {
         const photo = byMedia.get(item.mediaId) ?? {
             mediaId: item.mediaId,
+            takenStart: item.takenStart,
+            captions: [],
+            tagged: (tags.get(item.mediaId) ?? []).flatMap((person) =>
+                person.name ? [person.name] : [],
+            ),
             people: owner,
             events: [],
         };
+        if (item.caption && !photo.captions.includes(item.caption)) {
+            photo.captions.push(item.caption);
+        }
         if (item.eventType) {
             photo.events = [...photo.events, { type: item.eventType, value: item.eventValue }];
         }

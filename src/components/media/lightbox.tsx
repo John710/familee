@@ -10,8 +10,10 @@
  */
 
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+
+import { formatDay } from "@/lib/day";
 
 export type Variant = "thumb" | "medium" | "original";
 
@@ -32,12 +34,19 @@ export function Lightbox({
 }: {
     slug: string;
     /** The people of the album link, if the caller wants them; the tags of the picture go in `tagged`. */
-    photos: { mediaId: string; caption?: string | null; tagged?: string[] }[];
+    photos: {
+        mediaId: string;
+        caption?: string | null;
+        tagged?: string[];
+        /** The day the picture was taken, as "2007-04-21", when it is known. */
+        date?: string | null;
+    }[];
     index: number;
     onIndex: (index: number) => void;
     onClose: () => void;
 }) {
     const t = useTranslations();
+    const locale = useLocale();
     const [touchStart, setTouchStart] = useState<number | null>(null);
     const total = photos.length;
     const current = photos[index];
@@ -98,6 +107,7 @@ export function Lightbox({
                 <div className="flex flex-col items-center gap-1 text-sm text-white/90">
                     <div className="flex items-center gap-3">
                         <span>{t("media.counter", { current: index + 1, total })}</span>
+                        {current.date && <span>{formatDay(current.date, locale)}</span>}
                         <a
                             href={photoUrl(slug, current.mediaId, "original")}
                             target="_blank"

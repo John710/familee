@@ -11,8 +11,17 @@
  * click on a picture opens the shared window (components/media/lightbox.tsx).
  */
 
-import { ArrowDown, ArrowUp, ImagePlus, Pencil, Star, Tags, Trash2 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import {
+    ArrowDown,
+    ArrowUp,
+    CalendarDays,
+    ImagePlus,
+    Pencil,
+    Star,
+    Tags,
+    Trash2,
+} from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { type DragEvent, useState, useTransition } from "react";
 
 import { ConfirmDialog } from "@/components/layout/confirm-dialog";
@@ -24,8 +33,10 @@ import {
     removePersonPhotoAction,
     setMainPhotoAction,
     setPhotoCaptionAction,
+    setPhotoDateAction,
     tagPhotoPeopleAction,
 } from "@/lib/actions/photos";
+import { formatDay } from "@/lib/day";
 import type { PhotoCrop } from "@/lib/photo-crop";
 
 export type AlbumPhoto = {
@@ -37,6 +48,8 @@ export type AlbumPhoto = {
     ratio: number | null;
     /** What stands under the photograph in this album. */
     caption: string | null;
+    /** The day the photograph was taken, as "2007-04-21"; null when it is not known. */
+    date: string | null;
     /** Who is in the picture, by name, as the tree names them. */
     people: string[];
     /** The identifiers of those people, for the tagging window. */
@@ -60,6 +73,7 @@ export function PhotoAlbum({
     canEdit: boolean;
 }) {
     const t = useTranslations();
+    const locale = useLocale();
     const router = useRouter();
     const [error, setError] = useState<string | null>(null);
     const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -72,6 +86,9 @@ export function PhotoAlbum({
     /** The photograph whose caption is being written, if any. */
     const [writing, setWriting] = useState<string | null>(null);
     const [draft, setDraft] = useState("");
+    /** The photograph whose day is being written, if any. */
+    const [dating, setDating] = useState<string | null>(null);
+    const [dateDraft, setDateDraft] = useState("");
     /** The photograph whose people are being picked, if any. */
     const [tagging, setTagging] = useState<AlbumPhoto | null>(null);
     const [tagFilter, setTagFilter] = useState("");
@@ -140,6 +157,25 @@ export function PhotoAlbum({
         setError(null);
         startTransition(async () => {
             const result = await setPhotoCaptionAction({ slug, personId, mediaId, caption });
+            if (!result.ok) {
+                setError(translate(result.error));
+                return;
+            }
+            router.refresh();
+        });
+    }
+
+    /**
+     * Saves the day of a photograph. The day belongs to the picture, not to this album, so the
+     * correction shows on every card the picture is on; an empty field takes the day away again.
+     */
+    function saveDate(mediaId: string, current: string | null) {
+        setDating(null);
+        const date = dateDraft.trim() === "" ? null : dateDraft.trim();
+        if (date === current) return;
+        setError(null);
+        startTransition(async () => {
+            const result = await setPhotoDateAction({ slug, mediaId, date });
             if (!result.ok) {
                 setError(translate(result.error));
                 return;
@@ -350,6 +386,41 @@ export function PhotoAlbum({
                                         </button>
                                     )}
 
+                                    {dating === photo.mediaId ? (
+                                        <input
+                                            // biome-ignore lint/a11y/noAutofocus: the field appears because the reader asked for it
+                                            autoFocus
+                                            type="date"
+                                            className="input input-xs w-full"
+                                            aria-label={t("media.dateLabel")}
+                                            value={dateDraft}
+                                            onChange={(event) => setDateDraft(event.target.value)}
+                                            onKeyDown={(event) => {
+                                                if (event.key === "Enter") {
+                                                    saveDate(photo.mediaId, photo.date);
+                                                }
+                                                if (event.key === "Escape") setDating(null);
+                                            }}
+                                            onBlur={() => saveDate(photo.mediaId, photo.date)}
+                                        />
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="flex items-center gap-1 text-left text-base-content/50 text-xs hover:text-base-content"
+                                            onClick={() => {
+                                                setDating(photo.mediaId);
+                                                setDateDraft(photo.date ?? "");
+                                            }}
+                                        >
+                                            <CalendarDays className="size-3 shrink-0" />
+                                            <span>
+                                                {photo.date
+                                                    ? formatDay(photo.date, locale)
+                                                    : t("media.dateAdd")}
+                                            </span>
+                                        </button>
+                                    )}
+
                                     {photo.people.length > 0 && (
                                         <span className="text-base-content/50 text-xs">
                                             {photo.people.join(", ")}
@@ -357,11 +428,16 @@ export function PhotoAlbum({
                                     )}
                                 </div>
                             ) : (
-                                (photo.caption || photo.people.length > 0) && (
+                                (photo.caption || photo.date || photo.people.length > 0) && (
                                     <div className="flex flex-col gap-0.5 p-2 text-xs">
                                         {photo.caption && (
                                             <span className="text-base-content/70">
                                                 {photo.caption}
+                                            </span>
+                                        )}
+                                        {photo.date && (
+                                            <span className="text-base-content/50">
+                                                {formatDay(photo.date, locale)}
                                             </span>
                                         )}
                                         {photo.people.length > 0 && (
@@ -499,6 +575,7 @@ export function PhotoAlbum({
                         mediaId: photo.mediaId,
                         caption: photo.caption,
                         tagged: photo.people,
+                        date: photo.date,
                     }))}
                     index={viewing}
                     onIndex={setViewing}
