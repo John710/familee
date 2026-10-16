@@ -375,6 +375,7 @@
         "empty": "No places recorded",
         "removeTitle": "Remove this place?",
         "removeConfirm": "The place is removed; events that used it keep their dates and lose the place.",
+        "notFound": "That place is not in this tree",
         "fields": {
             "name": "Name",
             "kind": "Kind",
@@ -452,6 +453,7 @@
         "empty": "No sources recorded",
         "removeTitle": "Remove this source?",
         "removeConfirm": "The source and the citations of it are removed; the people keep their facts.",
+        "notFound": "That source is not in this tree",
         "repository": "Repository",
         "repositories": "Archives and repositories",
         "fields": {
@@ -587,7 +589,19 @@
         "confirmMessage": "Everything of the other {count} moves to {name} - names, events, citations, notes, photographs and unions - and the other records disappear. There is no way back from here.",
         "merged": "Merged: {names} names, {events} events, {photos} photographs and {unions} unions moved",
         "samePerson": "A person cannot be merged with themselves",
-        "notFound": "That person is not in this tree"
+        "notFound": "That person is not in this tree",
+        "placesTitle": "Places that look like one place",
+        "placesHint": "The same name written twice. Merging moves the events, the photographs, the links and the notes onto the record you keep, and its children become children of that one.",
+        "sourcesTitle": "Sources that look like one source",
+        "sourcesHint": "The same title written twice. Merging moves the citations onto the record you keep.",
+        "noPlaces": "No two places look like the same place twice",
+        "noSources": "No two sources look like the same source twice",
+        "keepRecord": "Keep this one",
+        "confirmRecordTitle": "Merge into this record?",
+        "confirmRecordMessage": "Everything of the other {count} moves to {name}, and the other records disappear. There is no way back from here.",
+        "mergedRecords": "{count, plural, one {Merged # record} other {Merged # records}}; {moved} references moved",
+        "uses": "{count, plural, =0 {nothing points at it yet} one {# record points at it} other {# records point at it}}",
+        "sameRecord": "A record cannot be merged with itself"
     },
     "gallery": {
         "title": "Photo album",

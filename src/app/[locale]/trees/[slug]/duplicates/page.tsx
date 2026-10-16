@@ -1,11 +1,15 @@
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-
+import {
+    type RecordDuplicateGroup,
+    RecordDuplicateList,
+} from "@/components/library/record-duplicate-list";
 import { type DuplicateGroupView, DuplicateList } from "@/components/persons/duplicate-list";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { cardToDuplicate, findDuplicates } from "@/lib/duplicates";
+import { listPlaceDuplicates, listSourceDuplicates } from "@/lib/library";
 import { listPersonCards } from "@/lib/people";
 import { atLeast } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
@@ -30,6 +34,36 @@ export default async function DuplicatesPage({ params }: { params: Promise<Param
     const cards = await listPersonCards(access.treeId);
     const groups = findDuplicates(cards.map(cardToDuplicate));
     const t = await getTranslations();
+
+    // The same picture for the two records of the archive that have no card of their own: the
+    // places and the sources. A place carries the events, a source the citations.
+    const placeGroups = await listPlaceDuplicates(access.treeId);
+    const sourceGroups = await listSourceDuplicates(access.treeId);
+
+    const placeViews: RecordDuplicateGroup[] = placeGroups.map((group) => ({
+        key: group[0]?.id ?? "",
+        entries: group.map((place) => ({
+            id: place.id,
+            label: place.name,
+            detail: [
+                t(`enums.place_kind.${place.kind}` as "enums.place_kind.other"),
+                place.fullName && place.fullName !== place.name ? place.fullName : "",
+            ]
+                .filter(Boolean)
+                .join(" · "),
+            uses: place.uses,
+        })),
+    }));
+
+    const sourceViews: RecordDuplicateGroup[] = sourceGroups.map((group) => ({
+        key: group[0]?.id ?? "",
+        entries: group.map((source) => ({
+            id: source.id,
+            label: source.title,
+            detail: [source.author ?? "", source.callNumber ?? ""].filter(Boolean).join(" · "),
+            uses: source.uses,
+        })),
+    }));
 
     const byId = new Map(cards.map((card) => [card.personId, card]));
     const yearsOf = (card: (typeof cards)[number]): string => {
@@ -67,6 +101,32 @@ export default async function DuplicatesPage({ params }: { params: Promise<Param
             </header>
 
             <DuplicateList slug={slug} groups={views} />
+
+            <section className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                    <h2 className="font-semibold text-lg">{t("duplicates.placesTitle")}</h2>
+                    <p className="text-base-content/60 text-sm">{t("duplicates.placesHint")}</p>
+                </div>
+                <RecordDuplicateList
+                    slug={slug}
+                    kind="place"
+                    groups={placeViews}
+                    empty={t("duplicates.noPlaces")}
+                />
+            </section>
+
+            <section className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                    <h2 className="font-semibold text-lg">{t("duplicates.sourcesTitle")}</h2>
+                    <p className="text-base-content/60 text-sm">{t("duplicates.sourcesHint")}</p>
+                </div>
+                <RecordDuplicateList
+                    slug={slug}
+                    kind="source"
+                    groups={sourceViews}
+                    empty={t("duplicates.noSources")}
+                />
+            </section>
         </div>
     );
 }

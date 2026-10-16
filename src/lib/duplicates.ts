@@ -171,6 +171,27 @@ export function findDuplicates(persons: DuplicatePerson[]): DuplicateGroup[] {
     );
 }
 
+/**
+ * The groups of records whose text is the same once it is normalized: a place entered as "Tula" and
+ * as "tula, " is one place, and two sources whose titles are written the same way are one source.
+ * A group of one is left out, and the biggest group comes first, so the reader starts where there is
+ * the most to clean. The same normalization as for names is used: case, accents and punctuation do
+ * not count.
+ */
+export function groupByText<T>(records: T[], textOf: (record: T) => string): T[][] {
+    const groups = new Map<string, T[]>();
+    for (const record of records) {
+        const key = normalize(textOf(record));
+        if (key === "") continue;
+        const list = groups.get(key);
+        if (list) list.push(record);
+        else groups.set(key, [record]);
+    }
+    return [...groups.values()]
+        .filter((group) => group.length > 1)
+        .sort((a, b) => b.length - a.length);
+}
+
 /** The year inside a date as a file writes it: "12.04.1921" or "1921". */
 export function yearOf(value: string): number | null {
     const match = /(\d{4})/.exec(value);

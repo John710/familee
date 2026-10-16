@@ -5,9 +5,10 @@
  * been checked. Every query is limited to one tree.
  */
 
-import { and, asc, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
+import { groupByText } from "@/lib/duplicates";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -58,8 +59,93 @@ export async function listSources(treeId: string) {
         .orderBy(asc(schema.sources.title));
 }
 
-/** The sources a person is cited for: the citation's page and the source's title. */
-export async function listPersonCitations(treeId: string, personId: string) {
+export type PlaceDuplicate = {
+    id: string;
+    name: string;
+    fullName: string | null;
+    kind: string;
+    notes: string | null;
+    /** How much points at this place: the events, the media, the links, the notes, the children. */
+    uses: number;
+};
+
+export type SourceDuplicate = {
+    id: string;
+    title: string;
+    author: string | null;
+    publication: string | null;
+    callNumber: string | null;
+    /** How much points at this source: the citations, the media links and the notes. */
+    uses: number;
+};
+
+/**
+ * The places of a tree that carry the same name, in groups of two or more, the biggest group first.
+ * Nothing is decided here: the page shows the groups and the reader keeps the record that is right.
+ */
+export async function listPlaceDuplicates(treeId: string): Promise<PlaceDuplicate[][]> {
+    const rows = await db
+        .select({
+            id: schema.places.id,
+            name: schema.places.name,
+            fullName: schema.places.fullName,
+            kind: schema.places.kind,
+            notes: schema.places.notes,
+            uses: sql<string>`(
+                (select count(*) from ${schema.events} e where e.place_id = ${schema.places.id})
+                + (select count(*) from ${schema.media} m where m.place_id = ${schema.places.id})
+                + (select count(*) from ${schema.mediaLinks} ml where ml.place_id = ${schema.places.id})
+                + (select count(*) from ${schema.notes} n where n.place_id = ${schema.places.id})
+                + (select count(*) from ${schema.places} c where c.parent_id = ${schema.places.id})
+            )`,
+        })
+        .from(schema.places)
+        .where(eq(schema.places.treeId, treeId));
+
+    const places: PlaceDuplicate[] = rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        fullName: row.fullName,
+        kind: row.kind,
+        notes: row.notes,
+        uses: Number(row.uses),
+    }));
+    return groupByText(places, (place) => place.name);
+}
+
+/** The sources of a tree whose title is written the same way, in groups of two or more. */
+export async function listSourceDuplicates(treeId: string): Promise<SourceDuplicate[][]> {
+    const rows = await db
+        .select({
+            id: schema.sources.id,
+            title: schema.sources.title,
+            author: schema.sources.author,
+            publication: schema.sources.publication,
+            callNumber: schema.sources.callNumber,
+            uses: sql<string>`(
+                (select count(*) from ${schema.citations} c where c.source_id = ${schema.sources.id})
+                + (select count(*) from ${schema.mediaLinks} ml where ml.source_id = ${schema.sources.id})
+                + (select count(*) from ${schema.notes} n where n.source_id = ${schema.sources.id})
+            )`,
+        })
+        .from(schema.sources)
+        .where(eq(schema.sources.treeId, treeId));
+
+    const sources: SourceDuplicate[] = rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        author: row.author,
+        publication: row.publication,
+        callNumber: row.callNumber,
+        uses: Number(row.uses),
+    }));
+    return groupByText(sources, (source) => source.title);
+}
+
+/** The sources a person is cited for: the citation's page and the source's title. */ export async function listPersonCitations(
+    treeId: string,
+    personId: string,
+) {
     return db
         .select({
             id: schema.citations.id,

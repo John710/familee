@@ -34,7 +34,12 @@ type MergeSummary = {
     photos?: number;
     unions?: number;
     members?: number;
+    media?: number;
+    links?: number;
+    children?: number;
 };
+
+export type RecordMergeResult = { ok: true; moved: number } | { ok: false; error: string };
 
 export async function mergePersonsAction(input: {
     slug: string;
@@ -94,5 +99,80 @@ function translate(error: unknown): string {
         return "errors.cycle";
     }
     if (message.includes("already a partner")) return "errors.duplicatePartner";
+    return "errors.generic";
+}
+
+/**
+ * Merging two places, or two sources.
+ *
+ * The same shape as a person: one call per record that goes, the work done by the database function
+ * (migration 0015) in one transaction. A place carries its events, its media and its notes with it
+ * and its children become children of the survivor; a source carries its citations. Both are checked
+ * against the tree and both leave a line in the history.
+ */
+export async function mergePlacesAction(input: {
+    slug: string;
+    keepId: string;
+    dropId: string;
+}): Promise<RecordMergeResult> {
+    return mergeRecord("place", input);
+}
+
+export async function mergeSourcesAction(input: {
+    slug: string;
+    keepId: string;
+    dropId: string;
+}): Promise<RecordMergeResult> {
+    return mergeRecord("source", input);
+}
+
+async function mergeRecord(
+    kind: "place" | "source",
+    input: { slug: string; keepId: string; dropId: string },
+): Promise<RecordMergeResult> {
+    const user = await getCurrentUser();
+    if (!user) return { ok: false, error: "auth.needSignIn" };
+
+    const access = await getTreeAccess(input.slug, user.id);
+    if (!access || !atLeast(access.role as MemberRole, "editor")) {
+        return { ok: false, error: "auth.noPermission" };
+    }
+    if (!UUID.test(input.keepId) || !UUID.test(input.dropId)) {
+        return { ok: false, error: `${kind}.notFound` };
+    }
+    if (input.keepId === input.dropId) return { ok: false, error: "duplicates.sameRecord" };
+
+    let summary: MergeSummary;
+    try {
+        // The function name is one of two fixed strings, so nothing of the caller reaches the query.
+        const call = kind === "place" ? sql`familee.merge_places` : sql`familee.merge_sources`;
+        const rows = await db.execute(
+            sql`select ${call}(
+                    ${access.treeId}::uuid, ${input.keepId}::uuid, ${input.dropId}::uuid
+                ) as merged`,
+        );
+        summary = (rows[0]?.merged ?? {}) as MergeSummary;
+    } catch (error) {
+        return { ok: false, error: translateRecord(error, kind) };
+    }
+
+    await writeAudit({
+        treeId: access.treeId,
+        userId: user.id,
+        action: "merge",
+        entityType: kind === "place" ? "place" : "source",
+        entityId: input.keepId,
+        changes: { merged: { from: input.dropId, to: input.keepId } },
+    });
+
+    const moved = Object.values(summary).reduce((sum, count) => sum + (count ?? 0), 0);
+    return { ok: true, moved };
+}
+
+/** The markers of the two functions above become a message for the reader. */
+function translateRecord(error: unknown, kind: "place" | "source"): string {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("merge_self")) return "duplicates.sameRecord";
+    if (message.includes("merge_not_found")) return `${kind}.notFound`;
     return "errors.generic";
 }

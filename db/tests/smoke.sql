@@ -23,6 +23,11 @@ declare
     v_kinship_b int;
     v_merge_keep uuid;
     v_merge_drop uuid;
+    v_place_keep uuid;
+    v_place_drop uuid;
+    v_place_child uuid;
+    v_source_keep uuid;
+    v_source_drop uuid;
 begin
     -- 1. The demo tree is present and complete.
     select id into v_tree from familee.trees where slug = 'demo';
@@ -196,6 +201,74 @@ begin
                 raise;
             end if;
     end;
+
+    -- 10. Merging two places: the events follow the survivor, its children are re-parented and it
+    --     takes over what it did not know (the kind of the record that goes) - migration 0015.
+    insert into familee.places (tree_id, name, kind)
+    values (v_tree, 'Smoke Place A', 'other')
+    returning id into v_place_keep;
+
+    insert into familee.places (tree_id, name, kind)
+    values (v_tree, 'Smoke Place A', 'city')
+    returning id into v_place_drop;
+
+    insert into familee.places (tree_id, name, parent_id)
+    values (v_tree, 'Smoke Place Child', v_place_drop)
+    returning id into v_place_child;
+
+    insert into familee.events (tree_id, person_id, type_code, place_id)
+    values (v_tree, v_merge_keep, 'residence', v_place_drop);
+
+    perform familee.merge_places(v_tree, v_place_keep, v_place_drop);
+
+    if exists (select 1 from familee.places where id = v_place_drop) then
+        raise exception 'smoke: the merged place is still in the tree';
+    end if;
+
+    if not exists (select 1 from familee.events
+                    where person_id = v_merge_keep and place_id = v_place_keep) then
+        raise exception 'smoke: the event of the merged place did not follow';
+    end if;
+
+    if not exists (select 1 from familee.places
+                    where id = v_place_child and parent_id = v_place_keep) then
+        raise exception 'smoke: the child of the merged place was not re-parented';
+    end if;
+
+    if (select kind from familee.places where id = v_place_keep) <> 'city' then
+        raise exception 'smoke: the survivor did not take the kind of the merged place';
+    end if;
+
+    -- 11. Merging two sources: the citations follow, the survivor takes the fields it did not have
+    --     and keeps its own identifier in the file - migration 0015.
+    insert into familee.sources (tree_id, title, gedcom_xref)
+    values (v_tree, 'Smoke Source', '@SMOKE-SRC-KEEP@')
+    returning id into v_source_keep;
+
+    insert into familee.sources (tree_id, title, author, gedcom_xref)
+    values (v_tree, 'Smoke Source', 'Smoke Author', '@SMOKE-SRC-DROP@')
+    returning id into v_source_drop;
+
+    insert into familee.citations (source_id, person_id) values (v_source_drop, v_merge_keep);
+
+    perform familee.merge_sources(v_tree, v_source_keep, v_source_drop);
+
+    if exists (select 1 from familee.sources where id = v_source_drop) then
+        raise exception 'smoke: the merged source is still in the tree';
+    end if;
+
+    if not exists (select 1 from familee.citations
+                    where source_id = v_source_keep and person_id = v_merge_keep) then
+        raise exception 'smoke: the citation of the merged source did not follow';
+    end if;
+
+    if (select author from familee.sources where id = v_source_keep) <> 'Smoke Author' then
+        raise exception 'smoke: the survivor did not take the author of the merged source';
+    end if;
+
+    if (select gedcom_xref from familee.sources where id = v_source_keep) <> '@SMOKE-SRC-KEEP@' then
+        raise exception 'smoke: the survivor lost its own identifier in the file';
+    end if;
 
     raise notice 'smoke: all checks passed (persons=%, kinship=%/%)',
         v_persons, v_kinship_a, v_kinship_b;
