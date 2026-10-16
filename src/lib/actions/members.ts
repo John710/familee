@@ -12,7 +12,7 @@
 import { and, eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { writeAudit } from "@/lib/audit";
+import { clearedFields, diffFields, writeAudit } from "@/lib/audit";
 import { atLeast, INVITABLE_ROLES, type InvitableRole, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -91,6 +91,7 @@ export async function changeMemberRoleAction(input: {
         action: "update",
         entityType: "tree_member",
         entityId: input.userId,
+        changes: diffFields({ memberRole: found.target.role }, { memberRole: role }),
     });
 
     return { ok: true };
@@ -119,6 +120,7 @@ export async function removeMemberAction(input: {
         action: "delete",
         entityType: "tree_member",
         entityId: input.userId,
+        changes: clearedFields({ memberRole: found.target.role }),
     });
 
     return { ok: true };

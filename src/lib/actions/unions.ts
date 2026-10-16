@@ -12,7 +12,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { writeAudit } from "@/lib/audit";
+import { diffFields, writeAudit } from "@/lib/audit";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -96,6 +96,16 @@ export async function createUnionAction(input: {
             action: "create",
             entityType: "family",
             entityId: familyId,
+            // The name of the partner as it reads now: the log keeps what was written, not an id.
+            changes: diffFields(
+                {},
+                {
+                    unionType: input.type,
+                    partner: input.partnerId
+                        ? await personLabel(access.treeId, input.partnerId)
+                        : null,
+                },
+            ),
         });
 
         return { ok: true, familyId };
@@ -149,9 +159,28 @@ export async function addChildAction(input: {
         action: "update",
         entityType: "family",
         entityId: family.id,
+        changes: diffFields(
+            {},
+            {
+                child: await personLabel(access.treeId, input.childId),
+                childRelation: input.relation,
+            },
+        ),
     });
 
     return { ok: true };
+}
+
+/** The name of a person as the cards show it, for the sake of the history. */
+async function personLabel(treeId: string, personId: string): Promise<string | null> {
+    const [card] = await db
+        .select({ name: schema.personCards.fullName })
+        .from(schema.personCards)
+        .where(
+            and(eq(schema.personCards.treeId, treeId), eq(schema.personCards.personId, personId)),
+        )
+        .limit(1);
+    return card?.name ?? null;
 }
 
 function partnerRoleFor(sex: string): "husband" | "wife" | "partner" | "unknown" {

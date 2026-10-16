@@ -753,7 +753,9 @@
             "photo": "Photograph",
             "main": "Main photograph",
             "crop": "Crop on the card",
-            "file": "File"
+            "file": "File",
+            "logo": "Logo",
+            "logoSet": "a picture is set"
         },
         "empty": "No changes yet",
         "entry": "{user} {action} {entity} — {date}",

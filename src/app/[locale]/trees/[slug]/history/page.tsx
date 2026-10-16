@@ -33,6 +33,12 @@ const FIELD_LABELS: Record<string, string> = {
     main: "history.labels.main",
     crop: "history.labels.crop",
     file: "history.labels.file",
+    unionType: "family.fields.type",
+    partner: "family.partners",
+    child: "family.children",
+    childRelation: "family.fields.childRelation",
+    memberRole: "members.role",
+    logo: "history.labels.logo",
 };
 
 type Change = { from: unknown; to: unknown };
@@ -167,6 +173,11 @@ export default async function HistoryPage({ params }: { params: Promise<Params> 
             return t(`enums.name_type.${value as "birth"}` as "enums.name_type.birth");
         }
         if (field === "typeCode") return t(`events.${value as "birth"}` as "events.birth");
+        if (field === "unionType") return t(`enums.family_type.${value as "marriage"}`);
+        if (field === "childRelation") return t(`enums.child_relation.${value as "biological"}`);
+        if (field === "memberRole") return t(`enums.member_role.${value as "editor"}`);
+        // The logo itself is never logged; the field says only that the tree has one now.
+        if (field === "logo") return t("history.labels.logoSet");
         return String(value);
     };
 

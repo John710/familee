@@ -12,7 +12,7 @@ import { eq } from "drizzle-orm";
 import sharp from "sharp";
 
 import { db, schema } from "@/db";
-import { writeAudit } from "@/lib/audit";
+import { diffFields, writeAudit } from "@/lib/audit";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -61,6 +61,14 @@ export async function setTreeLogoAction(input: {
         }
     }
 
+    // The picture itself is far too big to keep in the log; what matters there is whether the tree
+    // came out of this with a logo or without one.
+    const [before] = await db
+        .select({ logoData: schema.trees.logoData })
+        .from(schema.trees)
+        .where(eq(schema.trees.id, access.treeId))
+        .limit(1);
+
     await db
         .update(schema.trees)
         .set({ logoData, updatedAt: new Date() })
@@ -72,6 +80,10 @@ export async function setTreeLogoAction(input: {
         action: "update",
         entityType: "tree",
         entityId: access.treeId,
+        changes: diffFields(
+            { logo: before?.logoData ? "set" : null },
+            { logo: logoData ? "set" : null },
+        ),
     });
 
     return { ok: true, logoData };
