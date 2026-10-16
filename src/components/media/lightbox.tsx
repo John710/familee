@@ -11,9 +11,9 @@
 
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
-
+import { useEffect, useRef, useState } from "react";
 import { formatDay } from "@/lib/day";
+import { useFocusTrap } from "@/lib/focus-trap";
 
 export type Variant = "thumb" | "medium" | "original";
 
@@ -47,9 +47,13 @@ export function Lightbox({
 }) {
     const t = useTranslations();
     const locale = useLocale();
+    const boxRef = useRef<HTMLDivElement>(null);
     const [touchStart, setTouchStart] = useState<number | null>(null);
     const total = photos.length;
     const current = photos[index];
+
+    // The window is mounted only while it is open, so the keyboard stays inside it the whole time.
+    useFocusTrap(boxRef, true);
 
     const previous = () => onIndex((index - 1 + total) % total);
     const next = () => onIndex((index + 1) % total);
@@ -74,6 +78,7 @@ export function Lightbox({
 
     return (
         <div
+            ref={boxRef}
             role="dialog"
             aria-modal="true"
             aria-label={t("media.many")}

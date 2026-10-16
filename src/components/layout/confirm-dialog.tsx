@@ -12,6 +12,8 @@ import { AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
 
+import { useFocusTrap } from "@/lib/focus-trap";
+
 export function ConfirmDialog({
     open,
     title,
@@ -31,12 +33,15 @@ export function ConfirmDialog({
     onCancel: () => void;
 }) {
     const t = useTranslations();
+    const boxRef = useRef<HTMLDivElement>(null);
     const cancelRef = useRef<HTMLButtonElement>(null);
     // The latest handler is read through a ref, so the focus is set once when the dialog opens.
     const cancelLatest = useRef(onCancel);
     useEffect(() => {
         cancelLatest.current = onCancel;
     }, [onCancel]);
+
+    useFocusTrap(boxRef, open);
 
     useEffect(() => {
         if (!open) return;
@@ -58,7 +63,7 @@ export function ConfirmDialog({
             aria-labelledby="confirm-title"
             aria-describedby="confirm-message"
         >
-            <div className="modal-box max-w-md">
+            <div ref={boxRef} className="modal-box max-w-md">
                 <div className="flex items-start gap-3">
                     {danger && (
                         <span className="grid size-10 shrink-0 place-items-center rounded-full bg-error/15 text-error">

@@ -22,7 +22,7 @@ import {
     Trash2,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { type DragEvent, useState, useTransition } from "react";
+import { type DragEvent, useRef, useState, useTransition } from "react";
 
 import { ConfirmDialog } from "@/components/layout/confirm-dialog";
 import { Lightbox, photoUrl } from "@/components/media/lightbox";
@@ -37,6 +37,7 @@ import {
     tagPhotoPeopleAction,
 } from "@/lib/actions/photos";
 import { formatDay } from "@/lib/day";
+import { useFocusTrap } from "@/lib/focus-trap";
 import type { PhotoCrop } from "@/lib/photo-crop";
 
 export type AlbumPhoto = {
@@ -93,7 +94,11 @@ export function PhotoAlbum({
     const [tagging, setTagging] = useState<AlbumPhoto | null>(null);
     const [tagFilter, setTagFilter] = useState("");
     const [tagDraft, setTagDraft] = useState<string[]>([]);
+    const tagBoxRef = useRef<HTMLDivElement>(null);
     const [pending, startTransition] = useTransition();
+
+    // The list of people being tagged is a window over the album: keep the keyboard in it.
+    useFocusTrap(tagBoxRef, tagging !== null);
 
     function translate(key: string, values?: Record<string, string | number>) {
         return t(key as Parameters<typeof t>[0], values);
@@ -509,7 +514,7 @@ export function PhotoAlbum({
                     aria-label={t("media.tagPerson")}
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
                 >
-                    <div className="card w-full max-w-md bg-base-100">
+                    <div ref={tagBoxRef} className="card w-full max-w-md bg-base-100">
                         <div className="card-body gap-3">
                             <h2 className="font-semibold">{t("media.peopleOnPhoto")}</h2>
                             <input

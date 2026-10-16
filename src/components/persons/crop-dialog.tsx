@@ -21,6 +21,7 @@ import {
 import { photoUrl } from "@/components/media/lightbox";
 import { useRouter } from "@/i18n/navigation";
 import { setPortraitCropAction } from "@/lib/actions/photos";
+import { useFocusTrap } from "@/lib/focus-trap";
 import { cropHeight, cropStyle, defaultCrop, maxCropWidth, type PhotoCrop } from "@/lib/photo-crop";
 
 const MIN_WIDTH = 0.1;
@@ -52,7 +53,11 @@ export function CropDialog({
     const [saved, setSaved] = useState(false);
     const [pending, startTransition] = useTransition();
     const pictureRef = useRef<HTMLDivElement>(null);
+    const boxRef = useRef<HTMLDivElement>(null);
     const drag = useRef<{ pointerX: number; pointerY: number; start: PhotoCrop } | null>(null);
+
+    // The window is mounted only while it is open, so the keyboard stays inside it the whole time.
+    useFocusTrap(boxRef, true);
 
     const maxWidth = maxCropWidth(ratio);
 
@@ -128,7 +133,10 @@ export function CropDialog({
             aria-modal="true"
             aria-labelledby="crop-title"
         >
-            <div className="modal-box flex max-h-[92dvh] max-w-4xl flex-col gap-5 overflow-y-auto">
+            <div
+                ref={boxRef}
+                className="modal-box flex max-h-[92dvh] max-w-4xl flex-col gap-5 overflow-y-auto"
+            >
                 <div className="flex flex-col gap-1">
                     <h2 id="crop-title" className="font-semibold text-lg">
                         {t("media.cropTitle")}
