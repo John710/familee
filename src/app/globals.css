@@ -329,4 +329,24 @@
         box-shadow: none;
         break-inside: avoid;
     }
+
+    /**
+     * The export page on paper is the picture and nothing else: the header of the site, the footer
+     * and the text around the picture stay on the screen. The browser turns this page into a PDF
+     * with its own "save as PDF" printer.
+     */
+    body:has(.tree-export-sheet) > header,
+    body:has(.tree-export-sheet) > footer {
+        display: none;
+    }
+
+    body:has(.tree-export-sheet) main {
+        max-width: none;
+        padding: 0;
+    }
+
+    .tree-export-sheet {
+        border: none;
+        padding: 0;
+    }
 }

@@ -17,6 +17,7 @@ export type PaletteCommandKey =
     | "places"
     | "sources"
     | "search"
+    | "export"
     | "duplicates"
     | "trash"
     | "import"
@@ -39,6 +40,7 @@ export const TREE_COMMANDS: readonly PaletteCommand[] = [
     { key: "places", path: "places", role: "" },
     { key: "sources", path: "sources", role: "" },
     { key: "search", path: "search", role: "" },
+    { key: "export", path: "tree/export", role: "" },
     { key: "duplicates", path: "duplicates", role: "editor" },
     { key: "trash", path: "trash", role: "editor" },
     { key: "import", path: "import", role: "editor" },

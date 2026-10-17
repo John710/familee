@@ -227,6 +227,18 @@
             "showDates": "Life years",
             "spouseLink": "Union",
             "childLink": "Child"
+        },
+        "export": {
+            "open": "Save as a picture",
+            "title": "The tree as one picture",
+            "hint": "The whole tree leaves the screen as one file: a picture to send to the family or paper through the printer, where the browser can save it as a PDF. The picture writes the names and the life years; the photographs stay in the app.",
+            "back": "Back to the tree",
+            "png": "Save as PNG",
+            "svg": "Save as SVG",
+            "print": "Print or save as PDF",
+            "working": "Drawing…",
+            "failed": "The picture could not be saved. Try the SVG or the printer instead.",
+            "footer": "Familee · {date}"
         }
     },
     "person": {
@@ -652,6 +664,7 @@
             "places": "Places",
             "sources": "Sources",
             "search": "Search page",
+            "export": "The tree as a picture",
             "duplicates": "Possible duplicates",
             "trash": "Removed people",
             "import": "Import a GEDCOM file",

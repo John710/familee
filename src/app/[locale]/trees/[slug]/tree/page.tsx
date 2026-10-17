@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { ImageDown } from "lucide-react";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -69,12 +70,24 @@ export default async function TreePage({ params }: { params: Promise<Params> }) 
 
     return (
         <div className="flex flex-col gap-6">
-            <header className="flex flex-col gap-1">
-                <Link href={`/trees/${slug}/members`} className="text-primary text-sm">
-                    {access.title}
-                </Link>
-                <h1 className="font-semibold font-serif text-3xl">{t("tree.view.open")}</h1>
-                <p className="text-base-content/60 text-sm">{t("tree.view.hint")}</p>
+            <header className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                    <Link href={`/trees/${slug}/members`} className="text-primary text-sm">
+                        {access.title}
+                    </Link>
+                    <h1 className="font-semibold font-serif text-3xl">{t("tree.view.open")}</h1>
+                    <p className="text-base-content/60 text-sm">{t("tree.view.hint")}</p>
+                </div>
+                {/* The tree leaves the screen as one picture: see .../tree/export. */}
+                {!view.empty && (
+                    <Link
+                        href={`/trees/${slug}/tree/export`}
+                        className="btn btn-ghost btn-sm shrink-0 gap-2"
+                    >
+                        <ImageDown className="size-4" aria-hidden="true" />
+                        {t("tree.export.open")}
+                    </Link>
+                )}
             </header>
 
             {birthdays.length > 0 && (
