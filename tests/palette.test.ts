@@ -3,7 +3,9 @@
  *
  * The window that opens on Ctrl+K must not offer a page its reader may not open - the pages
  * themselves refuse them, so the offer has to be filtered by role - and the selection has to walk
- * round the ends of the list, because the arrows are how the window is used.
+ * round the ends of the list, because the arrows are how the window is used. The shortcut itself is
+ * read from the key that was pressed, not from the letter the layout writes: on a Cyrillic keyboard
+ * the letter of Ctrl+K is not K at all.
  */
 
 import assert from "node:assert/strict";
@@ -13,7 +15,9 @@ import {
     clampSelection,
     commandHref,
     commandsFor,
+    isPaletteShortcut,
     moveSelection,
+    type PaletteShortcutEvent,
     selectedItem,
     TREE_COMMANDS,
     treeSlugOf,
@@ -95,4 +99,33 @@ test("the tree is read from the address", () => {
     assert.equal(treeSlugOf("/trees//persons"), null);
     // A slug that had to be escaped in the address.
     assert.equal(treeSlugOf("/trees/a%20b/persons"), "a b");
+});
+
+test("the shortcut answers the key, whatever the layout writes", () => {
+    const press = (over: Partial<PaletteShortcutEvent>): PaletteShortcutEvent => ({
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+        code: "",
+        key: "",
+        ...over,
+    });
+
+    assert.equal(isPaletteShortcut(press({ ctrlKey: true, code: "KeyK", key: "k" })), true);
+    assert.equal(isPaletteShortcut(press({ metaKey: true, code: "KeyK", key: "k" })), true);
+    // A Cyrillic keyboard: the letter of the layout arrives as "л", the key itself is still "KeyK".
+    // Reading only the letter left the shortcut to the browser, which opened its own search field.
+    assert.equal(isPaletteShortcut(press({ ctrlKey: true, code: "KeyK", key: "л" })), true);
+    assert.equal(isPaletteShortcut(press({ metaKey: true, code: "KeyK", key: "Л" })), true);
+    // A keyboard that names no key is still read by the letter.
+    assert.equal(isPaletteShortcut(press({ ctrlKey: true, code: "", key: "K" })), true);
+
+    // The bare letter, another letter, and Ctrl+Alt, which writes a character on layouts that use
+    // it as AltGr.
+    assert.equal(isPaletteShortcut(press({ code: "KeyK", key: "k" })), false);
+    assert.equal(isPaletteShortcut(press({ ctrlKey: true, code: "KeyJ", key: "j" })), false);
+    assert.equal(
+        isPaletteShortcut(press({ ctrlKey: true, altKey: true, code: "KeyK", key: "k" })),
+        false,
+    );
 });

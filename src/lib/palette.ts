@@ -5,7 +5,8 @@
  * search of the tree finds. The list of pages lives here with the least role that may open each one:
  * the pages themselves refuse a reader below that role, so the window must not offer them either.
  *
- * Pure functions, no React and no database: the component and the unit tests read the same answer.
+ * Pure functions, no React and no database: the component and the unit tests read the same answer:
+ * which pages are offered, where the selection stands, and which key opens the window.
  */
 
 import { atLeast, type MemberRole } from "@/lib/roles";
@@ -90,4 +91,26 @@ export function clampSelection(index: number, count: number): number {
 export function selectedItem<T>(items: readonly T[], index: number): T | null {
     if (index < 0 || index >= items.length) return null;
     return items[index] ?? null;
+}
+
+/** The parts of a key event the shortcut is read from, so the unit tests can write one by hand. */
+export type PaletteShortcutEvent = {
+    ctrlKey: boolean;
+    metaKey: boolean;
+    altKey: boolean;
+    code: string;
+    key: string;
+};
+
+/**
+ * Whether this key event is the one that opens the window: the letter K with Ctrl or Cmd held.
+ *
+ * `key` carries the letter of the layout in use - on a Cyrillic keyboard Ctrl+K arrives as "л", so
+ * a check on it alone leaves the shortcut to the browser, which opens its own search field - while
+ * `code` names the key itself and reads "KeyK" on every layout. Ctrl+Alt is AltGr on several
+ * layouts and writes a character, so it is not the shortcut.
+ */
+export function isPaletteShortcut(event: PaletteShortcutEvent): boolean {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return false;
+    return event.code === "KeyK" || event.key.toLowerCase() === "k";
 }

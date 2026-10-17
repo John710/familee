@@ -20,7 +20,13 @@ import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { type PaletteResult, searchPaletteAction } from "@/lib/actions/palette";
 import { formatDay } from "@/lib/day";
 import { useFocusTrap } from "@/lib/focus-trap";
-import { clampSelection, moveSelection, selectedItem, treeSlugOf } from "@/lib/palette";
+import {
+    clampSelection,
+    isPaletteShortcut,
+    moveSelection,
+    selectedItem,
+    treeSlugOf,
+} from "@/lib/palette";
 
 /** Sent on the window by the button in the top bar; the window listens for it. */
 export const OPEN_PALETTE_EVENT = "familee:open-palette";
@@ -56,13 +62,13 @@ export function CommandPalette() {
 
     useFocusTrap(boxRef, open);
 
-    // Ctrl+K and Cmd+K open and close the window from anywhere; the top bar sends an event.
+    // Ctrl+K and Cmd+K open and close the window from anywhere, on every layout of the keyboard; a
+    // button in the top bar sends an event instead.
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => {
-            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-                event.preventDefault();
-                setOpen((value) => !value);
-            }
+            if (!isPaletteShortcut(event)) return;
+            event.preventDefault();
+            setOpen((value) => !value);
         };
         const onOpen = () => setOpen(true);
         window.addEventListener("keydown", onKey);
