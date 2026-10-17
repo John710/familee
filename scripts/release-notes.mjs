@@ -18,6 +18,7 @@ const GROUPS = [
     { title: "Features", types: ["feat"] },
     { title: "Improvements", types: ["perf", "refactor"] },
     { title: "Bug fixes", types: ["fix"] },
+    { title: "Tests", types: ["test"] },
     { title: "Documentation", types: ["docs"] },
     { title: "Build and release", types: ["ci", "build", "chore"] },
     { title: "Other", types: [] },
