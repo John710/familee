@@ -6,24 +6,13 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { formatDay } from "@/lib/day";
-import { type SearchHit, searchTree } from "@/lib/library";
+import { type SearchHit, searchHitHref, searchTree } from "@/lib/library";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
 
 type Params = { locale: string; slug: string };
 
 const KINDS: SearchHit["kind"][] = ["person", "photo", "place", "source", "note", "event"];
-
-/** Where a hit leads: the person's page for people, events and notes; the list for the rest. */
-function hrefOf(slug: string, hit: SearchHit): string {
-    if (hit.kind === "person") return `/trees/${slug}/persons/${hit.id}`;
-    if (hit.kind === "photo") {
-        return hit.personId ? `/trees/${slug}/gallery/${hit.personId}` : `/trees/${slug}/gallery`;
-    }
-    if (hit.kind === "place") return `/trees/${slug}/places`;
-    if (hit.kind === "source") return `/trees/${slug}/sources`;
-    return hit.personId ? `/trees/${slug}/persons/${hit.personId}` : `/trees/${slug}/members`;
-}
 
 export default async function SearchPage({
     params,
@@ -96,7 +85,7 @@ export default async function SearchPage({
                             {group.map((hit) => (
                                 <li key={`${hit.kind}-${hit.id}`}>
                                     <Link
-                                        href={hrefOf(slug, hit)}
+                                        href={searchHitHref(slug, hit)}
                                         className="flex flex-col gap-0.5 px-4 py-3 hover:bg-base-200"
                                     >
                                         <span className="font-medium text-sm">

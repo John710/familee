@@ -635,6 +635,30 @@
         "inSources": "Sources",
         "inMedia": "Photographs"
     },
+    "palette": {
+        "title": "Search and pages",
+        "open": "Search the archive and the pages",
+        "openShort": "Search",
+        "placeholder": "A name, a place, a photograph…",
+        "hint": "The pages of this tree; type at least two letters to search it",
+        "empty": "Nothing found",
+        "pages": "Pages",
+        "trees": "Trees",
+        "resultCount": "{count, plural, one {# result} other {# results}}",
+        "commands": {
+            "people": "People",
+            "tree": "The tree of cards",
+            "photos": "Photographs",
+            "places": "Places",
+            "sources": "Sources",
+            "search": "Search page",
+            "duplicates": "Possible duplicates",
+            "trash": "Removed people",
+            "import": "Import a GEDCOM file",
+            "members": "Members and access",
+            "history": "History of the tree"
+        }
+    },
     "home": {
         "greeting": "Family archive",
         "lead": "Your family's people, events, places and photos.",

@@ -9,6 +9,7 @@
 import { TreeDeciduous } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { BirthdayBell } from "@/components/layout/birthday-bell";
+import { CommandPalette, CommandPaletteButton } from "@/components/layout/command-palette";
 import { ProfileMenu } from "@/components/layout/profile-menu";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -40,6 +41,7 @@ export async function SiteHeader() {
                 )}
 
                 <div className="ml-auto flex items-center gap-1">
+                    {user && <CommandPaletteButton />}
                     {user && <BirthdayBell />}
                     {user ? (
                         <ProfileMenu
@@ -56,6 +58,9 @@ export async function SiteHeader() {
                     <ThemeToggle />
                 </div>
             </div>
+
+            {/* The window that opens on Ctrl+K, wherever the reader is. */}
+            <CommandPalette />
         </header>
     );
 }

@@ -416,3 +416,86 @@ export async function searchTree(treeId: string, query: string): Promise<SearchH
     hits.push(...photoHits.values());
     return hits;
 }
+
+/** Where a hit of the search leads. The language prefix is added by the link that uses it. */
+export function searchHitHref(slug: string, hit: SearchHit): string {
+    if (hit.kind === "person") return `/trees/${slug}/persons/${hit.id}`;
+    if (hit.kind === "photo") {
+        return hit.personId ? `/trees/${slug}/gallery/${hit.personId}` : `/trees/${slug}/gallery`;
+    }
+    if (hit.kind === "place") return `/trees/${slug}/places`;
+    if (hit.kind === "source") return `/trees/${slug}/sources`;
+    return hit.personId ? `/trees/${slug}/persons/${hit.personId}` : `/trees/${slug}/members`;
+}
+
+/** A hit of the search over several trees: it carries the tree it came from. */
+export type TreeSearchHit = {
+    kind: "person" | "tree";
+    id: string;
+    /** The person a hit belongs to; the tree itself has none. */
+    personId: string | null;
+    title: string;
+    detail: string;
+    slug: string;
+    treeTitle: string;
+};
+
+/**
+ * The search for a reader who is not inside a tree: the people of every tree they are a member of,
+ * and the trees themselves by their title. Only the names are looked up here - a place or a note of
+ * another tree means little without the tree around it, and this window is for finding one's way.
+ */
+export async function searchAcrossTrees(userId: string, query: string): Promise<TreeSearchHit[]> {
+    const needle = query.trim();
+    if (needle.length < 2) return [];
+    const pattern = `%${needle.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+
+    const trees = await db
+        .select({ id: schema.trees.id, slug: schema.trees.slug, title: schema.trees.title })
+        .from(schema.treeMembers)
+        .innerJoin(schema.trees, eq(schema.trees.id, schema.treeMembers.treeId))
+        .where(eq(schema.treeMembers.userId, userId));
+
+    const hits: TreeSearchHit[] = [];
+    for (const tree of trees) {
+        // A tree of the reader whose own title matches: the window moves between trees too.
+        if (tree.title.toLowerCase().includes(needle.toLowerCase())) {
+            hits.push({
+                kind: "tree",
+                id: tree.id,
+                personId: null,
+                title: tree.title,
+                detail: "",
+                slug: tree.slug,
+                treeTitle: tree.title,
+            });
+        }
+
+        const people = await db
+            .select({
+                personId: schema.personCards.personId,
+                name: schema.personCards.fullName,
+                birthYear: schema.personCards.birthYear,
+            })
+            .from(schema.personCards)
+            .where(
+                and(
+                    eq(schema.personCards.treeId, tree.id),
+                    ilike(schema.personCards.fullName, pattern),
+                ),
+            )
+            .limit(10);
+        for (const person of people) {
+            hits.push({
+                kind: "person",
+                id: person.personId,
+                personId: person.personId,
+                title: person.name ?? "",
+                detail: person.birthYear ? String(person.birthYear) : "",
+                slug: tree.slug,
+                treeTitle: tree.title,
+            });
+        }
+    }
+    return hits;
+}
