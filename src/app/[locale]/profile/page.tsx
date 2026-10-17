@@ -87,8 +87,11 @@ export default async function ProfilePage({ params }: { params: Promise<Params> 
     );
 
     return (
+        // Every panel carries min-w-0: the names inside them are cut with an ellipsis, and a panel
+        // that asks for the width of its longest name would otherwise widen the whole page on a
+        // telephone. See the same rule on the gallery and the members list.
         <div className="grid gap-10 lg:grid-cols-[1fr_1fr]">
-            <section className="card card-border bg-base-100">
+            <section className="card card-border min-w-0 bg-base-100">
                 <div className="card-body gap-4">
                     <h1 className="font-semibold font-serif text-3xl">{t("profile.title")}</h1>
                     <p className="text-base-content/60 text-sm">{user.email}</p>
@@ -112,13 +115,13 @@ export default async function ProfilePage({ params }: { params: Promise<Params> 
                 </div>
             </section>
 
-            <section className="flex flex-col gap-4 lg:col-span-2">
+            <section className="flex min-w-0 flex-col gap-4 lg:col-span-2">
                 <h2 className="font-semibold text-lg">{t("profile.sessionsTitle")}</h2>
                 <p className="text-base-content/60 text-sm">{t("profile.sessionsHint")}</p>
                 <SessionsList devices={devices} />
             </section>
 
-            <section className="flex flex-col gap-6">
+            <section className="flex min-w-0 flex-col gap-6">
                 <h2 className="font-semibold text-lg">{t("profile.whoAmITitle")}</h2>
                 <p className="text-base-content/60 text-sm">{t("profile.whoAmIHint")}</p>
                 {sections.length === 0 ? (
@@ -137,7 +140,7 @@ export default async function ProfilePage({ params }: { params: Promise<Params> 
                 )}
             </section>
             {me?.role === "admin" && (
-                <section className="flex flex-col gap-4 lg:col-span-2">
+                <section className="flex min-w-0 flex-col gap-4 lg:col-span-2">
                     <h2 className="font-semibold text-lg">{t("profile.demo.title")}</h2>
                     <p className="text-base-content/60 text-sm">{t("profile.demo.hint")}</p>
                     <DemoDataButton />
