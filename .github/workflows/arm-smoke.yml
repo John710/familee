@@ -1,0 +1,30 @@
+# TEMPORARY: proves that the arm64 runner builds this image natively, then it is deleted.
+# Dispatched by hand from the branch it lives in: gh workflow run arm-smoke.yml --ref ci/arm-smoke
+name: arm-smoke
+
+on:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    arm:
+        runs-on: ubuntu-24.04-arm
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: The runner itself
+              run: |
+                  uname -m
+                  docker version --format '{{.Server.Arch}}'
+                  docker buildx version
+
+            - name: The image, built here and not pushed
+              run: docker build --progress=plain --tag familee-arm-smoke .
+
+            - name: What came out
+              run: docker image inspect familee-arm-smoke --format '{{.Architecture}} {{.Os}} {{.Size}}'

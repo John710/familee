@@ -7,8 +7,10 @@
 #
 # The image is published only once the "test" job is green: the checks (npm test) and the database
 # (the migrations, the demo seed and the smoke tests) run first, so a broken tag never reaches the
-# registry. The image is built for linux/amd64 and linux/arm64; the second one is emulated on an
-# amd64 runner, which is why the build job is slow.
+# registry. The image is built for linux/amd64 and linux/arm64, each on a runner of its own
+# architecture (`ubuntu-24.04-arm` for arm64, free for a public repository): emulating arm64 on amd64
+# cost eleven minutes a build and once hung for 59 minutes until the job was killed at its own
+# limit. Each build pushes by digest and the merge job joins the two digests into one manifest list.
 #
 # Third-party actions are pinned to a full commit SHA; the version is kept in the comment next to it.
 
@@ -67,10 +69,23 @@ jobs:
                   node db/migrate.mjs
                   bash db/tools.sh seed test
 
+    # One build per architecture, each on a runner of that architecture. The digest of a build is
+    # handed to the merge job through an artifact: a manifest list cannot be made from a tag that
+    # does not exist yet.
     image:
         needs: test
-        runs-on: ubuntu-latest
-        timeout-minutes: 60
+        timeout-minutes: 30
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - platform: linux/amd64
+                      runner: ubuntu-latest
+                      name: amd64
+                    - platform: linux/arm64
+                      runner: ubuntu-24.04-arm
+                      name: arm64
+        runs-on: ${{ matrix.runner }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -87,11 +102,6 @@ jobs:
             # Registry paths must be lowercase; the owner's login may contain capitals.
             - name: Image name
               run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-
-            # arm64 is built on an amd64 runner, so the emulation has to be registered first.
-            - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
-              with:
-                  platforms: arm64
 
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
@@ -113,12 +123,75 @@ jobs:
                       type=semver,pattern={{major}}.{{minor}}
                       type=raw,value=latest
 
-            - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+            # A layer cache of its own per architecture, so the two builds do not chase each other
+            # out of the same cache scope.
+            - name: Build by digest
+              id: build
+              uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
               with:
                   context: .
-                  platforms: linux/amd64,linux/arm64
-                  push: true
-                  tags: ${{ steps.meta.outputs.tags }}
+                  platforms: ${{ matrix.platform }}
                   labels: ${{ steps.meta.outputs.labels }}
-                  cache-from: type=gha
-                  cache-to: type=gha,mode=max
+                  cache-from: type=gha,scope=${{ matrix.name }}
+                  cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+                  outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+
+            - name: Keep the digest
+              run: |
+                  mkdir -p /tmp/digests
+                  digest="${{ steps.build.outputs.digest }}"
+                  touch "/tmp/digests/${digest#sha256:}"
+
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: digests-${{ matrix.name }}
+                  path: /tmp/digests/*
+                  if-no-files-found: error
+                  retention-days: 1
+
+    # The two digests become one manifest list under the tags a reader pulls: X.Y.Z, X.Y and latest.
+    merge:
+        needs: image
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              with:
+                  path: /tmp/digests
+                  pattern: digests-*
+                  merge-multiple: true
+
+            - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+            - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Image name
+              run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+            - name: Tags
+              id: meta
+              uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+              with:
+                  images: ${{ env.IMAGE }}
+                  flavor: |
+                      latest=false
+                  tags: |
+                      type=semver,pattern={{version}}
+                      type=semver,pattern={{major}}.{{minor}}
+                      type=raw,value=latest
+
+            - name: The manifest list
+              working-directory: /tmp/digests
+              run: |
+                  mapfile -t tags < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+                  args=()
+                  for tag in "${tags[@]}"; do args+=(-t "$tag"); done
+                  for digest in *; do args+=("${{ env.IMAGE }}@sha256:${digest}"); done
+                  docker buildx imagetools create "${args[@]}"
+
+            - name: What was published
+              run: docker buildx imagetools inspect ${{ env.IMAGE }}:${{ steps.meta.outputs.version }}
