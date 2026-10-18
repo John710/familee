@@ -262,14 +262,15 @@
     }
 
     /**
-     * A person's card in the tree. The photograph is a square on the left, the
-     * full name and the years on the right; on hover the card lifts a little.
+     * A person's card in the tree. The photograph is a square on the left, the full name, the mark
+     * of the sex and the life years on the right; on hover the card lifts a little. The sex itself
+     * is carried by that mark and by the colour of the lines, so the card keeps a calm border.
      */
     .person-card {
         border-radius: var(--radius-box);
         border: var(--border) solid var(--color-border);
         background-color: var(--color-card);
-        box-shadow: 0 1px 2px color-mix(in oklab, var(--color-base-content) 8%, transparent);
+        box-shadow: 0 2px 8px color-mix(in oklab, var(--color-base-content) 10%, transparent);
         transition:
             box-shadow 150ms ease,
             transform 150ms ease,

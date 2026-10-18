@@ -25,7 +25,18 @@ import {
     ReactFlowProvider,
     useReactFlow,
 } from "@xyflow/react";
-import { Cake, ChevronDown, ChevronUp, Images, Maximize, Minimize, Search } from "lucide-react";
+import {
+    Cake,
+    ChevronDown,
+    ChevronUp,
+    Images,
+    Mars,
+    Maximize,
+    Minimize,
+    Search,
+    UserRound,
+    Venus,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import {
     type KeyboardEvent as ReactKeyboardEvent,
@@ -39,7 +50,7 @@ import { relationPhrase, type Translator } from "@/lib/kinship-phrase";
 import { cropStyle } from "@/lib/photo-crop";
 import { focusedNodeIds } from "@/lib/tree-focus";
 import { CARD_HEIGHT, CARD_WIDTH } from "@/lib/tree-layout";
-import type { FlowEdge, FlowNode, PersonNodeData } from "@/lib/tree-view";
+import type { FlowEdge, FlowNode, LineTone, PersonNodeData } from "@/lib/tree-view";
 
 /**
  * The four sides of a card or a junction. The handles are invisible: the lines are drawn
@@ -78,11 +89,19 @@ function useYears(data: PersonNodeData): string | null {
     return null;
 }
 
-/** The sex colours: blue for men, pink for women; the rest keep the neutral border. */
-function sexBorder(sex: string): string {
-    if (sex === "male") return "border-sky-500";
-    if (sex === "female") return "border-pink-400";
-    return "border-base-300";
+/** The mark of a person's sex in the corner of a card: blue for a man, pink for a woman. */
+function SexMark({ sex }: { sex: string }) {
+    if (sex === "male") return <Mars className="size-4 shrink-0 text-sky-500" aria-hidden="true" />;
+    if (sex === "female")
+        return <Venus className="size-4 shrink-0 text-pink-400" aria-hidden="true" />;
+    return null;
+}
+
+/** The stroke of a line: the colour of the person it ends at, as the mark on their card. */
+function edgeStroke(tone: LineTone): string {
+    if (tone === "male") return "var(--color-sky-500)";
+    if (tone === "female") return "var(--color-pink-400)";
+    return "color-mix(in oklab, var(--color-base-content) 45%, transparent)";
 }
 
 /** What a card needs on the canvas: its data, its state, and how to close its panel. */
@@ -121,7 +140,7 @@ function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
                 aria-label={label}
                 data-selected={data.selected ? "true" : "false"}
                 data-match={data.highlighted ? "true" : "false"}
-                className={`person-card nodrag flex h-full w-full overflow-hidden text-start transition-opacity ${sexBorder(data.sex)} ${data.dimmed ? "opacity-25" : ""}`}
+                className={`person-card nodrag flex h-full w-full overflow-hidden text-start transition-opacity ${data.dimmed ? "opacity-25" : ""}`}
             >
                 <span
                     aria-hidden="true"
@@ -146,11 +165,19 @@ function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
                         <span className="pointer-events-none absolute -right-9 bottom-2 h-3 w-28 -rotate-45 bg-black" />
                     )}
                 </span>
-                <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-3">
-                    <span className="line-clamp-2 break-words font-medium text-sm leading-snug">
-                        {name}
+                <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-3 py-1.5">
+                    <span className="flex min-w-0 items-start gap-2">
+                        <span className="line-clamp-2 min-w-0 flex-1 break-words font-semibold text-sm leading-snug">
+                            {name}
+                        </span>
+                        <SexMark sex={data.sex} />
                     </span>
-                    {years && <span className="text-base-content/60 text-xs">{years}</span>}
+                    {years && (
+                        <span className="flex items-center gap-1 text-base-content/60 text-xs">
+                            <UserRound className="size-3 shrink-0" aria-hidden="true" />
+                            {years}
+                        </span>
+                    )}
                 </span>
             </button>
             {data.birthday && (
@@ -553,7 +580,7 @@ function TreeCanvasInner({
         return { ...node, data: { ...node.data, dimmed } };
     }) as Node[];
 
-    const flowEdges: Edge[] = edges.map((edge) => {
+    const flowEdges: Edge[] = edges.map(({ tone, ...edge }) => {
         const outside =
             focusKeep !== null && !(focusKeep.has(edge.source) && focusKeep.has(edge.target));
         return {
@@ -561,7 +588,7 @@ function TreeCanvasInner({
             selectable: false,
             focusable: false,
             style: {
-                stroke: "color-mix(in oklab, var(--color-base-content) 45%, transparent)",
+                stroke: edgeStroke(tone),
                 strokeWidth: 1.5,
                 opacity: outside ? 0.12 : 1,
             },

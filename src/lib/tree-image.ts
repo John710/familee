@@ -38,8 +38,11 @@ const BORDER = "#d1d5db";
 const SELF_FILL = "#4f46e5";
 const FONT = "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-/** The border of a card, by the sex of the person; the canvas colours them the same way. */
-const SEX_STROKE: Record<string, string> = { male: "#0ea5e9", female: "#f472b6" };
+/** The border of a card, by the sex of the person; the canvas colours its lines the same way. */
+const SEX_STROKE: Record<string, string> = { male: "#00a5ef", female: "#fb64b6" };
+
+/** The same two colours for a line: the sex of the person it ends at (the canvas reads them). */
+const TONE_STROKE: Record<string, string> = { male: "#00a5ef", female: "#fb64b6" };
 
 export type TreeImageLabels = {
     /** What to write on a card whose name is not known. */
@@ -342,7 +345,9 @@ export function treeImage(input: TreeImageInput): TreeImage {
             edgePoints(from, edge.sourceHandle as Side, to, edge.targetHandle as Side),
             CORNER,
         );
-        return [`<path d="${path}" fill="none" stroke="${LINE}" stroke-width="1.5"/>`];
+        return [
+            `<path d="${path}" fill="none" stroke="${TONE_STROKE[edge.tone] ?? LINE}" stroke-width="1.5"/>`,
+        ];
     });
 
     const junctions = input.nodes

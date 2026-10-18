@@ -61,10 +61,10 @@ function unionNode(id: string, x: number, y: number): FlowNode {
 function family(): { nodes: FlowNode[]; edges: FlowEdge[] } {
     return {
         nodes: [
-            personNode("ivan", 0, 0, { name: "Ivan Petrov" }),
-            personNode("maria", CARD_WIDTH + 32, 0, { name: "Maria Petrova" }),
+            personNode("ivan", 0, 0, { name: "Ivan Petrov", sex: "male" }),
+            personNode("maria", CARD_WIDTH + 32, 0, { name: "Maria Petrova", sex: "female" }),
             unionNode("u1", CARD_WIDTH + 16 + 2, CARD_HEIGHT / 2 - 6),
-            personNode("anna", 148, 188, { name: "Anna Petrova" }),
+            personNode("anna", 148, 188, { name: "Anna Petrova", sex: "male" }),
         ],
         edges: [
             {
@@ -74,6 +74,7 @@ function family(): { nodes: FlowNode[]; edges: FlowEdge[] } {
                 target: "union-u1",
                 targetHandle: "left",
                 type: "straight",
+                tone: "male",
             },
             {
                 id: "partner-u1-maria",
@@ -82,6 +83,7 @@ function family(): { nodes: FlowNode[]; edges: FlowEdge[] } {
                 target: "person-maria",
                 targetHandle: "left",
                 type: "straight",
+                tone: "female",
             },
             {
                 id: "child-u1-anna",
@@ -90,6 +92,7 @@ function family(): { nodes: FlowNode[]; edges: FlowEdge[] } {
                 target: "person-anna",
                 targetHandle: "top",
                 type: "smoothstep",
+                tone: "male",
             },
         ],
     };
@@ -234,6 +237,39 @@ test("the picture holds every card and writes the names on them", () => {
     assert.equal(image.svg.split('rx="12"').length - 1, 3);
     assert.ok(image.svg.includes(`>IP<`));
     assert.equal(image.height > 0 && image.width > 0, true);
+});
+
+test("a line takes the colour of the person it ends at", () => {
+    const { nodes, edges } = family();
+    const image = treeImage({
+        title: "Petrov family",
+        nodes,
+        edges,
+        labels: { unknown: "Unknown", you: "You" },
+    });
+
+    // Ivan is a man, Maria a woman and Anna a man again: their lines are blue and pink.
+    assert.ok(image.svg.includes('stroke="#00a5ef"'));
+    assert.ok(image.svg.includes('stroke="#fb64b6"'));
+
+    // A sex nobody recorded keeps the calm grey of a line.
+    const unknown = treeImage({
+        title: "Petrov family",
+        nodes: [unionNode("u1", 110, 0), personNode("x", 0, 188)],
+        edges: [
+            {
+                id: "child-u1-x",
+                source: "union-u1",
+                sourceHandle: "bottom",
+                target: "person-x",
+                targetHandle: "top",
+                type: "smoothstep",
+                tone: "unknown",
+            },
+        ],
+        labels: { unknown: "Unknown", you: "You" },
+    });
+    assert.ok(unknown.svg.includes('stroke="#9ca3af"'));
 });
 
 test("a title with a bracket and a name with an ampersand stay text", () => {

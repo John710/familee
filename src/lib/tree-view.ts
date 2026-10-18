@@ -69,6 +69,9 @@ export type FlowNode =
     | { id: string; type: "person"; position: { x: number; y: number }; data: PersonNodeData }
     | { id: string; type: "union"; position: { x: number; y: number }; data: { familyId: string } };
 
+/** Whose line it is: the sex of the person at the far end of it, for the colour of the stroke. */
+export type LineTone = "male" | "female" | "unknown";
+
 export type FlowEdge = {
     id: string;
     source: string;
@@ -76,6 +79,7 @@ export type FlowEdge = {
     target: string;
     targetHandle: string;
     type: "smoothstep" | "straight";
+    tone: LineTone;
 };
 
 export type TreeView = {
@@ -325,6 +329,13 @@ export async function loadTreeView(
     }
 
     const edges: FlowEdge[] = [];
+    // The colour of a line follows the person it ends at: the blue of a man, the pink of a woman,
+    // and the calm grey of a sex nobody recorded.
+    const sexOf = new Map(cards.map((card) => [card.personId, card.sex]));
+    const toneOf = (personId: string): LineTone => {
+        const sex = sexOf.get(personId);
+        return sex === "male" || sex === "female" ? sex : "unknown";
+    };
     for (const family of families) {
         const junction = layout.unions.get(family.id);
         if (!junction) continue;
@@ -350,6 +361,7 @@ export async function loadTreeView(
                     target: junctionId,
                     targetHandle: "top",
                     type: "smoothstep",
+                    tone: toneOf(partner),
                 });
             } else if (centre < junction.x) {
                 edges.push({
@@ -359,6 +371,7 @@ export async function loadTreeView(
                     target: junctionId,
                     targetHandle: "left",
                     type: partnerLineType(place.y + CARD_HEIGHT / 2, junction.y),
+                    tone: toneOf(partner),
                 });
             } else {
                 edges.push({
@@ -368,6 +381,7 @@ export async function loadTreeView(
                     target: partnerId,
                     targetHandle: "left",
                     type: partnerLineType(place.y + CARD_HEIGHT / 2, junction.y),
+                    tone: toneOf(partner),
                 });
             }
         }
@@ -381,6 +395,7 @@ export async function loadTreeView(
                 target: `person-${child}`,
                 targetHandle: "top",
                 type: "smoothstep",
+                tone: toneOf(child),
             });
         }
     }
