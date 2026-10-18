@@ -15,6 +15,7 @@
 import { Loader2, Search } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { type PaletteResult, searchPaletteAction } from "@/lib/actions/palette";
@@ -192,7 +193,12 @@ export function CommandPalette() {
 
     let group = "";
 
-    return (
+    // The window is drawn into <body>, not where it is mounted: the top bar carries
+    // `backdrop-blur`, and a filter on an ancestor makes that ancestor the containing block of a
+    // `position: fixed` child. Inside the bar the dark plate was a strip as tall as the bar itself
+    // (105px instead of the screen), so a click beside the window landed on the page behind and
+    // never reached the plate that closes it. Under <body> the window covers the screen again.
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[10vh]">
             {/* The dark background is a button, so a click on it closes the window from the keyboard too. */}
             <button
@@ -287,7 +293,8 @@ export function CommandPalette() {
                     </ul>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }
 
