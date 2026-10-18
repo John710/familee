@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import {
     BookOpen,
+    CalendarDays,
     Download,
     History,
     Images,
@@ -158,6 +159,10 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                     <Link href={`/trees/${slug}/gallery`} className="btn btn-sm gap-2">
                         <Images className="size-4" aria-hidden="true" />
                         {t("gallery.title")}
+                    </Link>
+                    <Link href={`/trees/${slug}/calendar`} className="btn btn-sm gap-2">
+                        <CalendarDays className="size-4" aria-hidden="true" />
+                        {t("calendar.title")}
                     </Link>
                     <Link href={`/trees/${slug}/places`} className="btn btn-sm gap-2">
                         <MapPin className="size-4" aria-hidden="true" />
