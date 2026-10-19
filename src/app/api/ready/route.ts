@@ -1,14 +1,12 @@
 /**
  * Familee - the readiness probe
  *
- * Unlike /api/health, which only says that the process is up, this one asks the
- * dependencies a request needs to be answered: Postgres and Redis. It is for an
- * external monitor. The container healthcheck stays liveness on purpose: if it
- * asked the database, restarting Postgres would make Docker kill a healthy
- * application (see src/app/api/health/route.ts).
- *
- * The body names each dependency and whether it answered, without the error
- * text, so the answer never leaks a connection string.
+ * It asks the dependencies a request needs to be answered: Postgres and Redis.
+ * This is the endpoint the container healthcheck runs (docker-compose.build.yml),
+ * so a container whose database is gone shows as unhealthy instead of pretending
+ * to work. /api/health stays as the plain liveness probe that only says the
+ * process is up. The body names each dependency and whether it answered, without
+ * the error text, so the answer never leaks a connection string.
  */
 
 import { client } from "@/db";
