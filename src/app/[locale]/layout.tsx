@@ -113,11 +113,16 @@ export default async function LocaleLayout({
                             {children}
                         </main>
 
-                        <footer className="border-base-300 border-t px-4 py-6 text-center text-base-content/60 text-xs">
-                            <p>{t("footer")}</p>
-                            <p className="mt-1">
+                        <footer className="border-base-300 border-t px-4 py-6 text-base-content/60 text-xs">
+                            {/*
+                                One line: the note about where the data lives, and the version at the
+                                right of it (a narrow screen simply puts the version after the note),
+                                so naming the version does not make the footer taller.
+                            */}
+                            <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center sm:justify-between sm:text-left">
+                                <p>{t("footer")}</p>
                                 <VersionLine />
-                            </p>
+                            </div>
                         </footer>
                     </ThemeProvider>
                 </NextIntlClientProvider>
