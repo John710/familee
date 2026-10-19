@@ -4,6 +4,8 @@
         "title": "Family tree",
         "tagline": "People, unions, events and photographs of one family",
         "footer": "Family archive. All data stays on your own server.",
+        "updateAvailable": "update {version} available",
+        "githubTitle": "Open the project on GitHub",
         "skipToContent": "Skip to the content"
     },
     "common": {

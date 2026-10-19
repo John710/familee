@@ -5,12 +5,27 @@
  * Postgres and Redis are external and already running on the server.
  */
 
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+
+/**
+ * The version of package.json, read here, at build time. The application shows it in the footer and
+ * compares it with the newest release on GitHub, and the Docker image carries the same number in its
+ * tag - so it must come from the file, not from an environment variable that a deploy could forget.
+ */
+function versionFromPackage(): string {
+    const manifest = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as {
+        version?: unknown;
+    };
+    if (typeof manifest.version !== "string" || manifest.version.length === 0) {
+        throw new Error("package.json carries no version");
+    }
+    return manifest.version;
+}
 
 /**
  * The languages are the message files: messages/<code>.json is one language. The list is read
@@ -42,9 +57,13 @@ const nextConfig = {
      */
     output: "standalone" as const,
 
-    /** The language codes, read from the message files (see languagesFromMessages). */
+    /**
+     * The language codes, read from the message files (see languagesFromMessages), and the version
+     * of this build, which the footer shows and the update check compares against GitHub.
+     */
     env: {
         FAMILEE_LOCALES: JSON.stringify(languagesFromMessages()),
+        FAMILEE_VERSION: versionFromPackage(),
     },
 
     /** There is no need to advertise the Next.js version in the headers. */

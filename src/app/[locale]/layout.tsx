@@ -5,6 +5,7 @@ import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { ReactNode } from "react";
 import { SiteHeader } from "@/components/layout/site-header";
+import { VersionLine } from "@/components/layout/version-line";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { routing } from "@/i18n/routing";
 import "../globals.css";
@@ -113,7 +114,10 @@ export default async function LocaleLayout({
                         </main>
 
                         <footer className="border-base-300 border-t px-4 py-6 text-center text-base-content/60 text-xs">
-                            {t("footer")}
+                            <p>{t("footer")}</p>
+                            <p className="mt-1">
+                                <VersionLine />
+                            </p>
                         </footer>
                     </ThemeProvider>
                 </NextIntlClientProvider>
