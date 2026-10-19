@@ -545,11 +545,28 @@ async function personInTree(treeId: string, personId: string): Promise<boolean> 
     return row !== undefined;
 }
 
+/**
+ * Whether an event of this tree is still shown. An event belongs to a person or to a union, and
+ * either way the subject must not have gone to the trash: a photograph would otherwise be added to
+ * something no page shows any more (a union is hidden once all of its partners are deleted, see
+ * migration 0012). The subject xor guarantees exactly one of the two subqueries can match.
+ */
 async function eventInTree(treeId: string, eventId: string): Promise<boolean> {
     const [row] = await db
         .select({ id: schema.events.id })
         .from(schema.events)
-        .where(and(eq(schema.events.id, eventId), eq(schema.events.treeId, treeId)))
+        .where(
+            sql`${schema.events.id} = ${eventId}
+                and ${schema.events.treeId} = ${treeId}
+                and (
+                    exists (select 1 from familee.persons p
+                             where p.id = ${schema.events.personId} and p.deleted_at is null)
+                    or exists (select 1 from familee.family_partners fp
+                               join familee.persons fp_p on fp_p.id = fp.person_id
+                               where fp.family_id = ${schema.events.familyId}
+                                 and fp_p.deleted_at is null)
+                )`,
+        )
         .limit(1);
     return row !== undefined;
 }
@@ -776,24 +793,20 @@ export async function addEventPhoto(input: {
     const stored = await storeMedia(input);
     if (!stored.ok) return stored;
 
+    // The unique index media_links_media_event_key decides: two uploads of the same file to the
+    // same event at once cannot both insert, so the database settles it and not a read that both
+    // requests may pass. Nothing inserted means the file is already on that event.
     const [linked] = await db
-        .select({ id: schema.mediaLinks.id })
-        .from(schema.mediaLinks)
-        .where(
-            and(
-                eq(schema.mediaLinks.mediaId, stored.mediaId),
-                eq(schema.mediaLinks.eventId, input.eventId),
-            ),
-        )
-        .limit(1);
-    if (linked) return { ok: false, error: "media.errors.duplicate" };
-
-    await db.insert(schema.mediaLinks).values({
-        mediaId: stored.mediaId,
-        eventId: input.eventId,
-        role: "document",
-        isPrimary: false,
-    });
+        .insert(schema.mediaLinks)
+        .values({
+            mediaId: stored.mediaId,
+            eventId: input.eventId,
+            role: "document",
+            isPrimary: false,
+        })
+        .onConflictDoNothing()
+        .returning({ id: schema.mediaLinks.id });
+    if (!linked) return { ok: false, error: "media.errors.duplicate" };
 
     await writeAudit({
         treeId: input.treeId,

@@ -218,6 +218,10 @@ export const mediaLinks = familee.table(
         uniqueIndex("media_links_media_person_key")
             .on(t.mediaId, t.personId)
             .where(sql`person_id is not null`),
+        /** One link of a file to an event (migration 0016). */
+        uniqueIndex("media_links_media_event_key")
+            .on(t.mediaId, t.eventId)
+            .where(sql`event_id is not null`),
     ],
 );
 
