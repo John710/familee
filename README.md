@@ -85,6 +85,9 @@ in Redis. The look is Tailwind CSS with daisyUI. Translations use next-intl. The
 - The Postgres and Redis containers must be reachable by name from one Docker network, the one set
   as `DATA_NETWORK`. The application joins that network and connects to them by name.
 - Optional: Traefik, if you want HTTPS on a domain. Without it the archive is reached by IP address.
+- Optional: a way out to `api.github.com`, so that the footer can announce a newer release. The
+  container asks for it in the background, once every six hours at most; without a way out the footer
+  shows its version and nothing else, and nothing else about the archive changes.
 
 ## First run
 
