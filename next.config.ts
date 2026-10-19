@@ -50,6 +50,26 @@ const nextConfig = {
     /** There is no need to advertise the Next.js version in the headers. */
     poweredByHeader: false,
 
+    /**
+     * The headers every answer carries. They are set here, and not by the proxy: in the
+     * address-and-port mode there is nothing in front of the application. frame-ancestors only
+     * forbids putting the archive in a frame of another site; a full script-src policy is left to
+     * the reverse proxy, which knows the addresses it serves.
+     */
+    async headers() {
+        return [
+            {
+                source: "/(.*)",
+                headers: [
+                    { key: "X-Content-Type-Options", value: "nosniff" },
+                    { key: "X-Frame-Options", value: "DENY" },
+                    { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+                    { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+                ],
+            },
+        ];
+    },
+
     /** React strict mode: the double render in dev exposes side effects. */
     reactStrictMode: true,
 
