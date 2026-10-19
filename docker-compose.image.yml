@@ -32,7 +32,7 @@ services:
         # An exact release, never `latest`: set FAMILEE_VERSION in .env (the default is the release
         # this file was published with). To move to another version, change it and run
         # `docker compose pull && docker compose up -d`.
-        image: ghcr.io/john710/familee:${FAMILEE_VERSION:-0.5.1}
+        image: ghcr.io/john710/familee:${FAMILEE_VERSION:-0.5.2}
 
         # The application may not gain rights it did not start with.
         security_opt:
