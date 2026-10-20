@@ -26,6 +26,7 @@ import { type DragEvent, useRef, useState, useTransition } from "react";
 
 import { ConfirmDialog } from "@/components/layout/confirm-dialog";
 import { Lightbox, photoUrl } from "@/components/media/lightbox";
+import { MediaIcon } from "@/components/media/media-icon";
 import { CropDialog } from "@/components/persons/crop-dialog";
 import { useRouter } from "@/i18n/navigation";
 import {
@@ -42,6 +43,12 @@ import type { PhotoCrop } from "@/lib/photo-crop";
 
 export type AlbumPhoto = {
     mediaId: string;
+    /** photo · document · audio · video · other. A photograph has a thumbnail; the rest a mark. */
+    kind: string;
+    /** The type the archive serves it as, for the window to choose a viewer. */
+    mimeType: string;
+    /** The name the file came from, shown for a document. */
+    name: string | null;
     isPrimary: boolean;
     /** The part of the picture the card shows for this person; null for the whole picture. */
     crop: PhotoCrop | null;
@@ -57,7 +64,9 @@ export type AlbumPhoto = {
     personIds: string[];
 };
 
-const ACCEPT = "image/jpeg,image/png,image/webp";
+/** Photographs, documents, recordings and films: whatever a family keeps. */
+const ACCEPT =
+    "image/*,application/pdf,audio/*,video/*,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,.doc,.docx,.odt,.zip,.rar,.7z";
 
 export function PhotoAlbum({
     slug,
@@ -275,14 +284,23 @@ export function PhotoAlbum({
                                 onClick={() => setViewing(index)}
                                 className="relative block aspect-square w-full overflow-hidden bg-base-200"
                             >
-                                {/* biome-ignore lint/performance/noImgElement: the picture is served by our own route, already sized as a thumbnail */}
-                                <img
-                                    src={photoUrl(slug, photo.mediaId, "thumb")}
-                                    alt=""
-                                    loading="lazy"
-                                    className="size-full object-cover"
-                                />
-                                {photo.isPrimary && (
+                                {photo.kind === "photo" ? (
+                                    /* biome-ignore lint/performance/noImgElement: the picture is served by our own route, already sized as a thumbnail */
+                                    <img
+                                        src={photoUrl(slug, photo.mediaId, "thumb")}
+                                        alt=""
+                                        loading="lazy"
+                                        className="size-full object-cover"
+                                    />
+                                ) : (
+                                    <span className="flex size-full flex-col items-center justify-center gap-2 p-3 text-base-content/60">
+                                        <MediaIcon kind={photo.kind} className="size-10" />
+                                        <span className="line-clamp-2 break-all text-center text-xs">
+                                            {photo.name ?? t("media.file")}
+                                        </span>
+                                    </span>
+                                )}
+                                {photo.isPrimary && photo.kind === "photo" && (
                                     <span className="badge badge-primary absolute top-2 left-2 gap-1">
                                         <Star className="size-3" />
                                         {t("media.portrait")}
@@ -314,37 +332,40 @@ export function PhotoAlbum({
                                             >
                                                 <ArrowDown className="size-3.5" />
                                             </button>
-                                            <button
-                                                type="button"
-                                                className="btn btn-ghost btn-xs btn-square"
-                                                aria-label={t("media.tagPerson")}
-                                                title={t("media.tagPerson")}
-                                                disabled={pending}
-                                                onClick={() => openTags(photo)}
-                                            >
-                                                <Tags className="size-3.5" />
-                                            </button>
-                                        </div>
-                                        <div className="flex items-center">
-                                            {photo.isPrimary ? (
+                                            {photo.kind === "photo" && (
                                                 <button
                                                     type="button"
-                                                    className="btn btn-ghost btn-xs"
+                                                    className="btn btn-ghost btn-xs btn-square"
+                                                    aria-label={t("media.tagPerson")}
+                                                    title={t("media.tagPerson")}
                                                     disabled={pending}
-                                                    onClick={() => setCropping(photo)}
+                                                    onClick={() => openTags(photo)}
                                                 >
-                                                    {t("media.crop")}
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-ghost btn-xs"
-                                                    disabled={pending}
-                                                    onClick={() => onMain(photo.mediaId)}
-                                                >
-                                                    {t("media.setPortrait")}
+                                                    <Tags className="size-3.5" />
                                                 </button>
                                             )}
+                                        </div>
+                                        <div className="flex items-center">
+                                            {photo.kind === "photo" &&
+                                                (photo.isPrimary ? (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-ghost btn-xs"
+                                                        disabled={pending}
+                                                        onClick={() => setCropping(photo)}
+                                                    >
+                                                        {t("media.crop")}
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-ghost btn-xs"
+                                                        disabled={pending}
+                                                        onClick={() => onMain(photo.mediaId)}
+                                                    >
+                                                        {t("media.setPortrait")}
+                                                    </button>
+                                                ))}
                                             <button
                                                 type="button"
                                                 className="btn btn-ghost btn-xs btn-square text-error"
@@ -578,6 +599,9 @@ export function PhotoAlbum({
                     slug={slug}
                     photos={photos.map((photo) => ({
                         mediaId: photo.mediaId,
+                        kind: photo.kind,
+                        mimeType: photo.mimeType,
+                        name: photo.name,
                         caption: photo.caption,
                         tagged: photo.people,
                         date: photo.date,

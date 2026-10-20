@@ -404,19 +404,27 @@
     },
     "media": {
         "one": "Photograph",
-        "many": "Photographs",
-        "upload": "Upload photographs",
+        "many": "Photographs and documents",
+        "upload": "Add files",
         "uploading": "Uploading {done} of {total}…",
-        "empty": "No photographs yet",
-        "hint": "The main photograph is the one shown on the card in the tree. Click a picture to open the original.",
+        "empty": "Nothing here yet",
+        "hint": "The main photograph is the one shown on the card in the tree. Click a file to open the original.",
         "dropHint": "Drop the files here to add them to the album",
         "remove": "Remove from this person",
-        "removeTitle": "Remove this photograph?",
-        "addToEvent": "Add a photograph",
-        "previous": "Previous photograph",
-        "next": "Next photograph",
+        "removeTitle": "Remove this file?",
+        "addToEvent": "Add a file",
+        "previous": "Previous file",
+        "next": "Next file",
         "counter": "{current} of {total}",
         "openOriginal": "Open the original",
+        "file": "File",
+        "kindLabel": {
+            "photo": "Photograph",
+            "document": "Document",
+            "audio": "Recording",
+            "video": "Film",
+            "other": "File"
+        },
         "removeConfirm": "Remove this photograph from the person? It stays in the archive if other people use it.",
         "moveUp": "Move towards the front",
         "moveDown": "Move towards the back",
@@ -622,6 +630,39 @@
         "uses": "{count, plural, =0 {nothing points at it yet} one {# record points at it} other {# records point at it}}",
         "sameRecord": "A record cannot be merged with itself"
     },
+    "checks": {
+        "title": "Data check",
+        "hint": "Dates and relations that look impossible, gathered from the whole archive. Nothing is changed here - the records are linked, and the decision is yours.",
+        "empty": "Nothing doubtful found. The dates and the relations agree.",
+        "found": "{count, plural, one {# remark} other {# remarks}}",
+        "issues": {
+            "birthAfterDeath": "The death is recorded before the birth.",
+            "childBeforeParent": "The child is born before a parent.",
+            "childAfterMotherDeath": "The child is born after the mother's death.",
+            "motherTooYoung": "The mother was {age} at the child's birth.",
+            "motherTooOld": "The mother was {age} at the child's birth.",
+            "fatherTooYoung": "The father was {age} at the child's birth.",
+            "fatherTooOld": "The father was {age} at the child's birth.",
+            "implausibleAge": "The person lived {age} years.",
+            "futureBirth": "The birth date is in the future.",
+            "futureDeath": "The death date is in the future.",
+            "marriageBeforeBirth": "The marriage is recorded before a partner's birth.",
+            "duplicateBirth": "{count, plural, one {# birth event} other {# birth events}} on one person",
+            "duplicateDeath": "{count, plural, one {# death event} other {# death events}} on one person"
+        }
+    },
+    "map": {
+        "title": "Map",
+        "hint": "The places of the archive that carry coordinates. Choose a person to see the road their life walked.",
+        "noPlaces": "No place has coordinates yet. Add the latitude and the longitude on the Places page, and they will appear here.",
+        "choosePerson": "Whose road",
+        "allPlaces": "All places",
+        "show": "Show",
+        "route": "The road of a life",
+        "noJourney": "This person's events have no located places yet.",
+        "distance": "In a straight line, about {km} km between the stops.",
+        "placesCount": "{count, plural, one {# place on the map} other {# places on the map}}"
+    },
     "gallery": {
         "title": "Photo album",
         "hint": "An album for each person who has photographs. The card shows the main photograph; a click opens the album.",
@@ -632,7 +673,9 @@
         "personEmpty": "No photographs of this person yet",
         "empty": "No photographs in the archive yet",
         "unattached": "Not attached to anybody",
-        "eventsCount": "{count, plural, one {# event} other {# events}}"
+        "eventsCount": "{count, plural, one {# event} other {# events}}",
+        "materials": "Documents, recordings and films",
+        "materialsHint": "Everything that is not a photograph, with the person it came with."
     },
     "search": {
         "title": "Search the archive",
@@ -641,7 +684,7 @@
         "found": "{count, plural, one {# result} other {# results}}",
         "kinds": {
             "person": "People",
-            "photo": "Photographs",
+            "photo": "Files and photographs",
             "place": "Places",
             "source": "Sources",
             "note": "Notes and stories",

@@ -73,6 +73,9 @@ export async function PersonPageBody({
         const tagged = tags.get(photo.mediaId) ?? [];
         return {
             mediaId: photo.mediaId,
+            kind: photo.kind,
+            mimeType: photo.mimeType,
+            name: photo.originalFilename,
             isPrimary: photo.isPrimary,
             crop: photo.crop,
             ratio: photo.width && photo.height ? photo.height / photo.width : null,
@@ -102,6 +105,9 @@ export async function PersonPageBody({
             citations: eventCitations.get(event.id) ?? [],
             photos: (await listEventPhotos(access.treeId, event.id)).map((photo) => ({
                 mediaId: photo.mediaId,
+                kind: photo.kind,
+                mimeType: photo.mimeType,
+                name: photo.originalFilename,
                 caption: photo.caption,
                 date: photo.takenStart,
             })),

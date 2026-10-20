@@ -59,6 +59,9 @@ services:
             MEDIA_ROOT: ${MEDIA_ROOT:-/data/media}
             MEDIA_MAX_UPLOAD_MB: ${MEDIA_MAX_UPLOAD_MB:-25}
             SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-0}
+            # The map's tile server and the credit in its corner (OpenStreetMap when unset).
+            MAP_TILE_URL: ${MAP_TILE_URL:-https://tile.openstreetmap.org/{z}/{x}/{y}.png}
+            MAP_ATTRIBUTION: ${MAP_ATTRIBUTION:-© OpenStreetMap contributors}
 
         ports:
             # Mode 1: the address of the server and this port. Mode 2 removes it

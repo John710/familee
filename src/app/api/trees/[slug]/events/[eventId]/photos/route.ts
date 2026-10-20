@@ -1,8 +1,9 @@
 /**
- * Familee - adding a photograph to an event (a document, the place, the moment)
+ * Familee - adding a file to an event (a document, the place, the moment)
  *
- * POST with a multipart form field "file". Only an editor or higher may add photographs; the
- * answer is JSON with an error key from the translations, as for the person's album.
+ * POST with a multipart form field "file": a photograph, a document, a recording, a film, or
+ * anything else. Only an editor or higher may add files; the answer is JSON with an error key from
+ * the translations, as for the person's album.
  */
 
 import { addEventPhoto, type PhotoError } from "@/lib/photos";
@@ -64,6 +65,7 @@ export async function POST(
         userId: user.id,
         source: Buffer.from(await file.arrayBuffer()),
         originalFilename: file.name || null,
+        declaredType: file.type || null,
     });
 
     if (!result.ok) return reply(STATUS[result.error], result.error);

@@ -14,7 +14,9 @@ import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { exifDateFrom, exifDay } from "@/lib/exif-date";
+import { classifyMedia } from "@/lib/media-kind";
 import {
+    binaryKey,
     type MediaVariantName,
     removeMediaFiles,
     variantKeys,
@@ -34,6 +36,12 @@ export type PhotoCrop = { x: number; y: number; w: number; h: number };
 
 export type PersonPhoto = {
     mediaId: string;
+    /** photo · document · audio · video · other. */
+    kind: string;
+    /** The type the archive serves the original as. */
+    mimeType: string;
+    /** The name the file came from, for a document the reader has to recognize. */
+    originalFilename: string | null;
     isPrimary: boolean;
     width: number | null;
     height: number | null;
@@ -47,6 +55,10 @@ export type PersonPhoto = {
 
 export type TreePhoto = {
     mediaId: string;
+    /** photo · document · audio · video · other. */
+    kind: string;
+    mimeType: string;
+    originalFilename: string | null;
     width: number | null;
     height: number | null;
     /** The day the photograph was taken, as "2007-04-21"; null when the file did not say. */
@@ -74,6 +86,9 @@ export async function listPersonPhotos(treeId: string, personId: string): Promis
     const rows = await db
         .select({
             mediaId: schema.media.id,
+            kind: schema.media.kind,
+            mimeType: schema.media.mimeType,
+            originalFilename: schema.media.originalFilename,
             isPrimary: schema.mediaLinks.isPrimary,
             width: schema.media.width,
             height: schema.media.height,
@@ -95,6 +110,9 @@ export async function listPersonPhotos(treeId: string, personId: string): Promis
 
     return rows.map((row) => ({
         mediaId: row.mediaId,
+        kind: row.kind,
+        mimeType: row.mimeType,
+        originalFilename: row.originalFilename,
         isPrimary: row.isPrimary,
         width: row.width,
         height: row.height,
@@ -431,9 +449,13 @@ export async function setPortraitCrop(input: {
     return { ok: true };
 }
 
-/** A photograph of an event. The caption is the one written at the event, not in an album. */
+/** A file of an event. The caption is the one written at the event, not in an album. */
 export type EventPhoto = {
     mediaId: string;
+    /** photo · document · audio · video · other. */
+    kind: string;
+    mimeType: string;
+    originalFilename: string | null;
     isPrimary: boolean;
     width: number | null;
     height: number | null;
@@ -442,11 +464,14 @@ export type EventPhoto = {
     takenStart: string | null;
 };
 
-/** The photographs of an event, in the order they were added. */
+/** The files of an event, in the order they were added. */
 export async function listEventPhotos(treeId: string, eventId: string): Promise<EventPhoto[]> {
     return db
         .select({
             mediaId: schema.media.id,
+            kind: schema.media.kind,
+            mimeType: schema.media.mimeType,
+            originalFilename: schema.media.originalFilename,
             isPrimary: schema.mediaLinks.isPrimary,
             width: schema.media.width,
             height: schema.media.height,
@@ -459,11 +484,14 @@ export async function listEventPhotos(treeId: string, eventId: string): Promise<
         .orderBy(asc(schema.mediaLinks.createdAt));
 }
 
-/** Every photograph of a tree, newest first, with the people and events it is attached to. */
+/** Every file of a tree, newest first, with the people and events it is attached to. */
 export async function listTreePhotos(treeId: string): Promise<TreePhoto[]> {
     const rows = await db
         .select({
             mediaId: schema.media.id,
+            kind: schema.media.kind,
+            mimeType: schema.media.mimeType,
+            originalFilename: schema.media.originalFilename,
             width: schema.media.width,
             height: schema.media.height,
             createdAt: schema.media.createdAt,
@@ -496,6 +524,9 @@ export async function listTreePhotos(treeId: string): Promise<TreePhoto[]> {
         if (!photo) {
             photo = {
                 mediaId: row.mediaId,
+                kind: row.kind,
+                mimeType: row.mimeType,
+                originalFilename: row.originalFilename,
                 width: row.width,
                 height: row.height,
                 takenStart: row.takenStart,
@@ -572,14 +603,18 @@ async function eventInTree(treeId: string, eventId: string): Promise<boolean> {
 }
 
 /**
- * Stores a photograph in the tree: the three variants on disk and the rows in the database.
- * The same file again is not stored twice; the existing photograph is returned instead.
+ * Stores a file in the tree: the bytes on disk and the rows in the database. A photograph goes
+ * through the picture pipeline and is kept as three WebP variants; a document, a recording or a
+ * film is kept exactly as it came, under the extension its kind table chose. The same file again is
+ * not stored twice; the existing record is returned instead.
  */
 async function storeMedia(input: {
     treeId: string;
     userId: string;
     source: Buffer;
     originalFilename: string | null;
+    /** The type the browser declared; only a hint, the kind table has the last word. */
+    declaredType?: string | null;
 }): Promise<{ ok: true; mediaId: string; existed: boolean } | { ok: false; error: PhotoError }> {
     const checksum = createHash("sha256").update(input.source).digest("hex");
 
@@ -591,6 +626,11 @@ async function storeMedia(input: {
         )
         .limit(1);
     if (existing) return { ok: true, mediaId: existing.id, existed: true };
+
+    const classified = classifyMedia(input.declaredType, input.originalFilename);
+    if (!classified.processable) {
+        return storeBinary({ ...input, checksum, classified });
+    }
 
     const processed = await processPhoto(input.source);
     if (!processed.ok) return processed;
@@ -654,25 +694,82 @@ async function storeMedia(input: {
         });
         if (mediaId === null) {
             await removeMediaFiles(written);
-            const [winner] = await db
-                .select({ id: schema.media.id })
-                .from(schema.media)
-                .where(
-                    and(
-                        eq(schema.media.treeId, input.treeId),
-                        eq(schema.media.checksumSha256, checksum),
-                    ),
-                )
-                .limit(1);
-            return winner
-                ? { ok: true, mediaId: winner.id, existed: true }
-                : { ok: false, error: "media.errors.failed" };
+            return await adoptExisting(input.treeId, checksum);
         }
         return { ok: true, mediaId, existed: false };
     } catch {
         await removeMediaFiles(written);
         return { ok: false, error: "media.errors.failed" };
     }
+}
+
+/**
+ * Stores a file that is not a picture: one copy of the bytes under the extension of its kind, a row
+ * that carries the kind and the type the archive serves it as, and no variants. Sound and film are
+ * kept whole on purpose, so a player can seek in them with a Range request.
+ */
+async function storeBinary(input: {
+    treeId: string;
+    userId: string;
+    source: Buffer;
+    originalFilename: string | null;
+    checksum: string;
+    classified: ReturnType<typeof classifyMedia>;
+}): Promise<{ ok: true; mediaId: string; existed: boolean } | { ok: false; error: PhotoError }> {
+    const storageId = randomBytes(32).toString("hex");
+    const key = binaryKey(input.treeId, storageId, input.classified.extension);
+
+    try {
+        await writeMediaFile(key, input.source);
+    } catch {
+        return { ok: false, error: "media.errors.failed" };
+    }
+
+    try {
+        const mediaId = await db.transaction(async (tx) => {
+            const [created] = await tx
+                .insert(schema.media)
+                .values({
+                    treeId: input.treeId,
+                    kind: input.classified.kind,
+                    storageKey: key,
+                    checksumSha256: input.checksum,
+                    originalFilename: input.originalFilename,
+                    mimeType: input.classified.mimeType,
+                    byteSize: input.source.length,
+                    uploadedBy: input.userId,
+                })
+                .onConflictDoNothing()
+                .returning({ id: schema.media.id });
+            return created?.id ?? null;
+        });
+        if (mediaId === null) {
+            await removeMediaFiles([key]);
+            return await adoptExisting(input.treeId, input.checksum);
+        }
+        return { ok: true, mediaId, existed: false };
+    } catch {
+        await removeMediaFiles([key]);
+        return { ok: false, error: "media.errors.failed" };
+    }
+}
+
+/**
+ * After a checksum race lost, the record another request wrote is adopted: the loser removes its
+ * own files and links the winner's file instead.
+ */
+async function adoptExisting(
+    treeId: string,
+    checksum: string,
+): Promise<{ ok: true; mediaId: string; existed: boolean } | { ok: false; error: PhotoError }> {
+    const [winner] = await db
+        .select({ id: schema.media.id })
+        .from(schema.media)
+        .where(and(eq(schema.media.treeId, treeId), eq(schema.media.checksumSha256, checksum)))
+        .limit(1);
+    return winner
+        ? { ok: true, mediaId: winner.id, existed: true }
+        : { ok: false, error: "media.errors.failed" };
 }
 
 /** Adds a photograph to a person. The same file again is only linked, not stored twice. */
@@ -682,6 +779,8 @@ export async function addPersonPhoto(input: {
     userId: string;
     source: Buffer;
     originalFilename: string | null;
+    /** The type the browser declared; only a hint for the kind table. */
+    declaredType?: string | null;
 }): Promise<{ ok: true; mediaId: string } | { ok: false; error: PhotoError }> {
     if (!(await personInTree(input.treeId, input.personId))) {
         return { ok: false, error: "person.notFound" };
@@ -698,8 +797,12 @@ export async function addPersonPhoto(input: {
         )
         .limit(1);
     // Only a fast path: two uploads may pass it at once. The guarded insert below decides which
-    // of them takes the one main place of the person.
-    const becomesMain = mainLink === undefined;
+    // of them takes the one main place of the person. And only a photograph may take it: a
+    // document, a recording or a film that arrives first stays a gallery file, so the first real
+    // photograph still becomes the portrait.
+    const becomesMain =
+        mainLink === undefined &&
+        classifyMedia(input.declaredType, input.originalFilename).kind === "photo";
 
     const stored = await storeMedia(input);
     if (!stored.ok) return stored;
@@ -785,6 +888,8 @@ export async function addEventPhoto(input: {
     userId: string;
     source: Buffer;
     originalFilename: string | null;
+    /** The type the browser declared; only a hint for the kind table. */
+    declaredType?: string | null;
 }): Promise<{ ok: true; mediaId: string } | { ok: false; error: PhotoError }> {
     if (!(await eventInTree(input.treeId, input.eventId))) {
         return { ok: false, error: "event.notFound" };
@@ -851,10 +956,13 @@ export async function setMainPhoto(input: {
             const [link] = await tx
                 .select({ id: schema.mediaLinks.id })
                 .from(schema.mediaLinks)
+                .innerJoin(schema.media, eq(schema.media.id, schema.mediaLinks.mediaId))
                 .where(
                     and(
                         eq(schema.mediaLinks.mediaId, input.mediaId),
                         eq(schema.mediaLinks.personId, input.personId),
+                        // Only a photograph may stand on the card; a document is never a portrait.
+                        eq(schema.media.kind, "photo"),
                     ),
                 )
                 .limit(1);
@@ -966,7 +1074,13 @@ export async function removePhotoLink(input: {
                 const [next] = await tx
                     .select({ id: schema.mediaLinks.id })
                     .from(schema.mediaLinks)
-                    .where(eq(schema.mediaLinks.personId, input.target.personId))
+                    .innerJoin(schema.media, eq(schema.media.id, schema.mediaLinks.mediaId))
+                    .where(
+                        and(
+                            eq(schema.mediaLinks.personId, input.target.personId),
+                            eq(schema.media.kind, "photo"),
+                        ),
+                    )
                     .orderBy(desc(schema.mediaLinks.createdAt))
                     .limit(1);
                 if (next) {
@@ -988,8 +1102,17 @@ export async function removePhotoLink(input: {
                 .select({ key: schema.mediaVariants.storageKey })
                 .from(schema.mediaVariants)
                 .where(eq(schema.mediaVariants.mediaId, input.mediaId));
+            // The original of a photograph shares its key with a variant; a document, a recording or
+            // a film has only the media row, and its one file has to go too.
+            const [mediaRow] = await tx
+                .select({ key: schema.media.storageKey })
+                .from(schema.media)
+                .where(eq(schema.media.id, input.mediaId))
+                .limit(1);
             await tx.delete(schema.media).where(eq(schema.media.id, input.mediaId));
-            return variants.map((variant) => variant.key);
+            return [
+                ...new Set([...(mediaRow ? [mediaRow.key] : []), ...variants.map((v) => v.key)]),
+            ];
         }),
     );
 
@@ -1025,25 +1148,69 @@ export async function removePersonPhoto(input: {
     });
 }
 
-/** The file of one variant of a photograph in the tree, or null when there is none. */
-export async function findVariantKey(
+/** A file of the tree, ready to be read: where it lies, what it is and how it is served. */
+export type MediaFile = {
+    key: string;
+    /** The type the archive serves it as; for a photograph's variants, always a WebP. */
+    mimeType: string;
+    /** The name the file came from, offered to the browser when it saves it. */
+    filename: string | null;
+    byteSize: number;
+};
+
+/**
+ * The file behind one address: a variant of a photograph, or the original of any file. A photograph
+ * keeps three WebP variants; every other kind keeps a single copy, whose key is the media row
+ * itself, so a document, a recording or a film is found without a variant row. Null when the file
+ * is not there - the caller answers 404, the same as for a tree that does not exist.
+ */
+export async function findMediaFile(
     treeId: string,
     mediaId: string,
     variant: MediaVariantName,
-): Promise<string | null> {
-    const [row] = await db
-        .select({ key: schema.mediaVariants.storageKey })
+): Promise<MediaFile | null> {
+    const [mediaRow] = await db
+        .select({
+            storageKey: schema.media.storageKey,
+            mimeType: schema.media.mimeType,
+            filename: schema.media.originalFilename,
+            byteSize: schema.media.byteSize,
+        })
+        .from(schema.media)
+        .where(and(eq(schema.media.id, mediaId), eq(schema.media.treeId, treeId)))
+        .limit(1);
+    if (!mediaRow) return null;
+
+    const [variantRow] = await db
+        .select({ key: schema.mediaVariants.storageKey, byteSize: schema.mediaVariants.byteSize })
         .from(schema.mediaVariants)
-        .innerJoin(schema.media, eq(schema.media.id, schema.mediaVariants.mediaId))
         .where(
             and(
                 eq(schema.mediaVariants.mediaId, mediaId),
                 eq(schema.mediaVariants.variant, variant),
-                eq(schema.media.treeId, treeId),
             ),
         )
         .limit(1);
-    return row?.key ?? null;
+
+    if (variantRow) {
+        return {
+            key: variantRow.key,
+            // Every variant the pipeline writes is a WebP, whatever the original was.
+            mimeType: "image/webp",
+            filename: mediaRow.filename,
+            // The size of the variant itself: a Range is measured against what is actually served.
+            byteSize: variantRow.byteSize,
+        };
+    }
+
+    // No variant: only the whole file itself is on offer (a document, a recording, a film).
+    if (variant !== "original") return null;
+    return {
+        key: mediaRow.storageKey,
+        mimeType: mediaRow.mimeType,
+        filename: mediaRow.filename,
+        byteSize: mediaRow.byteSize,
+    };
 }
 
 /**
@@ -1056,6 +1223,9 @@ export async function listPersonAlbum(
 ): Promise<
     {
         mediaId: string;
+        kind: string;
+        mimeType: string;
+        originalFilename: string | null;
         eventType: string | null;
         eventValue: string | null;
         caption: string | null;
@@ -1077,6 +1247,9 @@ export async function listPersonAlbum(
         events.map(async (event) =>
             (await listEventPhotos(treeId, event.id)).map((photo) => ({
                 mediaId: photo.mediaId,
+                kind: photo.kind,
+                mimeType: photo.mimeType,
+                originalFilename: photo.originalFilename,
                 eventType: event.typeCode,
                 eventValue: event.value,
                 caption: photo.caption,
@@ -1088,6 +1261,9 @@ export async function listPersonAlbum(
     return [
         ...own.map((photo) => ({
             mediaId: photo.mediaId,
+            kind: photo.kind,
+            mimeType: photo.mimeType,
+            originalFilename: photo.originalFilename,
             eventType: null,
             eventValue: null,
             caption: photo.caption,

@@ -5,7 +5,7 @@
  * been checked. Every query is limited to one tree.
  */
 
-import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { groupByText } from "@/lib/duplicates";
@@ -38,10 +38,116 @@ export async function listPlaces(treeId: string) {
             parentId: schema.places.parentId,
             fullName: schema.places.fullName,
             notes: schema.places.notes,
+            latitude: schema.places.latitude,
+            longitude: schema.places.longitude,
         })
         .from(schema.places)
         .where(eq(schema.places.treeId, treeId))
         .orderBy(asc(schema.places.name));
+}
+
+/** The places of a tree that carry coordinates, for the map. */
+export async function listGeoPlaces(treeId: string) {
+    const rows = await db
+        .select({
+            id: schema.places.id,
+            name: schema.places.name,
+            kind: schema.places.kind,
+            fullName: schema.places.fullName,
+            latitude: schema.places.latitude,
+            longitude: schema.places.longitude,
+        })
+        .from(schema.places)
+        .where(
+            and(
+                eq(schema.places.treeId, treeId),
+                isNotNull(schema.places.latitude),
+                isNotNull(schema.places.longitude),
+            ),
+        )
+        .orderBy(asc(schema.places.name));
+
+    return rows.flatMap((row) =>
+        row.latitude === null || row.longitude === null
+            ? []
+            : [{ ...row, latitude: row.latitude, longitude: row.longitude }],
+    );
+}
+
+/** A stop on a life's road: an event, its day and the place it happened in. */
+export type JourneyStop = {
+    eventId: string;
+    typeCode: string;
+    value: string | null;
+    dateStart: string | null;
+    datePrecision: string | null;
+    placeId: string;
+    placeName: string;
+    latitude: number;
+    longitude: number;
+};
+
+/**
+ * The events of one person that happened in a place with coordinates, oldest first. This is the road
+ * the life walked, and the line the map draws.
+ */
+export async function listPersonJourney(treeId: string, personId: string): Promise<JourneyStop[]> {
+    const rows = await db
+        .select({
+            eventId: schema.events.id,
+            typeCode: schema.events.typeCode,
+            value: schema.events.value,
+            dateStart: schema.events.dateStart,
+            datePrecision: schema.events.datePrecision,
+            placeId: schema.places.id,
+            placeName: schema.places.name,
+            latitude: schema.places.latitude,
+            longitude: schema.places.longitude,
+        })
+        .from(schema.events)
+        .innerJoin(schema.places, eq(schema.places.id, schema.events.placeId))
+        .where(
+            and(
+                eq(schema.events.treeId, treeId),
+                eq(schema.events.personId, personId),
+                isNotNull(schema.places.latitude),
+                isNotNull(schema.places.longitude),
+            ),
+        )
+        .orderBy(asc(schema.events.sortDate), asc(schema.events.createdAt));
+
+    return rows.flatMap((row) =>
+        row.latitude === null || row.longitude === null
+            ? []
+            : [{ ...row, latitude: row.latitude, longitude: row.longitude }],
+    );
+}
+
+/** The people whose life can be drawn on the map: those with an event in a located place. */
+export async function listJourneyPersons(
+    treeId: string,
+): Promise<{ personId: string; name: string | null }[]> {
+    const rows = await db
+        .select({
+            personId: schema.events.personId,
+            name: schema.personCards.fullName,
+        })
+        .from(schema.events)
+        .innerJoin(schema.places, eq(schema.places.id, schema.events.placeId))
+        .innerJoin(schema.personCards, eq(schema.personCards.personId, schema.events.personId))
+        .where(
+            and(
+                eq(schema.events.treeId, treeId),
+                isNotNull(schema.events.personId),
+                isNotNull(schema.places.latitude),
+                isNotNull(schema.places.longitude),
+            ),
+        )
+        .groupBy(schema.events.personId, schema.personCards.fullName)
+        .orderBy(asc(schema.personCards.fullName));
+    return rows.flatMap((row) =>
+        row.personId ? [{ personId: row.personId, name: row.name }] : [],
+    );
 }
 
 export async function listSources(treeId: string) {

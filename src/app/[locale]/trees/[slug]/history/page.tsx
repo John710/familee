@@ -131,11 +131,16 @@ export default async function HistoryPage({ params }: { params: Promise<Params> 
         }
     }
 
-    // A photograph is shown while it still exists; a removed one is named by its file.
-    const mediaName = new Map<string, string | null>();
+    // A file is shown while it still exists; a removed one is named by its own name.
+    const mediaName = new Map<string, { name: string | null; kind: string; mimeType: string }>();
     if (mediaIds.size > 0) {
         const media = await db
-            .select({ id: schema.media.id, name: schema.media.originalFilename })
+            .select({
+                id: schema.media.id,
+                name: schema.media.originalFilename,
+                kind: schema.media.kind,
+                mimeType: schema.media.mimeType,
+            })
             .from(schema.media)
             .where(
                 and(
@@ -143,7 +148,9 @@ export default async function HistoryPage({ params }: { params: Promise<Params> 
                     eq(schema.media.treeId, access.treeId),
                 ),
             );
-        for (const row of media) mediaName.set(row.id, row.name);
+        for (const row of media) {
+            mediaName.set(row.id, { name: row.name, kind: row.kind, mimeType: row.mimeType });
+        }
     }
 
     const t = await getTranslations();
@@ -187,7 +194,8 @@ export default async function HistoryPage({ params }: { params: Promise<Params> 
             return <span className="text-base-content/50">{t("common.none")}</span>;
         }
         const id = String(value);
-        if (!mediaName.has(id)) {
+        const found = mediaName.get(id);
+        if (!found) {
             return (
                 <span className="text-base-content/60">
                     {t("history.photoGone")}
@@ -195,10 +203,16 @@ export default async function HistoryPage({ params }: { params: Promise<Params> 
                 </span>
             );
         }
-        const name = mediaName.get(id) || fallbackName || t("history.labels.photo");
+        const name = found.name || fallbackName || t("history.labels.photo");
         return (
             <span className="inline-flex items-center gap-2">
-                <PhotoThumb slug={slugValue} mediaId={id} label={name} />
+                <PhotoThumb
+                    slug={slugValue}
+                    mediaId={id}
+                    label={name}
+                    kind={found.kind}
+                    mimeType={found.mimeType}
+                />
                 <span>{name}</span>
             </span>
         );
@@ -231,10 +245,8 @@ export default async function HistoryPage({ params }: { params: Promise<Params> 
                                 ? personOfEvent.get(row.entityId ?? "")?.typeCode
                                 : undefined;
                         const ownPhoto =
-                            row.entityType === "media" &&
-                            row.entityId &&
-                            mediaName.has(row.entityId)
-                                ? row.entityId
+                            row.entityType === "media" && row.entityId
+                                ? (mediaName.get(row.entityId) ?? null)
                                 : null;
                         return (
                             <li key={row.id}>
@@ -270,7 +282,9 @@ export default async function HistoryPage({ params }: { params: Promise<Params> 
                                             <PhotoThumb
                                                 slug={slug}
                                                 mediaId={row.entityId}
-                                                label={mediaName.get(row.entityId) || ""}
+                                                label={ownPhoto.name || ""}
+                                                kind={ownPhoto.kind}
+                                                mimeType={ownPhoto.mimeType}
                                                 size="size-24"
                                             />
                                         )}

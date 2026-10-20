@@ -22,6 +22,8 @@ export type PlaceRow = {
     parentId: string | null;
     fullName: string | null;
     notes: string | null;
+    latitude: number | null;
+    longitude: number | null;
 };
 
 const KINDS = [
@@ -71,6 +73,8 @@ export function PlacesPanel({
             parentId: String(form.get("parentId") ?? "") || null,
             fullName: String(form.get("fullName") ?? ""),
             notes: String(form.get("notes") ?? ""),
+            latitude: String(form.get("latitude") ?? ""),
+            longitude: String(form.get("longitude") ?? ""),
         };
         setError(null);
         startTransition(async () => {
@@ -146,6 +150,11 @@ export function PlacesPanel({
                                     {place.notes && (
                                         <span className="whitespace-pre-line text-xs">
                                             {place.notes}
+                                        </span>
+                                    )}
+                                    {place.latitude !== null && place.longitude !== null && (
+                                        <span className="text-base-content/50 text-xs">
+                                            {place.latitude}, {place.longitude}
                                         </span>
                                     )}
                                 </div>
@@ -245,6 +254,26 @@ function PlaceForm({
             <label className="flex flex-col gap-1">
                 <span className="text-xs">{t("place.fields.fullName")}</span>
                 <input name="fullName" defaultValue={place?.fullName ?? ""} className="input" />
+            </label>
+            <label className="flex flex-col gap-1">
+                <span className="text-xs">{t("place.fields.latitude")}</span>
+                <input
+                    name="latitude"
+                    defaultValue={place?.latitude ?? ""}
+                    inputMode="decimal"
+                    placeholder="54.1931"
+                    className="input"
+                />
+            </label>
+            <label className="flex flex-col gap-1">
+                <span className="text-xs">{t("place.fields.longitude")}</span>
+                <input
+                    name="longitude"
+                    defaultValue={place?.longitude ?? ""}
+                    inputMode="decimal"
+                    placeholder="37.6173"
+                    className="input"
+                />
             </label>
             <label className="flex flex-col gap-1 sm:col-span-2">
                 <span className="text-xs">{t("place.fields.notes")}</span>

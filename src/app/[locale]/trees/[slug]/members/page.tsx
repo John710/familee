@@ -5,6 +5,8 @@ import {
     Download,
     History,
     Images,
+    ListChecks,
+    Map as MapIcon,
     MapPin,
     Search,
     TreeDeciduous,
@@ -168,9 +170,17 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                         <MapPin className="size-4" aria-hidden="true" />
                         {t("place.many")}
                     </Link>
+                    <Link href={`/trees/${slug}/map`} className="btn btn-sm gap-2">
+                        <MapIcon className="size-4" aria-hidden="true" />
+                        {t("map.title")}
+                    </Link>
                     <Link href={`/trees/${slug}/sources`} className="btn btn-sm gap-2">
                         <BookOpen className="size-4" aria-hidden="true" />
                         {t("source.many")}
+                    </Link>
+                    <Link href={`/trees/${slug}/checks`} className="btn btn-sm gap-2">
+                        <ListChecks className="size-4" aria-hidden="true" />
+                        {t("checks.title")}
                     </Link>
                     <Link href={`/trees/${slug}/search`} className="btn btn-sm gap-2">
                         <Search className="size-4" aria-hidden="true" />

@@ -11,6 +11,7 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
+import { isValidLatitude, isValidLongitude, parseCoordinate } from "@/lib/geo";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -60,6 +61,9 @@ export type PlaceInput = {
     parentId: string | null;
     fullName: string;
     notes: string;
+    /** A coordinate as typed: "54.1931" or "54,1931"; empty takes it away. */
+    latitude: string;
+    longitude: string;
 };
 
 export async function savePlaceAction(input: PlaceInput): Promise<LibraryResult> {
@@ -74,12 +78,25 @@ export async function savePlaceAction(input: PlaceInput): Promise<LibraryResult>
         return { ok: false, error: "validation.required" };
     }
 
+    // The coordinates are optional, but a coordinate that was typed has to be a real one, or the
+    // map would place the village in the sea.
+    const latitude = parseCoordinate(input.latitude);
+    const longitude = parseCoordinate(input.longitude);
+    if (input.latitude.trim() !== "" && (latitude === null || !isValidLatitude(latitude))) {
+        return { ok: false, error: "validation.latitudeRange" };
+    }
+    if (input.longitude.trim() !== "" && (longitude === null || !isValidLongitude(longitude))) {
+        return { ok: false, error: "validation.longitudeRange" };
+    }
+
     const values = {
         name,
         kind: input.kind as (typeof PLACE_KINDS)[number],
         parentId: input.parentId,
         fullName: blank(input.fullName),
         notes: blank(input.notes),
+        latitude,
+        longitude,
         updatedAt: new Date(),
     };
 

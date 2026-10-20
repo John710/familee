@@ -311,6 +311,25 @@
         line-height: 1rem;
         padding: 0.125rem 0.5rem;
     }
+
+    /**
+     * A numbered stop on the road of a life, on the map. Leaflet places the divIcon at the point;
+     * the circle and the number are ours, so no image has to travel with the bundle.
+     */
+    .familee-map-stop {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 9999px;
+        background-color: var(--color-secondary);
+        color: var(--color-secondary-content);
+        border: 2px solid var(--color-base-100);
+        font-size: 0.75rem;
+        font-weight: 600;
+        box-shadow: 0 1px 3px color-mix(in oklab, var(--color-base-content) 40%, transparent);
+    }
 }
 
 /* No animation at all if the person asked to switch it off in the system. */

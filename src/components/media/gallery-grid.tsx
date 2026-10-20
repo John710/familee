@@ -11,11 +11,18 @@ import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Lightbox, photoUrl } from "@/components/media/lightbox";
+import { MediaIcon } from "@/components/media/media-icon";
 import { Link } from "@/i18n/navigation";
 import { formatDay } from "@/lib/day";
 
 export type GalleryPhoto = {
     mediaId: string;
+    /** photo · document · audio · video · other. */
+    kind: string;
+    /** The type the archive serves it as, so the window knows how to show it. */
+    mimeType: string;
+    /** The name the file came from, shown for a document. */
+    name: string | null;
     /** The day the picture was taken, as "2007-04-21"; null when the file did not say. */
     takenStart: string | null;
     /** What is written under the picture, one entry per album that holds it. */
@@ -46,13 +53,22 @@ export function GalleryGrid({ slug, photos }: { slug: string; photos: GalleryPho
                             onClick={() => setViewing(index)}
                             className="block aspect-square w-full overflow-hidden bg-base-200"
                         >
-                            {/* biome-ignore lint/performance/noImgElement: the picture is served by our own route, already sized as a thumbnail */}
-                            <img
-                                src={photoUrl(slug, photo.mediaId, "thumb")}
-                                alt=""
-                                loading="lazy"
-                                className="size-full object-cover"
-                            />
+                            {photo.kind === "photo" ? (
+                                /* biome-ignore lint/performance/noImgElement: the picture is served by our own route, already sized as a thumbnail */
+                                <img
+                                    src={photoUrl(slug, photo.mediaId, "thumb")}
+                                    alt=""
+                                    loading="lazy"
+                                    className="size-full object-cover"
+                                />
+                            ) : (
+                                <span className="flex size-full flex-col items-center justify-center gap-2 p-3 text-base-content/60">
+                                    <MediaIcon kind={photo.kind} className="size-10" />
+                                    <span className="line-clamp-2 break-all text-center">
+                                        {photo.name ?? t("media.file")}
+                                    </span>
+                                </span>
+                            )}
                         </button>
                         <div className="flex flex-col gap-1 p-2 text-xs">
                             {photo.takenStart && (
@@ -106,6 +122,9 @@ export function GalleryGrid({ slug, photos }: { slug: string; photos: GalleryPho
                     slug={slug}
                     photos={photos.map((photo) => ({
                         mediaId: photo.mediaId,
+                        kind: photo.kind,
+                        mimeType: photo.mimeType,
+                        name: photo.name,
                         caption: photo.captions[0] ?? null,
                         tagged: photo.tagged,
                         date: photo.takenStart,

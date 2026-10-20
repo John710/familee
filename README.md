@@ -28,6 +28,13 @@ The interface is in English by default and in Russian at `/ru`.
   the accents) and the same years of birth and death, and shows them on a page of the tree. It never
   merges anything by itself: you keep the record that is right, and the names, events, notes,
   photographs and unions of the others move onto it.
+- **A check of the data.** The archive gathers the records that look impossible - a death before a
+  birth, a child born before a parent or after the mother's death, a mother or a father of an
+  impossible age, a life longer than a hundred and ten years, a date that has not happened, a
+  marriage
+  before a partner was born, two births on one person - and shows them on a page of the tree with a
+  link to each card. Nothing is changed there: the page only points at the records that deserve a
+  second look.
 - **The tree.** Cards with a photo and the years, drawn from top to bottom. A click opens a panel
   with the timeline, the notes and the photo album. Focus mode shows only the ancestors and
   descendants of one person. If you choose yourself in the tree, every card shows how it is related
@@ -37,10 +44,17 @@ The interface is in English by default and in Russian at `/ru`.
   the card shows. Events can have their own photos, and the gallery shows the photos of the whole
   tree. A photograph takes a caption, you put the album in the order you want, and you can say who
   is in a picture - the names follow it into the viewing window. Files can be dropped onto the album
-  as well as chosen, and a whole batch goes in at once.
+  as well as chosen, and a whole batch goes in at once. Not only photographs: a document, a
+  recording, a film or any other file goes into the same album and under the same event, the gallery
+  gathers the tree's documents, recordings and films in one list, and the viewing window plays a
+  recording, shows a PDF or offers the file to download.
 - **Library.** Places, arranged inside each other (a city inside a region, a cemetery inside a
   city). Sources, such as a census page or a letter, and the citations that point from a person or
   an event to a source. Stories and notes. A search across all of it.
+- **A map of the places.** Give a place its latitude and longitude and it appears on the map of the
+  tree; choose a person and the map draws the road their life walked, from the first located event
+  to the last, with the stops numbered and listed below in their days. The tiles come from
+  OpenStreetMap unless you name your own server in the settings.
 - **Birthdays.** The birthdays of the next two weeks from all your trees: in the bell in the top bar,
   on the home page, on the tree page, and on the members and people pages.
 - **GEDCOM.** You can import a GEDCOM file of any version; the program reads the version from the

@@ -2,10 +2,12 @@ import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { MediaIcon } from "@/components/media/media-icon";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { listPersonCards } from "@/lib/people";
 import { cropStyle, type PhotoCrop } from "@/lib/photo-crop";
+import { listTreePhotos } from "@/lib/photos";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
 
@@ -28,6 +30,9 @@ export default async function GalleryPage({ params }: { params: Promise<Params> 
     const people = (await listPersonCards(access.treeId)).filter(
         (person) => person.portraitMediaId !== null,
     );
+    // The documents, the recordings and the films of the tree: they have no album of their own, so
+    // this page gathers them, with the person they came with.
+    const materials = (await listTreePhotos(access.treeId)).filter((file) => file.kind !== "photo");
     const t = await getTranslations();
 
     return (
@@ -97,6 +102,54 @@ export default async function GalleryPage({ params }: { params: Promise<Params> 
                         );
                     })}
                 </ul>
+            )}
+
+            {materials.length > 0 && (
+                <section className="flex flex-col gap-3">
+                    <h2 className="font-semibold text-lg">{t("gallery.materials")}</h2>
+                    <p className="text-base-content/60 text-sm">{t("gallery.materialsHint")}</p>
+                    <ul className="flex flex-col gap-2">
+                        {materials.map((file) => {
+                            const owner = file.links.find((link) => link.personId !== null);
+                            return (
+                                <li
+                                    key={file.mediaId}
+                                    className="flex items-center gap-3 rounded-box border border-base-300 bg-base-100 p-3"
+                                >
+                                    <MediaIcon
+                                        kind={file.kind}
+                                        className="size-6 shrink-0 text-base-content/60"
+                                    />
+                                    <div className="flex min-w-0 flex-col">
+                                        <a
+                                            href={`/api/trees/${slug}/media/${file.mediaId}/original`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="link truncate text-sm"
+                                        >
+                                            {file.originalFilename ?? t("media.file")}
+                                        </a>
+                                        <span className="flex flex-wrap items-center gap-x-2 text-base-content/60 text-xs">
+                                            <span>
+                                                {t(
+                                                    `media.kindLabel.${file.kind}` as "media.kindLabel.photo",
+                                                )}
+                                            </span>
+                                            {file.takenStart && <span>{file.takenStart}</span>}
+                                            {owner?.personId && owner.personName && (
+                                                <Link
+                                                    href={`/trees/${slug}/persons/${owner.personId}`}
+                                                >
+                                                    {owner.personName}
+                                                </Link>
+                                            )}
+                                        </span>
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </section>
             )}
         </div>
     );

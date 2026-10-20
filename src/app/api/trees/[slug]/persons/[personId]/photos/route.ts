@@ -1,10 +1,11 @@
 /**
- * Familee - adding a photograph to a person's album
+ * Familee - adding a file to a person's album
  *
- * POST with a multipart form field "file". Only an editor or higher in the tree may add
- * photographs; anybody else gets the same 404 as for a tree that does not exist, or a 403
- * when they are a member without the right to write. The answer is JSON with an error key
- * from the translations, so the page can show the message in the right language.
+ * POST with a multipart form field "file": a photograph, a document, a recording, a film, or
+ * anything else. Only an editor or higher in the tree may add files; anybody else gets the same 404
+ * as for a tree that does not exist, or a 403 when they are a member without the right to write.
+ * The answer is JSON with an error key from the translations, so the page can show the message in
+ * the right language.
  */
 
 import { addPersonPhoto, type PhotoError } from "@/lib/photos";
@@ -67,6 +68,7 @@ export async function POST(
         userId: user.id,
         source: Buffer.from(await file.arrayBuffer()),
         originalFilename: file.name || null,
+        declaredType: file.type || null,
     });
 
     if (!result.ok) return reply(STATUS[result.error], result.error);

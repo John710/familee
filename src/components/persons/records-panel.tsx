@@ -46,7 +46,14 @@ export type OtherEvent = EventFormRow & {
         page: string | null;
         textExcerpt: string | null;
     }[];
-    photos: { mediaId: string; caption: string | null; date: string | null }[];
+    photos: {
+        mediaId: string;
+        kind: string;
+        mimeType: string;
+        name: string | null;
+        caption: string | null;
+        date: string | null;
+    }[];
 };
 
 const NAME_TYPES = [

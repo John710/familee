@@ -13,10 +13,13 @@ import { useState } from "react";
 
 import { ConfirmDialog } from "@/components/layout/confirm-dialog";
 import { Lightbox, photoUrl } from "@/components/media/lightbox";
+import { MediaIcon } from "@/components/media/media-icon";
 import { useRouter } from "@/i18n/navigation";
 import { removeEventPhotoAction } from "@/lib/actions/photos";
 
-const ACCEPT = "image/jpeg,image/png,image/webp";
+/** Photographs, documents, recordings and films: whatever a family keeps. */
+const ACCEPT =
+    "image/*,application/pdf,audio/*,video/*,text/plain,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,.doc,.docx,.odt,.zip,.rar,.7z";
 
 export function EventPhotos({
     slug,
@@ -26,7 +29,14 @@ export function EventPhotos({
 }: {
     slug: string;
     eventId: string;
-    photos: { mediaId: string; caption: string | null; date: string | null }[];
+    photos: {
+        mediaId: string;
+        kind: string;
+        mimeType: string;
+        name: string | null;
+        caption: string | null;
+        date: string | null;
+    }[];
     canEdit: boolean;
 }) {
     const t = useTranslations();
@@ -89,13 +99,19 @@ export function EventPhotos({
                                 onClick={() => setViewing(index)}
                                 className="block size-14 overflow-hidden rounded-box border border-base-300 bg-base-200"
                             >
-                                {/* biome-ignore lint/performance/noImgElement: the picture is served by our own route, already sized as a thumbnail */}
-                                <img
-                                    src={photoUrl(slug, photo.mediaId, "thumb")}
-                                    alt=""
-                                    loading="lazy"
-                                    className="size-full object-cover"
-                                />
+                                {photo.kind === "photo" ? (
+                                    /* biome-ignore lint/performance/noImgElement: the picture is served by our own route, already sized as a thumbnail */
+                                    <img
+                                        src={photoUrl(slug, photo.mediaId, "thumb")}
+                                        alt=""
+                                        loading="lazy"
+                                        className="size-full object-cover"
+                                    />
+                                ) : (
+                                    <span className="flex size-full items-center justify-center text-base-content/60">
+                                        <MediaIcon kind={photo.kind} className="size-5" />
+                                    </span>
+                                )}
                             </button>
                             {canEdit && (
                                 <button
@@ -154,6 +170,9 @@ export function EventPhotos({
                     slug={slug}
                     photos={photos.map((photo) => ({
                         mediaId: photo.mediaId,
+                        kind: photo.kind,
+                        mimeType: photo.mimeType,
+                        name: photo.name,
                         caption: photo.caption,
                         date: photo.date,
                     }))}

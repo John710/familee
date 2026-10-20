@@ -43,6 +43,9 @@ export default async function PersonAlbumPage({ params }: { params: Promise<Para
     for (const item of items) {
         const photo = byMedia.get(item.mediaId) ?? {
             mediaId: item.mediaId,
+            kind: item.kind,
+            mimeType: item.mimeType,
+            name: item.originalFilename,
             takenStart: item.takenStart,
             captions: [],
             tagged: (tags.get(item.mediaId) ?? []).flatMap((person) =>
