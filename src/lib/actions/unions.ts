@@ -142,11 +142,26 @@ export async function addChildAction(input: {
         .limit(1);
     if (!family) return { ok: false, error: "person.notFound" };
 
+    // The child must be living in this tree: a record in the trash is hidden from every list and
+    // from the canvas, so a link to it would be invisible and impossible to take away.
+    const [child] = await db
+        .select({ id: schema.persons.id })
+        .from(schema.persons)
+        .where(
+            and(
+                eq(schema.persons.id, input.childId),
+                eq(schema.persons.treeId, access.treeId),
+                isNull(schema.persons.deletedAt),
+            ),
+        )
+        .limit(1);
+    if (!child) return { ok: false, error: "person.notFound" };
+
     try {
         await db.insert(schema.familyChildren).values({
             treeId: access.treeId,
             familyId: family.id,
-            personId: input.childId,
+            personId: child.id,
             relation: input.relation as (typeof RELATIONS)[number],
         });
     } catch (error) {
