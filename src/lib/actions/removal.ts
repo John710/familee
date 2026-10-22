@@ -38,9 +38,26 @@ export async function deleteTreeAction(input: {
     if (access?.role !== "owner") return { ok: false, error: "auth.noPermission" };
     if (input.confirmSlug !== input.slug) return { ok: false, error: "tree.delete.slugMismatch" };
 
-    // The files first: the whole folder of the tree, with its photographs and any other file.
-    await removeTreeFiles(access.treeId);
+    // The rows first, the files after: a deletion that fails leaves the files where the rows
+    // point, and the action can simply be run again. The other way round, a failed delete would
+    // leave a tree whose photographs are already gone.
+    //
+    // The tree id is left out of the log row on purpose: tree_id cascades with the tree, so a row
+    // that named it would disappear in the same statement. The id stays in entity_id.
+    await writeAudit({
+        treeId: null,
+        userId: user.id,
+        action: "delete",
+        entityType: "tree",
+        entityId: access.treeId,
+        changes: {
+            slug: { from: access.slug, to: null },
+            title: { from: access.title, to: null },
+        },
+    });
+
     await deleteTreeData(access.treeId);
+    await removeTreeFiles(access.treeId);
     return { ok: true };
 }
 
