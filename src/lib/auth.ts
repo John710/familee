@@ -22,6 +22,14 @@ import { username } from "better-auth/plugins";
 import { db, schema } from "@/db";
 import { redis } from "@/lib/redis";
 import { redisSecondaryStorage } from "@/lib/secondary-storage";
+import {
+    isSignInPath,
+    SIGN_IN_WINDOW_SECONDS,
+    signInAllowed,
+    signInAttemptsKey,
+    signInFailed,
+    signInIdentifier,
+} from "@/lib/sign-in-guard";
 
 const ONE_DAY = 60 * 60 * 24;
 
@@ -36,22 +44,8 @@ export function resetLinkKey(email: string): string {
 /**
  * Sign-in attempts are counted per account, not per address: the address a request comes
  * from can be forged when the archive is reached without a proxy, the account name cannot.
- * Ten attempts within fifteen minutes stop the next ones until the window passes.
+ * Ten failed attempts within fifteen minutes stop the next ones until the window passes.
  */
-const SIGN_IN_ATTEMPTS = 10;
-const SIGN_IN_WINDOW_SECONDS = 15 * 60;
-
-function signInAttemptsKey(identifier: string): string {
-    return `familee:signin-attempts:${identifier.trim().toLowerCase()}`;
-}
-
-/** The identifier a sign-in request names: the e-mail address or the user name. */
-function identifierOf(body: unknown): string | null {
-    if (typeof body !== "object" || body === null) return null;
-    const { email, username: name } = body as { email?: unknown; username?: unknown };
-    const value = typeof email === "string" ? email : typeof name === "string" ? name : null;
-    return value?.trim() ? value : null;
-}
 
 /**
  * The proxies in front of the archive, from TRUSTED_PROXIES (comma-separated addresses or
@@ -127,23 +121,36 @@ export const auth = betterAuth({
     },
 
     /**
-     * Counts every sign-in attempt of an account (successful or not) and refuses the attempts
-     * over the limit. The counter is kept in Redis for fifteen minutes from the first attempt.
+     * The counter of an account holds its failed attempts. Before the endpoint runs, an account
+     * that has reached the limit is refused; after it, a refusal is counted and a success clears
+     * the counter. Counting every attempt, as the first version did, locked a family out after ten
+     * ordinary sign-ins in a quarter of an hour.
      */
     hooks: {
         before: createAuthMiddleware(async (ctx) => {
-            if (ctx.path !== "/sign-in/email" && ctx.path !== "/sign-in/username") return;
-            const identifier = identifierOf(ctx.body);
+            if (!isSignInPath(ctx.path)) return;
+            const identifier = signInIdentifier(ctx.path, ctx.body);
             if (!identifier) return;
 
-            const key = signInAttemptsKey(identifier);
-            const attempts = await redis.incr(key);
-            if (attempts === 1) await redis.expire(key, SIGN_IN_WINDOW_SECONDS);
-            if (attempts > SIGN_IN_ATTEMPTS) {
+            const attempts = Number(await redis.get(signInAttemptsKey(identifier))) || 0;
+            if (!signInAllowed(attempts)) {
                 throw new APIError("TOO_MANY_REQUESTS", {
                     message: "Too many sign-in attempts. Try again in a few minutes.",
                 });
             }
+        }),
+        after: createAuthMiddleware(async (ctx) => {
+            if (!isSignInPath(ctx.path)) return;
+            const identifier = signInIdentifier(ctx.path, ctx.body);
+            if (!identifier) return;
+
+            const key = signInAttemptsKey(identifier);
+            if (!signInFailed(ctx.context.returned)) {
+                await redis.del(key);
+                return;
+            }
+            const attempts = await redis.incr(key);
+            if (attempts === 1) await redis.expire(key, SIGN_IN_WINDOW_SECONDS);
         }),
     },
 
