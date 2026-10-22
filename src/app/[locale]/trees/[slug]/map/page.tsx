@@ -99,6 +99,7 @@ export default async function MapPage({
                     <PlacesMap
                         tileUrl={process.env.MAP_TILE_URL || DEFAULT_TILE_URL}
                         attribution={process.env.MAP_ATTRIBUTION || DEFAULT_ATTRIBUTION}
+                        label={t("map.region")}
                         places={places.map((place) => ({
                             id: place.id,
                             name: place.fullName || place.name,
@@ -108,6 +109,19 @@ export default async function MapPage({
                         }))}
                         route={route}
                     />
+
+                    {/* The markers are drawn on a canvas of tiles: without this list the places
+                        exist only for the mouse. */}
+                    <section className="flex flex-col gap-2" aria-labelledby="map-places">
+                        <h2 id="map-places" className="font-semibold text-lg">
+                            {t("map.placesList")}
+                        </h2>
+                        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                            {places.map((place) => (
+                                <li key={place.id}>{place.fullName || place.name}</li>
+                            ))}
+                        </ul>
+                    </section>
 
                     {selected && (
                         <section className="flex flex-col gap-2">

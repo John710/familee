@@ -38,14 +38,17 @@ export function PlacesMap({
     attribution,
     places,
     route,
+    label,
 }: {
     tileUrl: string;
     attribution: string;
     places: MapPlace[];
     /** The stops of one person's road, oldest first; empty when no person is chosen. */
     route: MapStop[];
+    /** The accessible name of the region: a map is a picture, and a picture needs a name. */
+    label: string;
 }) {
-    const containerRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLElement>(null);
 
     useEffect(() => {
         const container = containerRef.current;
@@ -63,7 +66,9 @@ export function PlacesMap({
             const L = imported.default ?? imported;
             if (cancelled || !containerRef.current) return;
 
-            map = L.map(container, { scrollWheelZoom: true });
+            // The wheel does not zoom: the page must keep scrolling under the pointer. The zoom
+            // buttons and the keyboard remain.
+            map = L.map(container, { scrollWheelZoom: false });
             L.tileLayer(tileUrl, { attribution, maxZoom: 19 }).addTo(map);
 
             const points: [number, number][] = [];
@@ -129,8 +134,9 @@ export function PlacesMap({
     }, [tileUrl, attribution, places, route]);
 
     return (
-        <div
+        <section
             ref={containerRef}
+            aria-label={label}
             className="h-[70dvh] w-full overflow-hidden rounded-box border border-base-300 bg-base-200"
         />
     );
