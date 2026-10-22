@@ -10,8 +10,8 @@ import { addEventPhoto, type PhotoError } from "@/lib/photos";
 import { atLeast } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
+import { declaredUpload, uploadLimit } from "@/lib/upload-limit";
 
-const MB = 1024 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const STATUS: Record<PhotoError, number> = {
@@ -42,11 +42,14 @@ export async function POST(
     if (!access) return reply(404, "auth.noPermission");
     if (!atLeast(access.role, "editor")) return reply(403, "auth.noPermission");
 
-    const limitMb = Number(process.env.MEDIA_MAX_UPLOAD_MB) || 25;
-    const maxBytes = limitMb * MB;
+    const { limitMb, maxBytes } = uploadLimit();
 
-    const declared = Number(request.headers.get("content-length") ?? 0);
-    if (declared > maxBytes + MB) return reply(413, "media.errors.tooLarge", { limit: limitMb });
+    // The body is refused before it is read when the browser declares too much, and a request that
+    // declares nothing is refused too: request.formData() buffers all of it, so an undeclared body
+    // has no bound.
+    const declared = declaredUpload(request.headers.get("content-length"), maxBytes);
+    if (declared === "missing") return reply(411, "media.errors.failed");
+    if (declared === "tooLarge") return reply(413, "media.errors.tooLarge", { limit: limitMb });
 
     let form: FormData;
     try {
