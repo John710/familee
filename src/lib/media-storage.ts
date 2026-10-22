@@ -7,7 +7,8 @@
  * outside the volume.
  */
 
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { mkdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export type MediaVariantName = "thumb" | "medium" | "original";
@@ -62,10 +63,30 @@ export async function writeMediaFile(key: string, data: Buffer): Promise<void> {
     await writeFile(target, data);
 }
 
-export async function readMediaFile(key: string): Promise<Buffer> {
-    return readFile(filePath(key));
+/** The size of a stored file, or null when it is not there. */
+export async function mediaFileSize(key: string): Promise<number | null> {
+    try {
+        return (await stat(filePath(key))).size;
+    } catch {
+        return null;
+    }
 }
 
+/**
+ * Opens a stored file for reading, or a byte range of it. The file is streamed from the volume,
+ * never read whole into memory: a film is handed to the player as it is read, and a range request
+ * costs one seek instead of a copy of the file.
+ */
+export function openMediaFile(
+    key: string,
+    range?: { start: number; end: number },
+): ReturnType<typeof createReadStream> | null {
+    try {
+        return createReadStream(filePath(key), range ?? { start: 0 });
+    } catch {
+        return null;
+    }
+}
 /** Removes files that may already be gone: a missing file is not an error here. */
 export async function removeMediaFiles(keys: string[]): Promise<void> {
     await Promise.all(keys.map((key) => rm(filePath(key), { force: true }).catch(() => undefined)));

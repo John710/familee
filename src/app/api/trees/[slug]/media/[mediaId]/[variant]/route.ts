@@ -10,9 +10,11 @@
  * is honoured so that a player can start at once and seek without fetching the whole file.
  */
 
+import { Readable } from "node:stream";
+
 import { contentRange, parseByteRange } from "@/lib/http-range";
 import { inlineable } from "@/lib/media-kind";
-import { type MediaVariantName, readMediaFile } from "@/lib/media-storage";
+import { type MediaVariantName, mediaFileSize, openMediaFile } from "@/lib/media-storage";
 import { findMediaFile } from "@/lib/photos";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -57,29 +59,29 @@ export async function GET(
         "Cache-Control": "private, max-age=3600",
     });
 
-    const range = parseByteRange(request.headers.get("range"), file.byteSize);
+    // The size of the file on the volume is the truth, not the number the row remembers: a range is
+    // measured against what is actually there.
+    const size = await mediaFileSize(file.key);
+    if (size === null) return new Response("Not found", { status: 404 });
+
+    const range = parseByteRange(request.headers.get("range"), size);
     if (range.kind === "unsatisfiable") {
-        headers.set("Content-Range", `bytes */${file.byteSize}`);
+        headers.set("Content-Range", `bytes */${size}`);
         return new Response(null, { status: 416, headers });
     }
 
-    let data: Buffer;
-    try {
-        data = await readMediaFile(file.key);
-    } catch {
-        return new Response("Not found", { status: 404 });
-    }
+    const stream = openMediaFile(
+        file.key,
+        range.kind === "range" ? { start: range.start, end: range.end } : undefined,
+    );
+    if (!stream) return new Response("Not found", { status: 404 });
 
     if (range.kind === "range") {
-        const slice = data.subarray(range.start, range.end + 1);
-        headers.set(
-            "Content-Range",
-            contentRange({ start: range.start, end: range.end }, data.length),
-        );
-        headers.set("Content-Length", String(slice.length));
-        return new Response(new Uint8Array(slice), { status: 206, headers });
+        headers.set("Content-Range", contentRange({ start: range.start, end: range.end }, size));
+        headers.set("Content-Length", String(range.end - range.start + 1));
+        return new Response(Readable.toWeb(stream) as ReadableStream, { status: 206, headers });
     }
 
-    headers.set("Content-Length", String(data.length));
-    return new Response(new Uint8Array(data), { status: 200, headers });
+    headers.set("Content-Length", String(size));
+    return new Response(Readable.toWeb(stream) as ReadableStream, { status: 200, headers });
 }
