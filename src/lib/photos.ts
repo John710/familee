@@ -1026,8 +1026,8 @@ function cropText(
 
 /**
  * Takes a photograph off a person or an event. If it was the main photograph of a person, the
- * newest remaining one becomes the main one. A photograph that nobody has any more is deleted
- * with its files.
+ * newest remaining one becomes the main one. The file itself stays in the tree, where the gallery
+ * shows it as unattached: a broken link is not a reason to destroy the photograph or its notes.
  */
 export async function removePhotoLink(input: {
     treeId: string;
@@ -1054,23 +1054,18 @@ export async function removePhotoLink(input: {
         return { ok: false, error: "event.notFound" };
     }
 
-    // The file name is kept for the log: the picture itself may be deleted in a moment.
-    const [photoRow] = await db
-        .select({ name: schema.media.originalFilename })
-        .from(schema.media)
-        .where(eq(schema.media.id, input.mediaId))
-        .limit(1);
-    const fileName = photoRow?.name ?? null;
-
-    const orphanKeys = await retryOnUniqueViolation(() =>
+    // The link goes; the file stays. The gallery of the tree still shows it as unattached, its notes
+    // and the tags of the people in it keep their point, and deleting it for good stays a separate,
+    // deliberate act (the trash of a person, or the deletion of the tree).
+    const removed = await retryOnUniqueViolation(() =>
         db.transaction(async (tx) => {
-            const [removed] = await tx
+            const [row] = await tx
                 .delete(schema.mediaLinks)
                 .where(targetMatches)
                 .returning({ wasMain: schema.mediaLinks.isPrimary });
-            if (!removed) return null;
+            if (!row) return false;
 
-            if (removed.wasMain && "personId" in input.target) {
+            if (row.wasMain && "personId" in input.target) {
                 const [next] = await tx
                     .select({ id: schema.mediaLinks.id })
                     .from(schema.mediaLinks)
@@ -1091,33 +1086,11 @@ export async function removePhotoLink(input: {
                 }
             }
 
-            const [stillUsed] = await tx
-                .select({ id: schema.mediaLinks.id })
-                .from(schema.mediaLinks)
-                .where(eq(schema.mediaLinks.mediaId, input.mediaId))
-                .limit(1);
-            if (stillUsed) return [];
-
-            const variants = await tx
-                .select({ key: schema.mediaVariants.storageKey })
-                .from(schema.mediaVariants)
-                .where(eq(schema.mediaVariants.mediaId, input.mediaId));
-            // The original of a photograph shares its key with a variant; a document, a recording or
-            // a film has only the media row, and its one file has to go too.
-            const [mediaRow] = await tx
-                .select({ key: schema.media.storageKey })
-                .from(schema.media)
-                .where(eq(schema.media.id, input.mediaId))
-                .limit(1);
-            await tx.delete(schema.media).where(eq(schema.media.id, input.mediaId));
-            return [
-                ...new Set([...(mediaRow ? [mediaRow.key] : []), ...variants.map((v) => v.key)]),
-            ];
+            return true;
         }),
     );
 
-    if (orphanKeys === null) return { ok: false, error: "media.errors.failed" };
-    if (orphanKeys.length > 0) await removeMediaFiles(orphanKeys);
+    if (!removed) return { ok: false, error: "media.errors.failed" };
 
     await writeAudit({
         treeId: input.treeId,
@@ -1127,7 +1100,6 @@ export async function removePhotoLink(input: {
         entityId: "personId" in input.target ? input.target.personId : input.target.eventId,
         changes: {
             photo: { from: input.mediaId, to: null },
-            file: { from: fileName, to: null },
         },
     });
     return { ok: true };

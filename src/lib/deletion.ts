@@ -178,8 +178,14 @@ export async function purgePersonData(treeId: string, personId: string): Promise
             .select({ key: schema.mediaVariants.storageKey })
             .from(schema.mediaVariants)
             .where(inArray(schema.mediaVariants.mediaId, orphanIds));
+        // A photograph shares the key of its original variant; a document, a recording or a film
+        // has only the row, and its one file must go too.
+        const files = await tx
+            .select({ key: schema.media.storageKey })
+            .from(schema.media)
+            .where(inArray(schema.media.id, orphanIds));
         await tx.delete(schema.media).where(inArray(schema.media.id, orphanIds));
-        return variants.map((variant) => variant.key);
+        return [...new Set([...files.map((file) => file.key), ...variants.map((v) => v.key)])];
     });
 }
 
