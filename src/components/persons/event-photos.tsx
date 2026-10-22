@@ -97,6 +97,11 @@ export function EventPhotos({
                             <button
                                 type="button"
                                 onClick={() => setViewing(index)}
+                                aria-label={
+                                    photo.kind === "photo"
+                                        ? (photo.caption ?? photo.date ?? t("media.one"))
+                                        : (photo.name ?? t("media.file"))
+                                }
                                 className="block size-14 overflow-hidden rounded-box border border-base-300 bg-base-200"
                             >
                                 {photo.kind === "photo" ? (

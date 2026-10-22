@@ -165,7 +165,7 @@ export function Lightbox({
                     <img
                         key={current.mediaId}
                         src={photoUrl(slug, current.mediaId, "medium")}
-                        alt=""
+                        alt={current.caption ?? t("media.one")}
                         className="max-h-[80dvh] max-w-[92vw] rounded-box object-contain"
                     />
                 ) : (

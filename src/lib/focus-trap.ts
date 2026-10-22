@@ -14,7 +14,10 @@
 
 import { type RefObject, useEffect } from "react";
 
-/** What can take the focus in a dialog; a disabled control and a `tabindex="-1"` cannot. */
+/**
+ * What can take the focus in a dialog; a disabled control, an element without a tab index and a
+ * `tabindex="-1"` cannot.
+ */
 const FOCUSABLE = [
     "button:not([disabled])",
     "a[href]",
@@ -24,33 +27,50 @@ const FOCUSABLE = [
     '[tabindex]:not([tabindex="-1"])',
 ].join(", ");
 
+function focusableIn(root: HTMLElement): HTMLElement[] {
+    return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+        (element) => element.tabIndex >= 0,
+    );
+}
+
 export function useFocusTrap(ref: RefObject<HTMLElement | null>, open: boolean): void {
     useEffect(() => {
         if (!open) return;
 
+        // The window takes the focus when it opens, and gives it back to the control that opened
+        // it when it closes: a keyboard user never lands at the top of the page after a dialog.
+        const previous =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const root = ref.current;
+        const first = root ? focusableIn(root)[0] : undefined;
+        first?.focus();
+
         const onKey = (event: KeyboardEvent) => {
             if (event.key !== "Tab") return;
 
-            const root = ref.current;
-            if (!root) return;
+            const box = ref.current;
+            if (!box) return;
 
-            const focusable = root.querySelectorAll<HTMLElement>(FOCUSABLE);
-            const first = focusable.item(0);
-            const last = focusable.item(focusable.length - 1);
-            if (!first || !last) return;
+            const focusable = focusableIn(box);
+            const firstControl = focusable[0];
+            const lastControl = focusable[focusable.length - 1];
+            if (!firstControl || !lastControl) return;
 
             const active = document.activeElement;
-            const inside = root.contains(active);
-            if (event.shiftKey && (active === first || !inside)) {
+            const inside = box.contains(active);
+            if (event.shiftKey && (active === firstControl || !inside)) {
                 event.preventDefault();
-                last.focus();
-            } else if (!event.shiftKey && (active === last || !inside)) {
+                lastControl.focus();
+            } else if (!event.shiftKey && (active === lastControl || !inside)) {
                 event.preventDefault();
-                first.focus();
+                firstControl.focus();
             }
         };
 
         window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
+        return () => {
+            window.removeEventListener("keydown", onKey);
+            previous?.focus();
+        };
     }, [ref, open]);
 }

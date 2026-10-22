@@ -51,6 +51,14 @@ export function GalleryGrid({ slug, photos }: { slug: string; photos: GalleryPho
                         <button
                             type="button"
                             onClick={() => setViewing(index)}
+                            aria-label={
+                                photo.kind === "photo"
+                                    ? (photo.captions[0] ??
+                                      (photo.takenStart
+                                          ? formatDay(photo.takenStart, locale)
+                                          : t("media.one")))
+                                    : (photo.name ?? t("media.file"))
+                            }
                             className="block aspect-square w-full overflow-hidden bg-base-200"
                         >
                             {photo.kind === "photo" ? (

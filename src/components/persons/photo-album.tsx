@@ -282,6 +282,14 @@ export function PhotoAlbum({
                             <button
                                 type="button"
                                 onClick={() => setViewing(index)}
+                                aria-label={
+                                    photo.kind === "photo"
+                                        ? (photo.caption ??
+                                          (photo.date
+                                              ? formatDay(photo.date, locale)
+                                              : t("media.one")))
+                                        : (photo.name ?? t("media.file"))
+                                }
                                 className="relative block aspect-square w-full overflow-hidden bg-base-200"
                             >
                                 {photo.kind === "photo" ? (
