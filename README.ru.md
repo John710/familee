@@ -214,15 +214,43 @@ Familee распространяется по [лицензии MIT](LICENSE). �
 ## Резервные копии
 
 Ваши данные лежат в двух местах: в схеме `familee` в Postgres и в томе `familee_media`, где хранятся
-исходные фотографии и их превью. Копировать нужно оба.
+исходные фотографии и их превью. Копировать нужно оба — и проверять, что копия читается.
 
 ```bash
-docker exec -t postgres pg_dump -U <суперпользователь> --schema=familee --format=custom familee \
+# 1. База. Без -t: псевдотерминал docker переводит концы строк, и pg_restore
+#    больше не может прочитать бинарный архив.
+docker exec postgres pg_dump -U <суперпользователь> --schema=familee --format=custom familee \
     > familee-$(date +%F).dump
 
+# 2. Проверка: pg_restore перечисляет содержимое архива и падает, если дамп испорчен.
+docker exec -i postgres pg_restore -l /dev/stdin < familee-$(date +%F).dump > /dev/null
+
+# 3. Файлы. Снимайте сразу после дампа, чтобы обе копии описывали почти один момент.
 docker run --rm -v familee_media:/data:ro -v "$PWD:/backup" alpine \
     tar czf /backup/familee-media-$(date +%F).tar.gz -C /data .
 ```
+
+### Восстановление
+
+Сначала остановите приложение, чтобы во время замены схемы никто не писал, затем восстановите базу
+и верните файлы:
+
+```bash
+docker stop familee
+
+docker exec -i postgres psql -U <суперпользователь> -d familee \
+    -c 'drop schema if exists familee cascade'
+docker exec -i postgres pg_restore -U <суперпользователь> -d familee --no-owner \
+    < familee-YYYY-MM-DD.dump
+
+docker run --rm -v familee_media:/data -v "$PWD:/backup" alpine \
+    sh -c 'rm -rf /data/* && tar xzf /backup/familee-media-YYYY-MM-DD.tar.gz -C /data'
+
+docker start familee
+```
+
+Один раз восстановите копию на отдельной базе заранее. Бэкап, который никто не восстанавливал, —
+это надежда, а не бэкап.
 
 ## Мониторинг
 

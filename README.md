@@ -235,15 +235,43 @@ it, including for commercial purposes, as long as the copyright and the permissi
 ## Backups
 
 Your data is in two places: the `familee` schema in Postgres, and the `familee_media` volume with the
-original photos and their previews. Back up both.
+original photos and their previews. Back up both, and prove the copy is readable.
 
 ```bash
-docker exec -t postgres pg_dump -U <superuser> --schema=familee --format=custom familee \
+# 1. The database. No -t: docker's pseudo-terminal rewrites line endings and the binary
+#    archive can no longer be read by pg_restore.
+docker exec postgres pg_dump -U <superuser> --schema=familee --format=custom familee \
     > familee-$(date +%F).dump
 
+# 2. Prove it: pg_restore lists the archive, and fails loudly if the dump is broken.
+docker exec -i postgres pg_restore -l /dev/stdin < familee-$(date +%F).dump > /dev/null
+
+# 3. The files. Take this right after the dump, so both describe almost the same moment.
 docker run --rm -v familee_media:/data:ro -v "$PWD:/backup" alpine \
     tar czf /backup/familee-media-$(date +%F).tar.gz -C /data .
 ```
+
+### Restoring
+
+Stop the application first, so that nothing writes while the schema is replaced, then restore the
+database and put the files back:
+
+```bash
+docker stop familee
+
+docker exec -i postgres psql -U <superuser> -d familee \
+    -c 'drop schema if exists familee cascade'
+docker exec -i postgres pg_restore -U <superuser> -d familee --no-owner \
+    < familee-YYYY-MM-DD.dump
+
+docker run --rm -v familee_media:/data -v "$PWD:/backup" alpine \
+    sh -c 'rm -rf /data/* && tar xzf /backup/familee-media-YYYY-MM-DD.tar.gz -C /data'
+
+docker start familee
+```
+
+Run the restore once on a spare database before you need it. A backup nobody has restored is a hope,
+not a backup.
 
 ## Monitoring
 
