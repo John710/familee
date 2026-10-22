@@ -15,7 +15,7 @@ import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
 import { auth, resetLinkKey } from "@/lib/auth";
 import { redis } from "@/lib/redis";
-import { atLeast, type MemberRole } from "@/lib/roles";
+import { atLeast, canResetPassword, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
 import { normalizeEmail } from "@/lib/validation";
@@ -39,12 +39,20 @@ export async function issueResetLinkAction(input: {
 
     // Only a member of this tree can be given a reset link by its administrators.
     const [member] = await db
-        .select({ userId: schema.users.id })
+        .select({
+            userId: schema.users.id,
+            role: schema.treeMembers.role,
+        })
         .from(schema.treeMembers)
         .innerJoin(schema.users, eq(schema.users.id, schema.treeMembers.userId))
         .where(and(eq(schema.treeMembers.treeId, access.treeId), eq(schema.users.email, email)))
         .limit(1);
     if (!member) return { ok: false, error: "members.notMember" };
+
+    // The link takes the account over: an admin may not use it to become the owner.
+    if (!canResetPassword(access.role as MemberRole, member.role as MemberRole)) {
+        return { ok: false, error: "auth.noPermission" };
+    }
 
     const base = process.env.BETTER_AUTH_URL ?? "";
     await auth.api.requestPasswordReset({

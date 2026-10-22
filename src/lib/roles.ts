@@ -29,3 +29,22 @@ const RANK: Record<MemberRole, number> = {
 export function atLeast(role: MemberRole, minimum: MemberRole): boolean {
     return RANK[role] >= RANK[minimum];
 }
+
+/**
+ * Whether a member with `viewer` may change the membership of `target`: an admin manages the
+ * editors and the viewers, the owner manages everyone but themselves, and nobody manages
+ * themselves through this page (the profile serves that).
+ */
+export function canManageMember(viewer: MemberRole, target: MemberRole, isSelf: boolean): boolean {
+    if (isSelf || target === "owner") return false;
+    return viewer === "owner" || (atLeast(viewer, "admin") && !atLeast(target, "admin"));
+}
+
+/**
+ * Whether `viewer` may hand a password reset link to `target`. The link takes the account over,
+ * so it follows the rank rule: an admin may reset an editor or a viewer, and only the owner may
+ * reset an owner or another admin. The server calls this too, not only the page.
+ */
+export function canResetPassword(viewer: MemberRole, target: MemberRole): boolean {
+    return viewer === "owner" || (atLeast(viewer, "admin") && !atLeast(target, "admin"));
+}

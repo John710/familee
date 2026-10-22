@@ -31,7 +31,7 @@ import { BIRTHDAY_DAYS, birthdayInput } from "@/lib/birthdays";
 import { listMembers, listPendingInvitations } from "@/lib/invitations";
 import { listPersonCards } from "@/lib/people";
 import { listTreePhotos } from "@/lib/photos";
-import { atLeast, type MemberRole } from "@/lib/roles";
+import { atLeast, canManageMember, canResetPassword } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
 
@@ -41,12 +41,6 @@ type Params = { locale: string; slug: string };
  * Whether the viewer may change this member: an admin manages everyone but the owner
  * and other admins, the owner manages everyone but themselves. The server checks again.
  */
-function canManage(viewer: MemberRole, target: MemberRole, isSelf: boolean): boolean {
-    if (isSelf || target === "owner") return false;
-    if (viewer === "owner") return true;
-    return atLeast(viewer, "admin") && target !== "admin";
-}
-
 export default async function MembersPage({ params }: { params: Promise<Params> }) {
     const { locale, slug } = await params;
     if (!hasLocale(routing.locales, locale)) notFound();
@@ -242,7 +236,11 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                                 </span>
                             </div>
                             <div className="flex flex-wrap items-center justify-end gap-2">
-                                {canManage(access.role, member.role, member.userId === user.id) ? (
+                                {canManageMember(
+                                    access.role,
+                                    member.role,
+                                    member.userId === user.id,
+                                ) ? (
                                     <MemberControls
                                         slug={slug}
                                         userId={member.userId}
@@ -254,9 +252,10 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                                         {t(`enums.member_role.${member.role}`)}
                                     </span>
                                 )}
-                                {canInvite && member.userId !== user.id && (
-                                    <ResetLinkButton slug={slug} email={member.email} />
-                                )}
+                                {canResetPassword(access.role, member.role) &&
+                                    member.userId !== user.id && (
+                                        <ResetLinkButton slug={slug} email={member.email} />
+                                    )}
                             </div>
                         </li>
                     ))}
