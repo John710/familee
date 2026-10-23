@@ -301,6 +301,22 @@ export async function deleteCitationAction(input: {
     if (!UUID.test(input.citationId) || !UUID.test(input.personId)) {
         return { ok: false, error: "validation.required" };
     }
+
+    // The citation is scoped through its person, and the person has to be in this tree: without
+    // this an editor of one archive could remove a citation of another by naming its person.
+    const [person] = await db
+        .select({ id: schema.persons.id })
+        .from(schema.persons)
+        .where(
+            and(
+                eq(schema.persons.id, input.personId),
+                eq(schema.persons.treeId, access.treeId),
+                isNull(schema.persons.deletedAt),
+            ),
+        )
+        .limit(1);
+    if (!person) return { ok: false, error: "person.notFound" };
+
     const deleted = await db
         .delete(schema.citations)
         .where(
