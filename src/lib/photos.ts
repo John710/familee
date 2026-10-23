@@ -1215,9 +1215,37 @@ export async function listPersonAlbum(
         .where(and(eq(schema.events.treeId, treeId), eq(schema.events.personId, personId)))
         .orderBy(asc(schema.events.sortDate), asc(schema.events.createdAt));
 
-    const eventPhotos = await Promise.all(
-        events.map(async (event) =>
-            (await listEventPhotos(treeId, event.id)).map((photo) => ({
+    // The photographs of every event of the person, in one query instead of one per event.
+    const eventRows =
+        events.length === 0
+            ? []
+            : await db
+                  .select({
+                      eventId: schema.mediaLinks.eventId,
+                      mediaId: schema.media.id,
+                      kind: schema.media.kind,
+                      mimeType: schema.media.mimeType,
+                      originalFilename: schema.media.originalFilename,
+                      caption: schema.mediaLinks.caption,
+                      takenStart: schema.media.takenStart,
+                  })
+                  .from(schema.mediaLinks)
+                  .innerJoin(schema.media, eq(schema.media.id, schema.mediaLinks.mediaId))
+                  .where(
+                      and(
+                          eq(schema.media.treeId, treeId),
+                          inArray(
+                              schema.mediaLinks.eventId,
+                              events.map((event) => event.id),
+                          ),
+                      ),
+                  )
+                  .orderBy(asc(schema.mediaLinks.createdAt));
+
+    const eventPhotos = events.map((event) =>
+        eventRows
+            .filter((row) => row.eventId === event.id)
+            .map((photo) => ({
                 mediaId: photo.mediaId,
                 kind: photo.kind,
                 mimeType: photo.mimeType,
@@ -1227,7 +1255,6 @@ export async function listPersonAlbum(
                 caption: photo.caption,
                 takenStart: photo.takenStart,
             })),
-        ),
     );
 
     return [

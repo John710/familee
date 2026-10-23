@@ -99,38 +99,57 @@ export async function listUnionsForPerson(treeId: string, personId: string): Pro
         eventRows.map((event) => event.id),
     );
 
+    // The partners and the children of every union, in two queries rather than two per union.
+    const partnerRows =
+        familyIds.length === 0
+            ? []
+            : await db
+                  .select({
+                      familyId: schema.familyPartners.familyId,
+                      personId: schema.personCards.personId,
+                      name: schema.personCards.fullName,
+                  })
+                  .from(schema.familyPartners)
+                  .innerJoin(
+                      schema.personCards,
+                      eq(schema.personCards.personId, schema.familyPartners.personId),
+                  )
+                  .where(
+                      and(
+                          eq(schema.familyPartners.treeId, treeId),
+                          inArray(schema.familyPartners.familyId, familyIds),
+                          ne(schema.familyPartners.personId, personId),
+                      ),
+                  );
+
+    const childRows =
+        familyIds.length === 0
+            ? []
+            : await db
+                  .select({
+                      familyId: schema.familyChildren.familyId,
+                      personId: schema.personCards.personId,
+                      name: schema.personCards.fullName,
+                      relation: schema.familyChildren.relation,
+                  })
+                  .from(schema.familyChildren)
+                  .innerJoin(
+                      schema.personCards,
+                      eq(schema.personCards.personId, schema.familyChildren.personId),
+                  )
+                  .where(
+                      and(
+                          eq(schema.familyChildren.treeId, treeId),
+                          inArray(schema.familyChildren.familyId, familyIds),
+                      ),
+                  )
+                  .orderBy(asc(schema.familyChildren.birthOrder));
+
     const views: UnionView[] = [];
     for (const membership of memberships) {
-        const partners = await db
-            .select({ personId: schema.personCards.personId, name: schema.personCards.fullName })
-            .from(schema.familyPartners)
-            .innerJoin(
-                schema.personCards,
-                eq(schema.personCards.personId, schema.familyPartners.personId),
-            )
-            .where(
-                and(
-                    eq(schema.familyPartners.familyId, membership.familyId),
-                    ne(schema.familyPartners.personId, personId),
-                ),
-            )
-            .limit(1);
+        const partner = partnerRows.find((row) => row.familyId === membership.familyId);
+        const children = childRows.filter((row) => row.familyId === membership.familyId);
 
-        const children = await db
-            .select({
-                personId: schema.personCards.personId,
-                name: schema.personCards.fullName,
-                relation: schema.familyChildren.relation,
-            })
-            .from(schema.familyChildren)
-            .innerJoin(
-                schema.personCards,
-                eq(schema.personCards.personId, schema.familyChildren.personId),
-            )
-            .where(eq(schema.familyChildren.familyId, membership.familyId))
-            .orderBy(asc(schema.familyChildren.birthOrder));
-
-        const partner = partners[0];
         views.push({
             familyId: membership.familyId,
             type: membership.type,
