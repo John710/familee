@@ -20,6 +20,7 @@ const STATUS: Record<PhotoError, number> = {
     "media.errors.unsupported": 415,
     "media.errors.failed": 422,
     "media.errors.duplicate": 409,
+    "validation.invalidDate": 422,
     "members.notMember": 403,
     "person.notFound": 404,
     "event.notFound": 404,

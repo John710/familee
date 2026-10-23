@@ -25,3 +25,24 @@ export function formatDay(day: string, locale: string): string {
 export function yearOfDay(day: string): string {
     return day.slice(0, 4);
 }
+
+/**
+ * Whether the text is a real calendar day: "2007-04-21" yes, "2007-02-31" and "2007-13-01" no.
+ *
+ * The database refuses such a date with an error of its own, which would reach the reader as a
+ * failed request instead of a sentence about the date. The check is done here, before the write.
+ * The year is counted arithmetically rather than through Date, whose two-digit years are 19xx.
+ */
+export function isDay(value: string): boolean {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return false;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (year < 1 || month < 1 || month > 12) return false;
+
+    const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+    const lengths = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    const length = lengths[month - 1];
+    return length !== undefined && day >= 1 && day <= length;
+}

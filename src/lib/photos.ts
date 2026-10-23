@@ -12,6 +12,7 @@ import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
+import { isDay } from "@/lib/day";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { exifDateFrom, exifDay } from "@/lib/exif-date";
 import { classifyMedia } from "@/lib/media-kind";
@@ -28,6 +29,7 @@ export type PhotoError =
     | "media.errors.unsupported"
     | "media.errors.failed"
     | "media.errors.duplicate"
+    | "validation.invalidDate"
     | "members.notMember"
     | "person.notFound"
     | "event.notFound";
@@ -217,8 +219,8 @@ export async function setPhotoDate(input: {
     date: string | null;
     userId: string;
 }): Promise<{ ok: true } | { ok: false; error: PhotoError }> {
-    if (input.date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
-        return { ok: false, error: "media.errors.failed" };
+    if (input.date !== null && !isDay(input.date)) {
+        return { ok: false, error: "validation.invalidDate" };
     }
 
     const [photo] = await db
