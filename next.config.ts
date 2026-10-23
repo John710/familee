@@ -84,6 +84,19 @@ const nextConfig = {
                     { key: "X-Frame-Options", value: "DENY" },
                     { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
                     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+                    // A browser that has seen the archive over HTTPS keeps to it for a year, so a
+                    // request cannot be talked down to plain HTTP on a hostile network. Plain-HTTP
+                    // installations are unaffected: browsers ignore the header without TLS.
+                    {
+                        key: "Strict-Transport-Security",
+                        value: "max-age=31536000; includeSubDomains",
+                    },
+                    // The archive needs none of these: files come from the file picker, and the map
+                    // draws tiles without asking where the reader is.
+                    {
+                        key: "Permissions-Policy",
+                        value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+                    },
                 ],
             },
         ];
