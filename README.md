@@ -217,6 +217,24 @@ one change and is applied once, in order. The container applies the pending ones
 an update is `pull` (or `build`) and `up -d`. The `tools` service can apply them by hand as well,
 and it also loads the demo seed (`seed`) and runs the smoke tests (`test`).
 
+### Rolling back
+
+Migrations are forward-only: there are no down files, and an older image does not undo what a newer
+one has done - the runner only skips the versions already recorded and never touches an applied one.
+Going back to an earlier release is therefore a change of the image number, not of the schema:
+
+```bash
+# In .env: FAMILEE_VERSION=0.5.2 (the release you return to).
+docker compose pull && docker compose up -d
+```
+
+That is safe while the newer release only added things, as Familee's migrations do: new columns with
+defaults, new tables, new functions. It is not safe when the newer release changed data on the way -
+a release whose notes say the data must be prepared by hand - and then the way back is the backup
+taken before the upgrade (see "Backups"). Take that backup before every upgrade, not after a
+misfortune. `SKIP_MIGRATIONS=1` keeps a container from applying anything at all, which is useful for
+a second instance that must not touch the schema.
+
 ## Languages
 
 The interface is in English by default, and Russian is at `/ru`. To add a language, create one file,
