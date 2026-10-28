@@ -15,6 +15,10 @@
 # cost eleven minutes a build and once hung for 59 minutes until the job was killed at its own
 # limit. Each build pushes by digest and the merge job joins the two digests into one manifest list.
 #
+# Once the image is out, two more jobs run on the tag: Trivy scans the published image and reports
+# what it finds without failing the run, and the GitHub release "Familee X.Y.Z" is created with
+# the notes of scripts/release-notes.mjs, so a release no longer waits for a hand-made one.
+#
 # Third-party actions are pinned to a full commit SHA; the version is kept in the comment next to it.
 
 name: docker
@@ -208,3 +212,58 @@ jobs:
 
             - name: What was published
               run: docker buildx imagetools inspect ${{ env.IMAGE }}:${{ steps.meta.outputs.version }}
+
+    # The published image is scanned for known vulnerabilities. The scan only reports: a finding in
+    # a base layer is fixed by the next release, not by refusing the one that is already out.
+    scan:
+        needs: merge
+        if: startsWith(github.ref, 'refs/tags/v')
+        permissions:
+            contents: read
+            packages: read
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - name: Image name
+              run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+            - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+              with:
+                  image-ref: ${{ env.IMAGE }}
+                  format: table
+                  exit-code: 0
+                  severity: HIGH,CRITICAL
+                  ignore-unfixed: true
+              env:
+                  TRIVY_USERNAME: ${{ github.actor }}
+                  TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
+    # The GitHub release of the tag, titled "Familee X.Y.Z", with the notes of
+    # scripts/release-notes.mjs: the commits since the previous tag, grouped by their type. It runs
+    # once the image is out, so a release never points at an image that failed to publish.
+    release:
+        needs: merge
+        if: startsWith(github.ref, 'refs/tags/v')
+        permissions:
+            contents: write
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            - name: The notes and the release
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  tag="$GITHUB_REF_NAME"
+                  previous="$(git tag -l 'v*' --sort=-v:refname | awk -v t="$tag" 'found { print; exit } $0 == t { found = 1 }')"
+                  if [ -z "$previous" ]; then previous="$(git rev-list --max-parents=0 HEAD | tail -1)"; fi
+                  node scripts/release-notes.mjs "$previous" "$tag" > notes.md
+                  if gh release view "$tag" > /dev/null 2>&1; then
+                      gh release edit "$tag" --title "Familee ${tag#v}" --notes-file notes.md
+                  else
+                      gh release create "$tag" --title "Familee ${tag#v}" --notes-file notes.md --verify-tag
+                  fi
