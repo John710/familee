@@ -51,26 +51,34 @@ export function EventPhotos({
         setBusy(true);
         setError(null);
         const failures: string[] = [];
-        for (const file of Array.from(files)) {
-            const body = new FormData();
-            body.append("file", file);
-            const response = await fetch(`/api/trees/${slug}/events/${eventId}/photos`, {
-                method: "POST",
-                body,
-            });
-            if (!response.ok) {
-                const data = (await response.json().catch(() => null)) as {
-                    error?: string;
-                    limit?: number;
-                } | null;
-                failures.push(
-                    `${file.name}: ${t((data?.error ?? "media.errors.failed") as Parameters<typeof t>[0], { limit: `${data?.limit ?? ""} MB` })}`,
-                );
+        try {
+            for (const file of Array.from(files)) {
+                const body = new FormData();
+                body.append("file", file);
+                try {
+                    const response = await fetch(`/api/trees/${slug}/events/${eventId}/photos`, {
+                        method: "POST",
+                        body,
+                    });
+                    if (!response.ok) {
+                        const data = (await response.json().catch(() => null)) as {
+                            error?: string;
+                            limit?: number;
+                        } | null;
+                        failures.push(
+                            `${file.name}: ${t((data?.error ?? "media.errors.failed") as Parameters<typeof t>[0], { limit: `${data?.limit ?? ""} MB` })}`,
+                        );
+                    }
+                } catch {
+                    // A dropped connection is a failure of this file, not of the whole batch.
+                    failures.push(`${file.name}: ${t("media.errors.failed", { limit: "" })}`);
+                }
             }
+        } finally {
+            setBusy(false);
+            if (failures.length > 0) setError(failures.join(" · "));
+            router.refresh();
         }
-        setBusy(false);
-        if (failures.length > 0) setError(failures.join(" · "));
-        router.refresh();
     }
 
     async function removeNow(mediaId: string) {

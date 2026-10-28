@@ -116,10 +116,16 @@ export function PhotoAlbum({
     async function uploadOne(file: File): Promise<string | null> {
         const body = new FormData();
         body.append("file", file);
-        const response = await fetch(`/api/trees/${slug}/persons/${personId}/photos`, {
-            method: "POST",
-            body,
-        });
+        let response: Response;
+        try {
+            response = await fetch(`/api/trees/${slug}/persons/${personId}/photos`, {
+                method: "POST",
+                body,
+            });
+        } catch {
+            // A dropped connection is a failure of this file, not of the whole batch.
+            return translate("media.errors.failed", { limit: "" });
+        }
         if (response.ok) return null;
         const data = (await response.json().catch(() => null)) as {
             error?: string;
@@ -135,14 +141,18 @@ export function PhotoAlbum({
         setError(null);
         const list = Array.from(files);
         const failures: string[] = [];
-        for (const [index, file] of list.entries()) {
-            setProgress({ done: index, total: list.length });
-            const problem = await uploadOne(file);
-            if (problem) failures.push(`${file.name}: ${problem}`);
+        try {
+            for (const [index, file] of list.entries()) {
+                setProgress({ done: index, total: list.length });
+                const problem = await uploadOne(file);
+                if (problem) failures.push(`${file.name}: ${problem}`);
+            }
+        } finally {
+            // Whatever happened above, the bar must not stay on screen.
+            setProgress(null);
+            if (failures.length > 0) setError(failures.join(" · "));
+            router.refresh();
         }
-        setProgress(null);
-        if (failures.length > 0) setError(failures.join(" · "));
-        router.refresh();
     }
 
     function onDrop(event: DragEvent<HTMLDivElement>) {
