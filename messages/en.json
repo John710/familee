@@ -529,6 +529,7 @@
         "resetLinkHint": "Give this link to the person. It works for one hour, once, and sets a new password.",
         "notMember": "This person is not a member of the tree",
         "resetFailed": "The reset link could not be created",
+        "resetNotAllowed": "You cannot reset this password: the person has the same or higher rights in this or another tree, or is an administrator of the archive",
         "removeConfirm": "Revoke {name}'s access to the tree?",
         "cannotChangeSelf": "You cannot change your own access here",
         "cannotManageOwner": "The owner's access cannot be changed",

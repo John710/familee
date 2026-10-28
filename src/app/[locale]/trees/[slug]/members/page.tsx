@@ -28,10 +28,10 @@ import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { todayIn, upcomingBirthdays } from "@/lib/age";
 import { BIRTHDAY_DAYS, birthdayInput } from "@/lib/birthdays";
-import { listMembers, listPendingInvitations } from "@/lib/invitations";
+import { listAccountStandings, listMembers, listPendingInvitations } from "@/lib/invitations";
 import { listPersonCards } from "@/lib/people";
 import { listTreePhotos } from "@/lib/photos";
-import { atLeast, canManageMember, canResetPassword } from "@/lib/roles";
+import { type AccountStanding, atLeast, canManageMember, canResetAccount } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
 
@@ -57,6 +57,22 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
         listMembers(access.treeId),
         canInvite ? listPendingInvitations(access.treeId) : Promise.resolve([]),
     ]);
+
+    // The reset button follows the server's rule, which weighs every tree of the account, so it
+    // is not offered where the action would refuse it. Only an admin can reset at all.
+    const standings = canInvite
+        ? await listAccountStandings([user.id, ...members.map((member) => member.userId)])
+        : new Map<string, AccountStanding>();
+    const issuerStanding = standings.get(user.id);
+    const canReset = (memberId: string) => {
+        const target = standings.get(memberId);
+        return (
+            memberId !== user.id &&
+            issuerStanding !== undefined &&
+            target !== undefined &&
+            canResetAccount(issuerStanding, target)
+        );
+    };
 
     const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: "medium" });
     const pending: PendingInvitation[] = invitations.map((row) => ({
@@ -252,10 +268,9 @@ export default async function MembersPage({ params }: { params: Promise<Params> 
                                         {t(`enums.member_role.${member.role}`)}
                                     </span>
                                 )}
-                                {canResetPassword(access.role, member.role) &&
-                                    member.userId !== user.id && (
-                                        <ResetLinkButton slug={slug} email={member.email} />
-                                    )}
+                                {canReset(member.userId) && (
+                                    <ResetLinkButton slug={slug} email={member.email} />
+                                )}
                             </div>
                         </li>
                     ))}
