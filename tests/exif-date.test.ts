@@ -159,6 +159,28 @@ test("rejects a moment no camera could have meant", () => {
     assert.equal(exifDateFrom(file), null);
 });
 
+test("rejects a day the calendar does not have", () => {
+    // The database refuses these for media.taken_start, so they must never reach the insert.
+    for (const original of ["2007:02:30 10:00:00", "2023:02:29 10:00:00", "2007:04:31 10:00:00"]) {
+        assert.equal(exifDateFrom(jpegWithExif(tiffBlock(true, { original }))), null, original);
+    }
+    // Feb 29 of a leap year is a real day.
+    const leap = jpegWithExif(tiffBlock(true, { original: "2024:02:29 10:00:00" }));
+    assert.equal(dayOf(leap), "2024-02-29");
+    // An impossible original date falls through to the next tag that is a real day.
+    const fallback = jpegWithExif(
+        tiffBlock(true, { original: "2007:02:30 10:00:00", modified: "2015:06:30 00:00:00" }),
+    );
+    assert.equal(dayOf(fallback), "2015-06-30");
+});
+
+test("steps over a fill byte before the Exif segment", () => {
+    const plain = jpegWithExif(tiffBlock(true, { original: "2007:04:21 18:35:02" }));
+    // "FF D8 FF E1 ..." becomes "FF D8 FF FF E1 ...": the fill byte is one byte, not two.
+    const filled = Buffer.concat([plain.subarray(0, 2), Buffer.from([0xff]), plain.subarray(2)]);
+    assert.equal(dayOf(filled), "2007-04-21");
+});
+
 test("writes the day as the database wants it", () => {
     assert.equal(
         exifDay({ year: 907, month: 1, day: 2, hour: 3, minute: 4, second: 5 }),
