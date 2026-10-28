@@ -568,7 +568,10 @@
         "next": "The month after",
         "today": "This month",
         "partners": "{first} and {second}",
-        "emptyMonth": "No birthdays and no events this month"
+        "emptyMonth": "No birthdays and no events this month",
+        "newAddress": "New address",
+        "newAddressTitle": "Give the calendar a new address?",
+        "newAddressConfirm": "The current address stops working at once, for everyone who added it, including people who no longer have access. Members will need to add the new address to their calendars again."
     },
     "trash": {
         "title": "Trash",
@@ -849,7 +852,8 @@
             "tree_member": "a member",
             "invitation": "an invitation",
             "tree": "the tree",
-            "password_reset": "a password reset link"
+            "password_reset": "a password reset link",
+            "calendar_feed": "the calendar address"
         }
     },
     "gedcom": {

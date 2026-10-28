@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { PersonThumb } from "@/components/persons/person-thumb";
+import { CalendarTokenButton } from "@/components/trees/calendar-token-button";
 import { TreeCanvas } from "@/components/trees/tree-canvas";
 import { db, schema } from "@/db";
 import { Link } from "@/i18n/navigation";
@@ -149,6 +150,7 @@ export default async function TreePage({ params }: { params: Promise<Params> }) 
                         <code className="break-all rounded-box bg-base-200 px-3 py-2 text-xs">
                             {calendarUrl}
                         </code>
+                        {atLeast(access.role, "admin") && <CalendarTokenButton slug={slug} />}
                     </div>
                 </section>
             )}
