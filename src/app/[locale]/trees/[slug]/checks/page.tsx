@@ -1,3 +1,11 @@
+/**
+ * Familee - the page of the records that look impossible
+ *
+ * Lists the problems the data check finds in the tree, each with a link to the card concerned
+ * (the rules are in src/lib/data-checks.ts). Nothing is changed here: the page only points at the
+ * records that deserve a second look.
+ */
+
 import { AlertTriangle } from "lucide-react";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";

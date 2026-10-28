@@ -1,3 +1,11 @@
+/**
+ * Familee - the trash of a tree
+ *
+ * The people moved out of the tree. Editors can bring them back; administrators can also delete
+ * them for good, which removes their files too. Viewers get the same 404 as a tree that does not
+ * exist.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";

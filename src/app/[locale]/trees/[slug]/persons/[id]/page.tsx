@@ -1,3 +1,10 @@
+/**
+ * Familee - the page of one person, for reading
+ *
+ * Renders the body of the person's page in view mode (components/persons/person-page-body.tsx).
+ * Everybody who can see the tree reads it; the editors find the button to the edit page here.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";

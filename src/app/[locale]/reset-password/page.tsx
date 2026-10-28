@@ -1,3 +1,11 @@
+/**
+ * Familee - the page a password reset link opens
+ *
+ * With a token that is still valid it shows the form for a new password; otherwise it says that the
+ * link is not valid. The link itself is handed out by an administrator of a tree (see
+ * src/lib/actions/reset.ts), there is no mail server.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";

@@ -1,3 +1,11 @@
+/**
+ * Familee - the home page
+ *
+ * A visitor reads what the archive is for and how to start, with a link to sign in. A signed-in
+ * person also sees the birthdays of the next two weeks across their trees, and the trees they
+ * belong to, or a prompt to open one.
+ */
+
 import { ImagePlus, TreeDeciduous, Users } from "lucide-react";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";

@@ -1,3 +1,10 @@
+/**
+ * Familee - the tree as a picture, to save or print
+ *
+ * The tree is drawn on the server as one SVG picture (src/lib/tree-image.ts). The page shows it and
+ * offers it as SVG, as PNG (made in the browser from that same SVG) or for printing.
+ */
+
 import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";

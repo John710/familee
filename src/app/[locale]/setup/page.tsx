@@ -1,3 +1,10 @@
+/**
+ * Familee - the first-run page that creates the administrator account
+ *
+ * It is open only while the archive has no account at all. Its form creates the first administrator
+ * and then leads to the list of trees.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";

@@ -1,3 +1,10 @@
+/**
+ * Familee - the album of one person in the gallery
+ *
+ * The photographs and files that the person's album holds, with the people tagged in each one and
+ * the captions that the albums give it. The gallery of the whole tree is the page one level up.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";

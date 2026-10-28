@@ -1,3 +1,11 @@
+/**
+ * Familee - the frame of every page under a locale
+ *
+ * Sets the language and the fonts of the document, the link that skips to the content, the header
+ * and the footer with the version, and the colour theme. An unknown locale gets a 404, and the
+ * archive asks the search engines to leave it out.
+ */
+
 import type { Metadata, Viewport } from "next";
 import { Inter, Literata } from "next/font/google";
 import { notFound } from "next/navigation";

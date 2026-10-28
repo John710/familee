@@ -1,3 +1,11 @@
+/**
+ * Familee - the people of a tree as a list
+ *
+ * A card for every person in the tree, with the years and the age of the living, and the birthdays
+ * of the next two weeks. Editors get the form that adds a person and the link to the duplicates
+ * page.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";

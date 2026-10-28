@@ -1,3 +1,11 @@
+/**
+ * Familee - the family tree, drawn as cards
+ *
+ * The family tree drawn as cards on a canvas, with the focus and search modes, the birthdays of the
+ * next two weeks, and the calendar address of the tree. Only administrators see the button that
+ * gives the address a new key.
+ */
+
 import { and, eq } from "drizzle-orm";
 import { ImageDown } from "lucide-react";
 import { notFound } from "next/navigation";

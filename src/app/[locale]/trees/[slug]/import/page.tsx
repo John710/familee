@@ -1,3 +1,10 @@
+/**
+ * Familee - the page that imports a GEDCOM file into a tree
+ *
+ * For editors and above. The file is read and previewed here; nothing is written until the person
+ * confirms the preview. The import itself is in src/lib/gedcom-import.ts.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";

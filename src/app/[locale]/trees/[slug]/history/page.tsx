@@ -1,3 +1,11 @@
+/**
+ * Familee - the change history of a tree
+ *
+ * The log of who changed what and when, for the owner and the administrators only; any other member
+ * gets the same 404 as a tree that does not exist. Each entry names the field it changed with a
+ * label from the translations, so the log does not print raw column names.
+ */
+
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
