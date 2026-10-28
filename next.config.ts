@@ -99,6 +99,17 @@ const nextConfig = {
                     },
                 ],
             },
+            // The lightbox shows a PDF in an <iframe> of the archive's own page, which the rule
+            // above forbids. When two rules match a path and set the same key, the later one wins
+            // (Next.js docs, "Header Overriding Behavior"), so the media route alone loosens the
+            // two framing headers to the archive's own origin; other sites still cannot frame it.
+            {
+                source: "/api/trees/:slug/media/:path*",
+                headers: [
+                    { key: "X-Frame-Options", value: "SAMEORIGIN" },
+                    { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+                ],
+            },
         ];
     },
 
