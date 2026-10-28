@@ -16,7 +16,7 @@ import { createInvitationToken, INVITATION_DAYS } from "@/lib/invitation-token";
 import { atLeast, INVITABLE_ROLES, type InvitableRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
-import { normalizeEmail, validateName, validateSlug } from "@/lib/validation";
+import { isReservedSlug, normalizeEmail, validateName, validateSlug } from "@/lib/validation";
 
 export type TreeResult<T extends object = object> =
     | ({ ok: true } & T)
@@ -35,6 +35,7 @@ export async function createTreeAction(input: {
 
     const slug = validateSlug(input.slug);
     if (!slug) return { ok: false, error: "tree.invalidSlug" };
+    if (isReservedSlug(slug)) return { ok: false, error: "tree.slugReserved" };
 
     try {
         const treeId = await db.transaction(async (tx) => {

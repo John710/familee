@@ -139,7 +139,8 @@
             "button": "Create the demo tree",
             "warning": "The demo tree \"demo\" is replaced with the fictional Callahan family. Everything in the current demo tree, including its people and photographs, is deleted. Your own trees are not touched. Continue?",
             "done": "The demo tree is created. Open it from your trees.",
-            "failed": "The demo tree could not be created. The details are in the server log."
+            "failed": "The demo tree could not be created. The details are in the server log.",
+            "slugInUse": "A tree that is not the demo already has the address \"demo\". The demo tree is not created, because it would delete that tree; the tree is left as it is."
         }
     },
     "logo": {
@@ -163,6 +164,7 @@
         "removeLogo": "Remove logo",
         "invalidSlug": "The address may use lowercase latin letters, digits and hyphens, and must start with a letter or digit",
         "slugTaken": "A tree with this address already exists",
+        "slugReserved": "This address is kept for the demo tree. Choose another one",
         "empty": "This tree is still empty. Add the first person — everyone else can be linked to them.",
         "addFirstPerson": "Add the first person",
         "fields": {
