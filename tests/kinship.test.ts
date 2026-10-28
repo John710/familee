@@ -68,6 +68,109 @@ test("says nothing about people with no link", () => {
     assert.deepEqual(relationBetween("S", "S", strangers), { kind: "self" });
 });
 
+test("calls siblings with one parent in common half-siblings", () => {
+    // S and Si have both parents in common; H shares only the father with S.
+    const families: KinshipFamily[] = [
+        { partners: ["F", "Mo"], children: ["S", "Si"] },
+        { partners: ["F", "Other"], children: ["H"] },
+    ];
+    const relations = relationsTo("S", families, ["F", "Mo", "Si", "H"]);
+
+    assert.deepEqual(relations.get("Si"), { kind: "blood", up: 1, down: 1 });
+    assert.deepEqual(relations.get("H"), { kind: "blood", up: 1, down: 1, half: true });
+    // Seen from the other side it is the same.
+    assert.deepEqual(relationBetween("S", "H", families), {
+        kind: "blood",
+        up: 1,
+        down: 1,
+        half: true,
+    });
+});
+
+test("does not call siblings half when the other parent is only unknown", () => {
+    // Each of them has the father on record and nobody else.
+    const families: KinshipFamily[] = [
+        { partners: ["F"], children: ["S"] },
+        { partners: ["F"], children: ["T"] },
+    ];
+    assert.deepEqual(relationsTo("S", families, ["T"]).get("T"), {
+        kind: "blood",
+        up: 1,
+        down: 1,
+    });
+});
+
+test("calls the partner of a divorced union a former spouse", () => {
+    const families: KinshipFamily[] = [
+        { partners: ["S", "Ex"], children: [], ended: true },
+        { partners: ["S", "Wife"], children: [] },
+        // Married again to the same person: the union that goes on wins.
+        { partners: ["S", "Again"], children: [], ended: true },
+        { partners: ["S", "Again"], children: [] },
+    ];
+    const relations = relationsTo("S", families, ["Ex", "Wife", "Again"]);
+
+    assert.deepEqual(relations.get("Ex"), { kind: "exSpouse" });
+    assert.deepEqual(relations.get("Wife"), { kind: "spouse" });
+    assert.deepEqual(relations.get("Again"), { kind: "spouse" });
+});
+
+test("names a step or adoptive link and does not count it as blood", () => {
+    const families: KinshipFamily[] = [
+        // S was adopted by A and B.
+        {
+            partners: ["A", "B"],
+            children: ["S"],
+            parentLinks: { S: { A: "adopted", B: "adopted" } },
+        },
+        // S's stepchild: the child of S's wife by somebody else, linked to S as a step parent.
+        {
+            partners: ["S", "Wife"],
+            children: ["Kid"],
+            parentLinks: { Kid: { S: "step" } },
+        },
+    ];
+    const relations = relationsTo("S", families, ["A", "B", "Kid", "Wife"]);
+
+    assert.deepEqual(relations.get("A"), { kind: "link", link: "adoptiveParent" });
+    assert.deepEqual(relations.get("B"), { kind: "link", link: "adoptiveParent" });
+    assert.deepEqual(relations.get("Kid"), { kind: "link", link: "stepChild" });
+    assert.deepEqual(relations.get("Wife"), { kind: "spouse" });
+
+    // From Kid's side S is the step parent.
+    assert.deepEqual(relationBetween("S", "Kid", families), { kind: "link", link: "stepParent" });
+    // The adopted child is the adoptive parents' child.
+    assert.deepEqual(relationBetween("S", "A", families), { kind: "link", link: "adoptedChild" });
+});
+
+test("a link that is biological for one parent stays blood for that parent", () => {
+    // Adopted by the father only: the mother is the real one.
+    const families: KinshipFamily[] = [
+        {
+            partners: ["Dad", "Mum"],
+            children: ["S"],
+            parentLinks: { S: { Dad: "adopted" } },
+        },
+    ];
+    const relations = relationsTo("S", families, ["Dad", "Mum"]);
+
+    assert.deepEqual(relations.get("Dad"), { kind: "link", link: "adoptiveParent" });
+    assert.deepEqual(relations.get("Mum"), { kind: "blood", up: 1, down: 0 });
+});
+
+test("a step child leads to no relatives of the step parent", () => {
+    const families: KinshipFamily[] = [
+        { partners: ["Gf", "Gm"], children: ["Step"] },
+        { partners: ["Step", "Mum"], children: ["Kid"], parentLinks: { Kid: { Step: "step" } } },
+    ];
+    // Kid is a stepchild of Step, so Step's parents are not Kid's grandparents.
+    const relations = relationsTo("Kid", families, ["Step", "Gf", "Gm", "Mum"]);
+
+    assert.deepEqual(relations.get("Step"), { kind: "link", link: "stepParent" });
+    assert.equal(relations.has("Gf"), false);
+    assert.deepEqual(relations.get("Mum"), { kind: "blood", up: 1, down: 0 });
+});
+
 test("walks a loop in the data without running away", () => {
     // The database refuses a cycle, but an old tree could still carry one; the walk must end.
     const loop: KinshipFamily[] = [

@@ -20,12 +20,16 @@ export function relationPhrase(
     const key = (n: number) => (n <= 4 ? String(n) : "other");
 
     if (relation.kind === "spouse") return t("kinship.spouse", { sex });
+    if (relation.kind === "exSpouse") return t("kinship.exSpouse", { sex });
+    if (relation.kind === "link") return t(`kinship.${relation.link}`, { sex });
 
     // The blood relation of the person, or of the blood relative a spouse is married to.
-    const blood = (up: number, down: number): string => {
+    const blood = (up: number, down: number, half = false): string => {
         if (down === 0) return t(`kinship.ancestor.${key(up)}`, { sex, degree: up });
         if (up === 0) return t(`kinship.descendant.${key(down)}`, { sex, degree: down });
-        if (up === 1 && down === 1) return t("kinship.sibling", { sex });
+        if (up === 1 && down === 1) {
+            return t(half ? "kinship.halfSibling" : "kinship.sibling", { sex });
+        }
         if (down === 1) {
             // The person is a sibling of one of the ancestors: an uncle or aunt, a great-uncle...
             return t(`kinship.auncle.${up <= 3 ? up : "other"}`, { sex });
@@ -44,5 +48,5 @@ export function relationPhrase(
     if (relation.kind === "inLaw") {
         return t("kinship.inLaw", { base: blood(relation.up, relation.down) });
     }
-    return blood(relation.up, relation.down);
+    return blood(relation.up, relation.down, relation.half === true);
 }

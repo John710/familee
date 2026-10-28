@@ -124,6 +124,31 @@ test("shows a birthday before an event and the older event first", () => {
     );
 });
 
+test("announces no living birthday of somebody older than 110, but keeps the dead", () => {
+    const birthday = (year: number, title: string, living: boolean) =>
+        entry({ monthDay: "05-09", kind: "birthday", year, title, living });
+    const entries = [
+        birthday(1850, "Old living", true),
+        birthday(1850, "Old dead", false),
+        birthday(1916, "Of 110", true),
+        birthday(1915, "Of 111", true),
+        entry({ monthDay: "05-09", kind: "event", year: 1850, title: "Wedding" }),
+    ];
+
+    const titles = buildMonth(entries, 2026, 4)
+        .find((cell) => cell.day === 9)
+        ?.entries.map((item) => item.title);
+
+    // The dead keep their day, with no age; the wedding is no birthday; 110 still turns.
+    assert.deepEqual(titles, ["Old dead", "Of 110", "Wedding"]);
+
+    // In 1916 the first one was 66, and the page of that year still holds every birthday.
+    const back = buildMonth(entries, 1916, 4)
+        .find((cell) => cell.day === 9)
+        ?.entries.map((item) => item.title);
+    assert.deepEqual(back, ["Old dead", "Old living", "Of 111", "Of 110", "Wedding"]);
+});
+
 test("counts the years an anniversary reaches, and nothing without a year", () => {
     assert.equal(yearsSince(entry({ monthDay: "05-09", year: 1980 }), 2026), 46);
     assert.equal(yearsSince(entry({ monthDay: "05-09", year: 1890 }), 2026), 136);

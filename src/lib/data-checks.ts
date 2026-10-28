@@ -106,6 +106,42 @@ function yearsBetween(from: string, to: string): number {
     return years;
 }
 
+const LOOSE_QUALIFIERS = new Set(["about", "estimated", "calculated"]);
+
+/** A year earlier or later, on the same day (29 February becomes 28 February). */
+function shiftYear(date: string, years: number): string {
+    const [year = 0, month = "01", day = "01"] = date.split("-");
+    const shifted = String(Number(year) + years).padStart(4, "0");
+    return `${shifted}-${month}-${month === "02" && day === "29" ? "28" : day}`;
+}
+
+/**
+ * The interval an age is judged on. "About", an estimate and a calculation are not a day to the
+ * letter, so they are given a year of slack each way; the rest is read as interval() reads it.
+ */
+function ageInterval(date: CheckDate): Interval {
+    const bounds = interval(date);
+    if (!date.qualifier || !LOOSE_QUALIFIERS.has(date.qualifier)) return bounds;
+    return {
+        lo: bounds.lo ? shiftYear(bounds.lo, -1) : null,
+        hi: bounds.hi ? shiftYear(bounds.hi, 1) : null,
+    };
+}
+
+/**
+ * The youngest and the oldest age a person can have had between two dates, in whole years, or null
+ * where a bound is open. A page of doubts may only speak when the conclusion holds for every date
+ * the two qualifiers allow: a mother born "before 1900" may be as old as anything.
+ */
+function ageRange(from: CheckDate, to: CheckDate): { min: number | null; max: number | null } {
+    const start = ageInterval(from);
+    const end = ageInterval(to);
+    return {
+        min: start.hi && end.lo ? yearsBetween(start.hi, end.lo) : null,
+        max: start.lo && end.hi ? yearsBetween(start.lo, end.hi) : null,
+    };
+}
+
 /**
  * Everything the archive finds doubtful. The list is ordered by code and by person, so it does not
  * jump about between two visits.
@@ -124,16 +160,14 @@ export function findDataProblems(input: CheckInput): CheckIssue[] {
             add({ code: "birthAfterDeath", personIds: [person.personId] });
         }
 
-        // A life longer than any known one.
-        if (person.birth.start && person.death.start) {
-            const years = yearsBetween(person.birth.start, person.death.start);
-            if (years > MAX_LIFE_YEARS) {
-                add({
-                    code: "implausibleAge",
-                    personIds: [person.personId],
-                    params: { age: years },
-                });
-            }
+        // A life longer than any known one - even at its shortest the dates allow.
+        const life = ageRange(person.birth, person.death);
+        if (life.min !== null && life.min > MAX_LIFE_YEARS) {
+            add({
+                code: "implausibleAge",
+                personIds: [person.personId],
+                params: { age: life.min },
+            });
         }
 
         // A date that has not happened yet.
@@ -168,33 +202,22 @@ export function findDataProblems(input: CheckInput): CheckIssue[] {
             }
         }
 
-        // The age of the parent when the child was born.
-        if (
-            child.birth.start &&
-            parent.birth.start &&
-            datable(child.birth) &&
-            datable(parent.birth)
-        ) {
-            const age = yearsBetween(parent.birth.start, child.birth.start);
+        // The age of the parent when the child was born. Only a verdict that stands for every
+        // pair of days the two dates allow is given, so an open bound ("before 1900") says nothing.
+        if (datable(child.birth) && datable(parent.birth)) {
+            const { min, max } = ageRange(parent.birth, child.birth);
             const mother = parent.sex === "female";
-            if (age >= 0 && age < MIN_PARENT_AGE) {
+            const pair = [child.personId, parent.personId];
+            if (max !== null && max >= 0 && max < MIN_PARENT_AGE) {
                 add({
                     code: mother ? "motherTooYoung" : "fatherTooYoung",
-                    personIds: [child.personId, parent.personId],
-                    params: { age },
+                    personIds: pair,
+                    params: { age: max },
                 });
-            } else if (mother && age > MAX_MOTHER_AGE) {
-                add({
-                    code: "motherTooOld",
-                    personIds: [child.personId, parent.personId],
-                    params: { age },
-                });
-            } else if (!mother && age > MAX_FATHER_AGE) {
-                add({
-                    code: "fatherTooOld",
-                    personIds: [child.personId, parent.personId],
-                    params: { age },
-                });
+            } else if (min !== null && mother && min > MAX_MOTHER_AGE) {
+                add({ code: "motherTooOld", personIds: pair, params: { age: min } });
+            } else if (min !== null && !mother && min > MAX_FATHER_AGE) {
+                add({ code: "fatherTooOld", personIds: pair, params: { age: min } });
             }
         }
     }

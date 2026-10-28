@@ -22,13 +22,27 @@ export type CalendarEntry = {
 /** The text before the line break in iCalendar; longer lines are folded. */
 const FOLD_AT = 75;
 
-/** Escapes a TEXT value: a backslash, a semicolon, a comma and a line break carry meaning. */
+/**
+ * Escapes a TEXT value: a backslash, a semicolon, a comma and a line break carry meaning. A lone
+ * carriage return would end the content line for a reader, so it is a line break too.
+ */
 function escapeText(value: string): string {
     return value
         .replaceAll("\\", "\\\\")
         .replaceAll(";", "\\;")
         .replaceAll(",", "\\,")
-        .replaceAll(/\r?\n/g, "\\n");
+        .replaceAll(/\r\n|\r|\n/g, "\\n");
+}
+
+/**
+ * The yearly rule of a first occurrence. A plain YEARLY rule on 29 February skips every year that
+ * has no such day; the last day of February keeps the event, as the app itself marks a leap-day
+ * anniversary on 28 February in those years.
+ */
+function yearlyRule(date: string): string {
+    return date.endsWith("-02-29")
+        ? "RRULE:FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=-1"
+        : "RRULE:FREQ=YEARLY";
 }
 
 /** 'YYYY-MM-DD' as the DATE value 'YYYYMMDD'. */
@@ -88,7 +102,7 @@ export function buildCalendarFeed(options: {
             `UID:${entry.uid}`,
             `DTSTAMP:${stamp}`,
             `DTSTART;VALUE=DATE:${icsDate(entry.date)}`,
-            "RRULE:FREQ=YEARLY",
+            yearlyRule(entry.date),
             `SUMMARY:${escapeText(entry.summary)}`,
             // A birthday does not make its owner busy for the whole day.
             "TRANSP:TRANSPARENT",

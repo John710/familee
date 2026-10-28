@@ -210,6 +210,121 @@ test("two births or two deaths on one person are named", () => {
     assert.equal(issues[0]?.params?.count, 2);
 });
 
+test("a parent born 'before' a date is not called too young", () => {
+    // Born before 1900 she may be any age, so a child of 1905 proves nothing.
+    const open = findDataProblems({
+        persons: [
+            person("child", { birth: date("1905-06-01") }),
+            person("mother", {
+                sex: "female",
+                birth: date("1900-01-01", null, "before", "day"),
+            }),
+        ],
+        edges: [{ parentId: "mother", childId: "child" }],
+        unions: [],
+        vitalCounts: [],
+        today: TODAY,
+    });
+    assert.equal(open.length, 0);
+
+    // A father born 'after' 1800 may be any age at the child's birth in 1900, so not too old.
+    const after = findDataProblems({
+        persons: [
+            person("child", { birth: date("1900-06-01") }),
+            person("father", { sex: "male", birth: date("1800-01-01", null, "after", "day") }),
+        ],
+        edges: [{ parentId: "father", childId: "child" }],
+        unions: [],
+        vitalCounts: [],
+        today: TODAY,
+    });
+    assert.equal(after.length, 0);
+});
+
+test("a parent age that holds for every allowed date is still named", () => {
+    // Born between 1900 and 1902, she was at most eleven in 1911: too young either way.
+    const young = findDataProblems({
+        persons: [
+            person("child", { birth: date("1911-01-01") }),
+            person("mother", {
+                sex: "female",
+                birth: date("1900-01-01", "1902-12-31", "between", "day"),
+            }),
+        ],
+        edges: [{ parentId: "mother", childId: "child" }],
+        unions: [],
+        vitalCounts: [],
+        today: TODAY,
+    });
+    assert.deepEqual(codes(young), ["motherTooYoung"]);
+    assert.equal(young[0]?.params?.age, 11);
+
+    // Born between 1830 and 1834, she was at least sixty-five in 1900: too old either way.
+    const old = findDataProblems({
+        persons: [
+            person("child", { birth: date("1900-01-01") }),
+            person("mother", {
+                sex: "female",
+                birth: date("1830-01-01", "1834-12-31", "between", "day"),
+            }),
+        ],
+        edges: [{ parentId: "mother", childId: "child" }],
+        unions: [],
+        vitalCounts: [],
+        today: TODAY,
+    });
+    assert.deepEqual(codes(old), ["motherTooOld"]);
+    assert.equal(old[0]?.params?.age, 65);
+});
+
+test("a life is only called too long when the qualifiers allow no shorter one", () => {
+    // Born after 1800, died before 1950: the span may be a day or two hundred years.
+    const open = findDataProblems({
+        persons: [
+            person("a", {
+                birth: date("1800-01-01", null, "after", "day"),
+                death: date("1950-01-01", null, "before", "day"),
+            }),
+        ],
+        edges: [],
+        unions: [],
+        vitalCounts: [],
+        today: TODAY,
+    });
+    assert.equal(open.length, 0);
+
+    // Born in 1700, died after 1850: a life of at least a hundred and fifty years in any case.
+    const closed = findDataProblems({
+        persons: [
+            person("a", {
+                birth: date("1700-01-01"),
+                death: date("1850-01-01", null, "after", "day"),
+            }),
+        ],
+        edges: [],
+        unions: [],
+        vitalCounts: [],
+        today: TODAY,
+    });
+    assert.deepEqual(codes(closed), ["implausibleAge"]);
+    assert.equal(closed[0]?.params?.age, 150);
+
+    // "About" gets a year of slack: 111 years on the dates as written, but possibly only 110.
+    const about = findDataProblems({
+        persons: [
+            person("a", {
+                birth: date("1700-06-01", null, "about", "day"),
+                death: date("1811-07-01"),
+            }),
+        ],
+        edges: [],
+        unions: [],
+        vitalCounts: [],
+        today: TODAY,
+    });
+    assert.equal(about.length, 0);
+});
+
 test("a 'before' is not treated as an exact date", () => {
     // Died before 1900, born 1900: not enough to cry wolf, the death may have been in 1899.
     const issues = findDataProblems({
