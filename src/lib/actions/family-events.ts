@@ -14,6 +14,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { clearedFields, diffFields, writeAudit } from "@/lib/audit";
 import { loadDateWords } from "@/lib/date-words";
+import { isUniqueViolation } from "@/lib/db-errors";
 import { parseFuzzyDate } from "@/lib/fuzzy-date";
 import { findPlaceInTree } from "@/lib/library";
 import { atLeast, type MemberRole } from "@/lib/roles";
@@ -44,6 +45,27 @@ async function editorFor(slug: string, familyId: string) {
     if (!family) return { ok: false as const, error: "family.notFound" };
 
     return { ok: true as const, treeId: access.treeId, userId: user.id };
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Makes the earliest remaining event of a type the primary one of the union, after the primary
+ * one was removed or changed its type; undated ones come last. Nothing happens when none is left.
+ */
+async function promoteNextPrimary(tx: Tx, familyId: string, typeCode: string, userId: string) {
+    const [next] = await tx
+        .select({ id: schema.events.id })
+        .from(schema.events)
+        .where(and(eq(schema.events.familyId, familyId), eq(schema.events.typeCode, typeCode)))
+        .orderBy(sql`${schema.events.sortDate} asc nulls last`, asc(schema.events.createdAt))
+        .limit(1);
+    if (next) {
+        await tx
+            .update(schema.events)
+            .set({ isPrimary: true, updatedBy: userId, updatedAt: new Date() })
+            .where(eq(schema.events.id, next.id));
+    }
 }
 
 export type FamilyEventInput = {
@@ -102,7 +124,42 @@ export async function saveFamilyEventAction(
             .limit(1);
         if (!before) return { ok: false, error: "family.notFound" };
 
-        await db.update(schema.events).set(values).where(eq(schema.events.id, input.eventId));
+        // The unique index events_family_primary_key allows one primary event of a type per union.
+        // A changed type must not take a place that is already taken, and the type it leaves must
+        // not be left without its primary, so the update and the promotion go together.
+        const typeChanged = before.typeCode !== values.typeCode;
+        try {
+            await db.transaction(async (tx) => {
+                let isPrimary = before.isPrimary;
+                if (typeChanged) {
+                    const [taken] = await tx
+                        .select({ id: schema.events.id })
+                        .from(schema.events)
+                        .where(
+                            and(
+                                eq(schema.events.familyId, input.familyId),
+                                eq(schema.events.typeCode, values.typeCode),
+                                eq(schema.events.isPrimary, true),
+                            ),
+                        )
+                        .limit(1);
+                    // The same rule as for a new event: the first vital one of its type is primary,
+                    // a later one joins it.
+                    isPrimary = type.isVital && !taken;
+                }
+                await tx
+                    .update(schema.events)
+                    .set({ ...values, isPrimary })
+                    .where(eq(schema.events.id, before.id));
+                if (typeChanged && before.isPrimary) {
+                    await promoteNextPrimary(tx, input.familyId, before.typeCode, access.userId);
+                }
+            });
+        } catch (error) {
+            // Another editor took the place between the read and the write: nothing was changed.
+            if (isUniqueViolation(error)) return { ok: false, error: "errors.generic" };
+            throw error;
+        }
 
         const changes = diffFields(
             {
@@ -206,27 +263,7 @@ export async function deleteFamilyEventAction(input: {
                 isPrimary: schema.events.isPrimary,
             });
         if (gone?.isPrimary) {
-            // The earliest remaining event of the same type takes over; undated ones come last.
-            const [next] = await tx
-                .select({ id: schema.events.id })
-                .from(schema.events)
-                .where(
-                    and(
-                        eq(schema.events.familyId, input.familyId),
-                        eq(schema.events.typeCode, gone.typeCode),
-                    ),
-                )
-                .orderBy(
-                    sql`${schema.events.sortDate} asc nulls last`,
-                    asc(schema.events.createdAt),
-                )
-                .limit(1);
-            if (next) {
-                await tx
-                    .update(schema.events)
-                    .set({ isPrimary: true, updatedBy: access.userId, updatedAt: new Date() })
-                    .where(eq(schema.events.id, next.id));
-            }
+            await promoteNextPrimary(tx, input.familyId, gone.typeCode, access.userId);
         }
         return gone;
     });

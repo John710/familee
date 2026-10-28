@@ -36,7 +36,8 @@ export function errorText(error: unknown): string {
     const parts: string[] = [];
     let current: unknown = error;
     for (let depth = 0; depth < 5 && current !== undefined && current !== null; depth++) {
-        parts.push(current instanceof Error ? current.message : String(current));
+        const message = (current as { message?: unknown }).message;
+        parts.push(typeof message === "string" ? message : String(current));
         current = typeof current === "object" ? (current as { cause?: unknown }).cause : undefined;
     }
     return parts.join("\n");
@@ -55,4 +56,40 @@ export function isForeignKeyViolation(error: unknown): boolean {
 /** Whether the error is a check-constraint violation. */
 export function isCheckViolation(error: unknown): boolean {
     return hasCode(error, CHECK_VIOLATION);
+}
+
+/**
+ * The translation key for what the pedigree triggers raise (a person made their own ancestor, a
+ * second row for the same partner, a link across two trees), or null when the error is another
+ * one. The triggers raise plain exceptions, so the sentence in the text is what tells them apart.
+ */
+export function pedigreeErrorKey(
+    error: unknown,
+): "errors.cycle" | "errors.duplicatePartner" | "errors.crossTree" | null {
+    const text = errorText(error);
+    if (text.includes("own ancestor") || text.includes("pedigree cycle")) return "errors.cycle";
+    if (text.includes("already a partner")) return "errors.duplicatePartner";
+    if (text.includes("belongs to another tree")) return "errors.crossTree";
+    return null;
+}
+
+/**
+ * The translation key for what familee.merge_persons(), merge_places() and merge_sources() raise:
+ * the markers `merge_self` and `merge_not_found`, and for a person also what the pedigree
+ * triggers say while the unions move over to the survivor.
+ */
+export function mergeErrorKey(error: unknown, kind: "person" | "place" | "source"): string {
+    const text = errorText(error);
+    if (text.includes("merge_self")) {
+        return kind === "person" ? "duplicates.samePerson" : "duplicates.sameRecord";
+    }
+    if (text.includes("merge_not_found")) {
+        return kind === "person" ? "duplicates.notFound" : `${kind}.notFound`;
+    }
+    if (kind === "person") {
+        const pedigree = pedigreeErrorKey(error);
+        // A union across two trees cannot come out of a merge inside one tree.
+        if (pedigree === "errors.cycle" || pedigree === "errors.duplicatePartner") return pedigree;
+    }
+    return "errors.generic";
 }
