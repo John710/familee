@@ -346,6 +346,7 @@
         "many": "Events",
         "add": "Add an event",
         "edit": "Edit event",
+        "notFound": "That event is not in this tree",
         "type": "Event type",
         "typeCustom": "Custom event type",
         "empty": "No events recorded",
