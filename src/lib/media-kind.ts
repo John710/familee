@@ -105,6 +105,29 @@ export function extensionOf(filename: string | null | undefined): string | null 
     return EXTENSION.test(extension) ? extension : null;
 }
 
+/** The longest original file name the archive remembers (the limit of most file systems). */
+export const MAX_FILENAME_LENGTH = 255;
+
+/**
+ * A file name cut to the length the archive keeps, with its extension intact so the name still
+ * says what the file is. The name is only a label (the bytes are stored under a random key), so a
+ * cut costs nothing but the tail of an absurdly long title.
+ */
+export function capFilename(
+    filename: string | null | undefined,
+    max: number = MAX_FILENAME_LENGTH,
+): string | null {
+    if (!filename) return null;
+    if (filename.length <= max) return filename;
+
+    const extension = extensionOf(filename);
+    const tail = extension ? `.${filename.slice(filename.lastIndexOf(".") + 1)}` : "";
+    // Never cut between the two halves of a surrogate pair: that leaves a broken character.
+    let head = filename.slice(0, Math.max(1, max - tail.length));
+    if (/[\ud800-\udbff]$/.test(head)) head = head.slice(0, -1);
+    return `${head}${tail}`;
+}
+
 /**
  * The kind a declared mime type alone names, for a file whose extension is unknown. A picture the
  * pipeline cannot read (a GIF, an SVG) is a document here, so it is stored and linked rather than
@@ -135,12 +158,11 @@ export function classifyMedia(
 
     let mimeType = known?.mimeType ?? FALLBACK_TYPE;
     if (!known && declaredType) {
-        // Only a declared type that agrees with the kind is trusted: it may name the exact flavour
-        // of an audio or a text file the table does not carry.
+        // A declared type is kept only when it agrees with the kind AND is on the allow-list: it
+        // may name the exact flavour of an audio or a text file the table does not carry, but
+        // text/javascript or text/html would run on the archive's own origin through <script src>.
         const declared = declaredType.toLowerCase().split(";")[0]?.trim() ?? "";
-        if (declared.startsWith(`${kind}/`) || kindFromMime(declared) === kind) {
-            if (declared.includes("/") && !declared.startsWith("image/")) mimeType = declared;
-        }
+        if (kindFromMime(declared) === kind && isSafeDeclared(declared)) mimeType = declared;
     }
 
     const pathExtension = extension ?? extensionForMime(mimeType);
@@ -151,6 +173,21 @@ export function classifyMedia(
         extension: pathExtension,
         processable: kind === "photo",
     };
+}
+
+/** The declared types that cannot carry a script and so may be served as the browser named them. */
+const SAFE_DECLARED = new Set([
+    "application/pdf",
+    "application/rtf",
+    "text/plain",
+    "text/csv",
+    "text/markdown",
+]);
+
+/** Sound and film are played by the media elements, which never run what they are given. */
+function isSafeDeclared(type: string): boolean {
+    if (SAFE_DECLARED.has(type)) return true;
+    return /^(audio|video)\/[a-z0-9][a-z0-9.+_-]*$/.test(type);
 }
 
 /** The extension for a known mime type, so a PDF without a name still ends in .pdf. */

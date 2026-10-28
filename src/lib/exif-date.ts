@@ -11,6 +11,8 @@
  * null, and the upload carries on without a date.
  */
 
+import { isDay } from "@/lib/day";
+
 /** The moment of the shutter, as the camera wrote it. */
 export type ExifDate = {
     year: number;
@@ -88,7 +90,13 @@ function exifBlock(buffer: Buffer): Buffer | null {
 
         // The end of the metadata, or a marker that carries no payload.
         if (marker === SOS || marker === EOI) return null;
-        if (marker === 0xff || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+        // 0xFF is a fill byte: the next 0xFF may already be the start of the real marker, so only
+        // one byte is skipped (two would lose the marker in "FF FF E1").
+        if (marker === 0xff) {
+            offset += 1;
+            continue;
+        }
+        if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
             offset += 2;
             continue;
         }
@@ -202,7 +210,8 @@ function parseTag(text: string): ExifDate | null {
     };
     if (date.year < FIRST_YEAR || date.year > LAST_YEAR) return null;
     if (date.month < 1 || date.month > 12) return null;
-    if (date.day < 1 || date.day > 31) return null;
+    // The real calendar day: the database refuses "2007-02-30" and the whole upload would fail.
+    if (!isDay(exifDay(date))) return null;
     if (date.hour > 23 || date.minute > 59 || date.second > 60) return null;
     return date;
 }

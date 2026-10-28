@@ -96,7 +96,8 @@ export async function restorePersonData(treeId: string, personId: string): Promi
  * null when the person is not in the trash of this tree.
  *
  * A union is removed when the person was its last partner or child; a union with other members
- * stays. A photograph stays while any other person, event or union still links to it.
+ * stays. A photograph stays while any other person, event or union still links to it, another
+ * person is tagged on it, or a note is written about it.
  */
 export async function purgePersonData(treeId: string, personId: string): Promise<string[] | null> {
     return db.transaction(async (tx) => {
@@ -166,11 +167,24 @@ export async function purgePersonData(treeId: string, personId: string): Promise
 
         // A photograph nobody links to any more goes with its variants; its keys go to the caller.
         if (candidateIds.length === 0) return [];
+        // Still in use means an album or event link, a tag of another person on the photograph, or
+        // a note written about the file; only a photograph with none of the three goes.
         const stillLinked = await tx
             .selectDistinct({ mediaId: schema.mediaLinks.mediaId })
             .from(schema.mediaLinks)
             .where(inArray(schema.mediaLinks.mediaId, candidateIds));
-        const linkedIds = new Set(stillLinked.map((row) => row.mediaId));
+        const stillTagged = await tx
+            .selectDistinct({ mediaId: schema.mediaPeople.mediaId })
+            .from(schema.mediaPeople)
+            .where(inArray(schema.mediaPeople.mediaId, candidateIds));
+        const stillNoted = await tx
+            .selectDistinct({ mediaId: schema.notes.mediaId })
+            .from(schema.notes)
+            .where(inArray(schema.notes.mediaId, candidateIds));
+        const linkedIds = new Set<string>();
+        for (const row of [...stillLinked, ...stillTagged, ...stillNoted]) {
+            if (row.mediaId) linkedIds.add(row.mediaId);
+        }
         const orphanIds = candidateIds.filter((id) => !linkedIds.has(id));
         if (orphanIds.length === 0) return [];
 
@@ -186,6 +200,58 @@ export async function purgePersonData(treeId: string, personId: string): Promise
             .where(inArray(schema.media.id, orphanIds));
         await tx.delete(schema.media).where(inArray(schema.media.id, orphanIds));
         return [...new Set([...files.map((file) => file.key), ...variants.map((v) => v.key)])];
+    });
+}
+
+/**
+ * Deletes one file that belongs to nothing: no album or event link, no tag of a person on it and
+ * no note about it. Returns the storage keys to remove from disk once the transaction has
+ * committed, "attached" when something still points at the file, or null when the file is not in
+ * this tree.
+ *
+ * The row is locked first: adding a link takes a key-share lock on it through the foreign key, so a
+ * link that is being added at this moment either lands before the check below (and the file stays)
+ * or waits until the file is gone and then fails, never silently lost to the cascade.
+ */
+export async function deleteLooseMediaData(
+    treeId: string,
+    mediaId: string,
+): Promise<{ name: string | null; keys: string[] } | "attached" | null> {
+    return db.transaction(async (tx) => {
+        const [row] = await tx
+            .select({ key: schema.media.storageKey, name: schema.media.originalFilename })
+            .from(schema.media)
+            .where(and(eq(schema.media.id, mediaId), eq(schema.media.treeId, treeId)))
+            .for("update")
+            .limit(1);
+        if (!row) return null;
+
+        const [link] = await tx
+            .select({ id: schema.mediaLinks.id })
+            .from(schema.mediaLinks)
+            .where(eq(schema.mediaLinks.mediaId, mediaId))
+            .limit(1);
+        const [tag] = await tx
+            .select({ id: schema.mediaPeople.id })
+            .from(schema.mediaPeople)
+            .where(eq(schema.mediaPeople.mediaId, mediaId))
+            .limit(1);
+        const [note] = await tx
+            .select({ id: schema.notes.id })
+            .from(schema.notes)
+            .where(eq(schema.notes.mediaId, mediaId))
+            .limit(1);
+        if (link || tag || note) return "attached" as const;
+
+        const variants = await tx
+            .select({ key: schema.mediaVariants.storageKey })
+            .from(schema.mediaVariants)
+            .where(eq(schema.mediaVariants.mediaId, mediaId));
+        await tx.delete(schema.media).where(eq(schema.media.id, mediaId));
+        return {
+            name: row.name,
+            keys: [...new Set([row.key, ...variants.map((variant) => variant.key)])],
+        };
     });
 }
 

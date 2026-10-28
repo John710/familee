@@ -15,6 +15,8 @@ import sharp from "sharp";
 const ACCEPTED_FORMATS = new Set(["jpeg", "png", "webp"]);
 const THUMB_SIDE = 320;
 const MEDIUM_SIDE = 1200;
+/** The largest side the WebP format can hold. */
+const WEBP_MAX_SIDE = 16383;
 
 export type ProcessedPhoto = {
     checksum: string;
@@ -44,7 +46,10 @@ export async function processPhoto(source: Buffer): Promise<ProcessResult> {
     try {
         const upright = () => sharp(source, { limitInputPixels: 80_000_000 }).rotate();
 
+        // WebP cannot be wider or taller than 16383 px; a larger scan is scaled down to fit that
+        // (keeping its proportions) instead of failing as a generic error after the pixel check.
         const original = await upright()
+            .resize(WEBP_MAX_SIDE, WEBP_MAX_SIDE, { fit: "inside", withoutEnlargement: true })
             .webp({ quality: 90 })
             .toBuffer({ resolveWithObject: true });
         const medium = await upright()

@@ -7,6 +7,10 @@
  * tree and be in the person's album; the checks are repeated here, not only in the page.
  */
 
+import { writeAudit } from "@/lib/audit";
+import { deleteLooseMediaData } from "@/lib/deletion";
+import { removeMediaFiles } from "@/lib/media-storage";
+import { normalizeCrop } from "@/lib/photo-crop";
 import {
     movePhoto,
     type PhotoCrop,
@@ -37,6 +41,36 @@ async function editorAccess(
         return { ok: false, error: "auth.noPermission" };
     }
     return { ok: true, treeId: access.treeId, userId: user.id };
+}
+
+/**
+ * Deletes a file that nothing points at any more (the gallery's "outside the albums" section). The
+ * rows go in one transaction that refuses a file with a link, a tag or a note; the files on the
+ * volume go after it has committed, like in the purge of a person, so a failure never leaves a row
+ * without its file.
+ */
+export async function deleteLooseMediaAction(input: {
+    slug: string;
+    mediaId: string;
+}): Promise<PhotoResult> {
+    if (!UUID.test(input.mediaId)) return { ok: false, error: "media.errors.failed" };
+    const access = await editorAccess(input.slug);
+    if (!access.ok) return access;
+
+    const removed = await deleteLooseMediaData(access.treeId, input.mediaId);
+    if (removed === null) return { ok: false, error: "media.errors.failed" };
+    if (removed === "attached") return { ok: false, error: "media.errors.attached" };
+    await removeMediaFiles(removed.keys);
+
+    await writeAudit({
+        treeId: access.treeId,
+        userId: access.userId,
+        action: "delete",
+        entityType: "media",
+        entityId: input.mediaId,
+        changes: { file: { from: removed.name, to: null } },
+    });
+    return { ok: true };
 }
 
 export async function setMainPhotoAction(input: {
@@ -112,16 +146,10 @@ export async function setPortraitCropAction(input: {
     const access = await editorAccess(input.slug);
     if (!access.ok) return access;
 
-    const crop = input.crop;
-    if (crop) {
-        const inside = [crop.x, crop.y, crop.w, crop.h].every(
-            (value) => Number.isFinite(value) && value >= 0 && value <= 1,
-        );
-        const fits = crop.x + crop.w <= 1.0001 && crop.y + crop.h <= 1.0001;
-        if (!inside || !fits || crop.w <= 0 || crop.h <= 0) {
-            return { ok: false, error: "media.errors.failed" };
-        }
-    }
+    // Rounded to the column's five decimals and pulled inside the picture, so the CHECK on
+    // media_links cannot refuse what the editor's floating point produced.
+    const crop = input.crop ? normalizeCrop(input.crop) : null;
+    if (input.crop && !crop) return { ok: false, error: "media.errors.failed" };
 
     const result = await setPortraitCrop({
         treeId: access.treeId,

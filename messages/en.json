@@ -346,6 +346,7 @@
         "many": "Events",
         "add": "Add an event",
         "edit": "Edit event",
+        "notFound": "That event is not in this tree",
         "type": "Event type",
         "typeCustom": "Custom event type",
         "empty": "No events recorded",
@@ -407,6 +408,8 @@
             "other": "File"
         },
         "removeConfirm": "Remove this photograph from the person? It stays in the archive if other people use it.",
+        "deleteTitle": "Delete this file?",
+        "deleteConfirm": "The file is deleted from the archive for good. Nothing uses it any more.",
         "moveUp": "Move towards the front",
         "moveDown": "Move towards the back",
         "captionAdd": "Add a caption",
@@ -445,7 +448,8 @@
             "tooLarge": "The file is larger than the {limit} limit",
             "unsupported": "This file format is not supported",
             "duplicate": "This photograph is already in the archive",
-            "failed": "The file could not be processed"
+            "failed": "The file could not be processed",
+            "attached": "The file is used again: a link, a tag or a note points at it"
         }
     },
     "source": {
@@ -658,7 +662,9 @@
         "unattached": "Not attached to anybody",
         "eventsCount": "{count, plural, one {# event} other {# events}}",
         "materials": "Documents, recordings and films",
-        "materialsHint": "Everything that is not a photograph, with the person it came with."
+        "materialsHint": "Everything that is not a photograph, with the person it came with.",
+        "loose": "Outside the albums",
+        "looseHint": "Files that are in nobody's album: taken off their last album, never attached, or attached only to the event of a union. An editor can delete a file that nothing uses."
     },
     "search": {
         "title": "Search the archive",

@@ -50,9 +50,24 @@ test("several ranges and broken headers fall back to the whole file", () => {
     assert.deepEqual(parseByteRange("bytes=-", 1000), { kind: "full" });
 });
 
-test("a reversed range is refused, and an empty file cannot be ranged", () => {
-    assert.deepEqual(parseByteRange("bytes=500-100", 1000), { kind: "unsatisfiable" });
+test("a reversed range is ignored, and an empty file cannot be ranged", () => {
+    // RFC 9110: a syntactically invalid range is ignored, so the whole file is answered.
+    assert.deepEqual(parseByteRange("bytes=500-100", 1000), { kind: "full" });
     assert.deepEqual(parseByteRange("bytes=0-10", 0), { kind: "unsatisfiable" });
+});
+
+test("a header with more than two numbers is ignored", () => {
+    assert.deepEqual(parseByteRange("bytes=1-2-3", 1000), { kind: "full" });
+    assert.deepEqual(parseByteRange("bytes=", 1000), { kind: "full" });
+});
+
+test("a number above the largest safe integer does not break the parse", () => {
+    const huge = "99999999999999999999999";
+    const whole = { kind: "range", start: 0, end: 999 };
+    assert.deepEqual(parseByteRange(`bytes=0-${huge}`, 1000), whole);
+    assert.deepEqual(parseByteRange(`bytes=-${huge}`, 1000), whole);
+    assert.deepEqual(parseByteRange(`bytes=${huge}-`, 1000), { kind: "unsatisfiable" });
+    assert.deepEqual(parseByteRange(`bytes=${huge}-1`, 1000), { kind: "full" });
 });
 
 test("the Content-Range answer names the piece and the whole", () => {

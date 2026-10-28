@@ -2,12 +2,14 @@ import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { GalleryGrid, type GalleryPhoto } from "@/components/media/gallery-grid";
 import { MediaIcon } from "@/components/media/media-icon";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { listPersonCards } from "@/lib/people";
 import { cropStyle, type PhotoCrop } from "@/lib/photo-crop";
-import { listTreePhotos } from "@/lib/photos";
+import { listLooseMedia, listTreePhotos } from "@/lib/photos";
+import { atLeast, type MemberRole } from "@/lib/roles";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
 
@@ -32,7 +34,27 @@ export default async function GalleryPage({ params }: { params: Promise<Params> 
     );
     // The documents, the recordings and the films of the tree: they have no album of their own, so
     // this page gathers them, with the person they came with.
-    const materials = (await listTreePhotos(access.treeId)).filter((file) => file.kind !== "photo");
+    // The files no person's album holds: taken off their last album, never attached, or attached
+    // only to the event of a union. Without this section they would be shown nowhere. A loose
+    // document is listed there and not again among the materials.
+    const looseFiles = await listLooseMedia(access.treeId);
+    const looseIds = new Set(looseFiles.map((file) => file.mediaId));
+    const materials = (await listTreePhotos(access.treeId)).filter(
+        (file) => file.kind !== "photo" && !looseIds.has(file.mediaId),
+    );
+    const loose: GalleryPhoto[] = looseFiles.map((file) => ({
+        mediaId: file.mediaId,
+        kind: file.kind,
+        mimeType: file.mimeType,
+        name: file.originalFilename,
+        takenStart: file.takenStart,
+        captions: [],
+        tagged: file.tagged,
+        people: [],
+        events: file.events,
+        deletable: file.deletable,
+    }));
+    const canEdit = atLeast(access.role as MemberRole, "editor");
     const t = await getTranslations();
 
     return (
@@ -149,6 +171,14 @@ export default async function GalleryPage({ params }: { params: Promise<Params> 
                             );
                         })}
                     </ul>
+                </section>
+            )}
+
+            {loose.length > 0 && (
+                <section className="flex flex-col gap-3">
+                    <h2 className="font-semibold text-lg">{t("gallery.loose")}</h2>
+                    <p className="text-base-content/60 text-sm">{t("gallery.looseHint")}</p>
+                    <GalleryGrid slug={slug} photos={loose} canEdit={canEdit} />
                 </section>
             )}
         </div>

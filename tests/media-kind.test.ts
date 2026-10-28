@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { classifyMedia, extensionOf, inlineable } from "@/lib/media-kind";
+import { capFilename, classifyMedia, extensionOf, inlineable } from "@/lib/media-kind";
 
 test("reads the extension of a file name, and gives up on a missing one", () => {
     assert.equal(extensionOf("Scan.PDF"), "pdf");
@@ -61,6 +61,49 @@ test("an unknown file is kept, and served as bytes to download", () => {
     assert.equal(media.mimeType, "application/octet-stream");
     assert.equal(media.extension, "bin");
     assert.equal(inlineable(media.mimeType), false);
+});
+
+test("a declared type is kept for an unknown extension only when it is safe", () => {
+    // Sound, film and plain documents keep the flavour the browser named.
+    assert.equal(classifyMedia("audio/x-custom", "memo.xyz").mimeType, "audio/x-custom");
+    assert.equal(classifyMedia("video/3gpp", "clip.3gp").mimeType, "video/3gpp");
+    assert.equal(classifyMedia("text/plain; charset=utf-8", "notes.log").mimeType, "text/plain");
+    assert.equal(classifyMedia("text/csv", "table.dat").mimeType, "text/csv");
+    assert.equal(classifyMedia("application/pdf", "scan.xyz").mimeType, "application/pdf");
+});
+
+test("a declared type that can run a script is served as bytes", () => {
+    // <script src=".../original"> would run these on the archive's own origin.
+    for (const declared of [
+        "text/javascript",
+        "application/javascript",
+        "text/html",
+        "application/xhtml+xml",
+        "text/css",
+        "text/xml",
+        "image/svg+xml",
+    ]) {
+        const media = classifyMedia(declared, "upload.xyz");
+        assert.equal(media.mimeType, "application/octet-stream", declared);
+        assert.equal(inlineable(media.mimeType), false, declared);
+    }
+});
+
+test("a long file name is cut but keeps its extension", () => {
+    assert.equal(capFilename("scan.pdf"), "scan.pdf");
+    assert.equal(capFilename(null), null);
+    assert.equal(capFilename(""), null);
+
+    const long = `${"a".repeat(400)}.JPEG`;
+    const cut = capFilename(long);
+    assert.equal(cut?.length, 255);
+    assert.ok(cut?.endsWith(".JPEG"));
+
+    // No extension: the head alone is cut.
+    assert.equal(capFilename("b".repeat(300))?.length, 255);
+    // A cut that would split a surrogate pair drops the half character.
+    const emoji = capFilename("😀".repeat(10), 5);
+    assert.equal(emoji, "😀😀");
 });
 
 test("only what a browser can show inline is marked so", () => {

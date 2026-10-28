@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cropHeight, cropStyle, defaultCrop, maxCropWidth } from "@/lib/photo-crop";
+import { cropHeight, cropStyle, defaultCrop, maxCropWidth, normalizeCrop } from "@/lib/photo-crop";
 
 /** The fractions are worked out in floating point: compare them with a little room. */
 function close(actual: number, expected: number) {
@@ -69,4 +69,40 @@ test("the style scales the picture so that the crop fills the container", () => 
 test("says nothing when there is no crop, or no picture to measure", () => {
     assert.equal(cropStyle(null, 2), undefined);
     assert.equal(cropStyle({ x: 0, y: 0, w: 1, h: 1 }, null), undefined);
+});
+
+test("a crop is rounded to the five decimals of the column", () => {
+    assert.deepEqual(normalizeCrop({ x: 0.123456789, y: 0.2, w: 0.3, h: 0.4 }), {
+        x: 0.12346,
+        y: 0.2,
+        w: 0.3,
+        h: 0.4,
+    });
+});
+
+test("a crop that overshoots after rounding is pulled back inside the picture", () => {
+    // 0.5 + 0.50005 passes a 1.0001 tolerance but is 1.00005 for the CHECK (x + w <= 1).
+    assert.deepEqual(normalizeCrop({ x: 0.5, y: 0.25, w: 0.50005, h: 0.75005 }), {
+        x: 0.5,
+        y: 0.25,
+        w: 0.5,
+        h: 0.75,
+    });
+    // The float sum 0.1 + 0.9 is exactly 1 in the column; it must not be trimmed or refused.
+    assert.deepEqual(normalizeCrop({ x: 0.1, y: 0.1, w: 0.9, h: 0.9 }), {
+        x: 0.1,
+        y: 0.1,
+        w: 0.9,
+        h: 0.9,
+    });
+});
+
+test("a crop that cannot be stored is refused", () => {
+    assert.equal(normalizeCrop({ x: 0.5, y: 0, w: 0.6, h: 0.5 }), null);
+    assert.equal(normalizeCrop({ x: 1, y: 0, w: 0.00005, h: 0.5 }), null);
+    assert.equal(normalizeCrop({ x: 0, y: 0, w: 0, h: 0.5 }), null);
+    assert.equal(normalizeCrop({ x: 0, y: 0, w: 0.000001, h: 0.5 }), null);
+    assert.equal(normalizeCrop({ x: -0.1, y: 0, w: 0.5, h: 0.5 }), null);
+    assert.equal(normalizeCrop({ x: 0, y: 0, w: Number.NaN, h: 0.5 }), null);
+    assert.equal(normalizeCrop({ x: 0, y: 0, w: 1.5, h: 0.5 }), null);
 });

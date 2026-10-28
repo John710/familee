@@ -15,7 +15,7 @@ import { writeAudit } from "@/lib/audit";
 import { isDay } from "@/lib/day";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { exifDateFrom, exifDay } from "@/lib/exif-date";
-import { classifyMedia } from "@/lib/media-kind";
+import { capFilename, classifyMedia, type MediaKind } from "@/lib/media-kind";
 import {
     binaryKey,
     type MediaVariantName,
@@ -605,6 +605,14 @@ async function eventInTree(treeId: string, eventId: string): Promise<boolean> {
 }
 
 /**
+ * The outcome of storing a file. `kind` is the kind of the stored row, which for a file that was
+ * already there is what it was filed as the first time, not what this upload's name suggests.
+ */
+type StoredMedia =
+    | { ok: true; mediaId: string; kind: MediaKind; existed: boolean }
+    | { ok: false; error: PhotoError };
+
+/**
  * Stores a file in the tree: the bytes on disk and the rows in the database. A photograph goes
  * through the picture pipeline and is kept as three WebP variants; a document, a recording or a
  * film is kept exactly as it came, under the extension its kind table chose. The same file again is
@@ -617,17 +625,17 @@ async function storeMedia(input: {
     originalFilename: string | null;
     /** The type the browser declared; only a hint, the kind table has the last word. */
     declaredType?: string | null;
-}): Promise<{ ok: true; mediaId: string; existed: boolean } | { ok: false; error: PhotoError }> {
+}): Promise<StoredMedia> {
     const checksum = createHash("sha256").update(input.source).digest("hex");
 
     const [existing] = await db
-        .select({ id: schema.media.id })
+        .select({ id: schema.media.id, kind: schema.media.kind })
         .from(schema.media)
         .where(
             and(eq(schema.media.treeId, input.treeId), eq(schema.media.checksumSha256, checksum)),
         )
         .limit(1);
-    if (existing) return { ok: true, mediaId: existing.id, existed: true };
+    if (existing) return { ok: true, mediaId: existing.id, kind: existing.kind, existed: true };
 
     const classified = classifyMedia(input.declaredType, input.originalFilename);
     if (!classified.processable) {
@@ -698,7 +706,7 @@ async function storeMedia(input: {
             await removeMediaFiles(written);
             return await adoptExisting(input.treeId, checksum);
         }
-        return { ok: true, mediaId, existed: false };
+        return { ok: true, mediaId, kind: "photo", existed: false };
     } catch {
         await removeMediaFiles(written);
         return { ok: false, error: "media.errors.failed" };
@@ -717,7 +725,7 @@ async function storeBinary(input: {
     originalFilename: string | null;
     checksum: string;
     classified: ReturnType<typeof classifyMedia>;
-}): Promise<{ ok: true; mediaId: string; existed: boolean } | { ok: false; error: PhotoError }> {
+}): Promise<StoredMedia> {
     const storageId = randomBytes(32).toString("hex");
     const key = binaryKey(input.treeId, storageId, input.classified.extension);
 
@@ -749,7 +757,7 @@ async function storeBinary(input: {
             await removeMediaFiles([key]);
             return await adoptExisting(input.treeId, input.checksum);
         }
-        return { ok: true, mediaId, existed: false };
+        return { ok: true, mediaId, kind: input.classified.kind, existed: false };
     } catch {
         await removeMediaFiles([key]);
         return { ok: false, error: "media.errors.failed" };
@@ -760,17 +768,14 @@ async function storeBinary(input: {
  * After a checksum race lost, the record another request wrote is adopted: the loser removes its
  * own files and links the winner's file instead.
  */
-async function adoptExisting(
-    treeId: string,
-    checksum: string,
-): Promise<{ ok: true; mediaId: string; existed: boolean } | { ok: false; error: PhotoError }> {
+async function adoptExisting(treeId: string, checksum: string): Promise<StoredMedia> {
     const [winner] = await db
-        .select({ id: schema.media.id })
+        .select({ id: schema.media.id, kind: schema.media.kind })
         .from(schema.media)
         .where(and(eq(schema.media.treeId, treeId), eq(schema.media.checksumSha256, checksum)))
         .limit(1);
     return winner
-        ? { ok: true, mediaId: winner.id, existed: true }
+        ? { ok: true, mediaId: winner.id, kind: winner.kind, existed: true }
         : { ok: false, error: "media.errors.failed" };
 }
 
@@ -799,20 +804,20 @@ export async function addPersonPhoto(input: {
         )
         .limit(1);
     // Only a fast path: two uploads may pass it at once. The guarded insert below decides which
-    // of them takes the one main place of the person. And only a photograph may take it: a
-    // document, a recording or a film that arrives first stays a gallery file, so the first real
-    // photograph still becomes the portrait.
-    const becomesMain =
-        mainLink === undefined &&
-        classifyMedia(input.declaredType, input.originalFilename).kind === "photo";
+    // of them takes the one main place of the person.
+    const noMain = mainLink === undefined;
+    const originalFilename = capFilename(input.originalFilename);
 
-    const stored = await storeMedia(input);
+    const stored = await storeMedia({ ...input, originalFilename });
     if (!stored.ok) return stored;
 
+    // Only a media row of kind photo may become the portrait. The kind is the stored row's, not
+    // the new file name's: the same bytes sent again under a .jpg name are still the document or
+    // recording they were first filed as, and a document that arrives first stays a gallery file.
     const linked = await linkPhoto({
         mediaId: stored.mediaId,
         personId: input.personId,
-        wantsMain: becomesMain,
+        wantsMain: noMain && stored.kind === "photo",
     });
     if (!linked) return { ok: false, error: "media.errors.duplicate" };
 
@@ -824,7 +829,7 @@ export async function addPersonPhoto(input: {
         entityId: input.personId,
         changes: {
             photo: { from: null, to: stored.mediaId },
-            file: { from: null, to: input.originalFilename },
+            file: { from: null, to: originalFilename },
         },
     });
 
@@ -835,7 +840,7 @@ export async function addPersonPhoto(input: {
             action: "create",
             entityType: "media",
             entityId: stored.mediaId,
-            changes: { file: { from: null, to: input.originalFilename } },
+            changes: { file: { from: null, to: originalFilename } },
         });
     }
     return { ok: true, mediaId: stored.mediaId };
@@ -897,7 +902,8 @@ export async function addEventPhoto(input: {
         return { ok: false, error: "event.notFound" };
     }
 
-    const stored = await storeMedia(input);
+    const originalFilename = capFilename(input.originalFilename);
+    const stored = await storeMedia({ ...input, originalFilename });
     if (!stored.ok) return stored;
 
     // The unique index media_links_media_event_key decides: two uploads of the same file to the
@@ -923,7 +929,7 @@ export async function addEventPhoto(input: {
         entityId: input.eventId,
         changes: {
             photo: { from: null, to: stored.mediaId },
-            file: { from: null, to: input.originalFilename },
+            file: { from: null, to: originalFilename },
         },
     });
 
@@ -934,7 +940,7 @@ export async function addEventPhoto(input: {
             action: "create",
             entityType: "media",
             entityId: stored.mediaId,
-            changes: { file: { from: null, to: input.originalFilename } },
+            changes: { file: { from: null, to: originalFilename } },
         });
     }
     return { ok: true, mediaId: stored.mediaId };
@@ -1056,9 +1062,9 @@ export async function removePhotoLink(input: {
         return { ok: false, error: "event.notFound" };
     }
 
-    // The link goes; the file stays. The gallery of the tree still shows it as unattached, its notes
-    // and the tags of the people in it keep their point, and deleting it for good stays a separate,
-    // deliberate act (the trash of a person, or the deletion of the tree).
+    // The link goes; the file stays. The gallery of the tree lists it as unattached (see
+    // listLooseMedia, where an editor can delete it), its notes and the tags of the people in it
+    // keep their point, and deleting it for good stays a separate, deliberate act.
     const removed = await retryOnUniqueViolation(() =>
         db.transaction(async (tx) => {
             const [row] = await tx
@@ -1185,6 +1191,85 @@ export async function findMediaFile(
         filename: mediaRow.filename,
         byteSize: mediaRow.byteSize,
     };
+}
+
+/** A file that no person's album holds, as the gallery's "outside the albums" section shows it. */
+export type LooseMedia = {
+    mediaId: string;
+    kind: string;
+    mimeType: string;
+    originalFilename: string | null;
+    takenStart: string | null;
+    /** Who is in the photograph, by name (the tags). */
+    tagged: string[];
+    /** The events of unions (and of anything else that is not a person) it is attached to. */
+    events: { type: string; value: string | null }[];
+    /** True when nothing at all points at the file, so an editor may delete it. */
+    deletable: boolean;
+};
+
+/**
+ * The files of a tree that appear in no person's album: those taken off their last album (the link
+ * goes, the file stays), those uploaded and never attached, and those attached only to the event of
+ * a union, a place or a source. Nothing else lists them, so without this they would be shown
+ * nowhere and could never be cleaned up.
+ */
+export async function listLooseMedia(treeId: string): Promise<LooseMedia[]> {
+    const rows = await db
+        .select({
+            mediaId: schema.media.id,
+            kind: schema.media.kind,
+            mimeType: schema.media.mimeType,
+            originalFilename: schema.media.originalFilename,
+            takenStart: schema.media.takenStart,
+        })
+        .from(schema.media)
+        .where(
+            sql`${schema.media.treeId} = ${treeId}
+                and not exists (select 1 from familee.media_links ml
+                                 left join familee.events e on e.id = ml.event_id
+                                 where ml.media_id = ${schema.media.id}
+                                   and (ml.person_id is not null or e.person_id is not null))`,
+        )
+        .orderBy(sql`${schema.media.takenStart} desc nulls last`, desc(schema.media.createdAt));
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((row) => row.mediaId);
+    const links = await db
+        .select({
+            mediaId: schema.mediaLinks.mediaId,
+            eventType: schema.events.typeCode,
+            eventValue: schema.events.value,
+        })
+        .from(schema.mediaLinks)
+        .leftJoin(schema.events, eq(schema.events.id, schema.mediaLinks.eventId))
+        .where(inArray(schema.mediaLinks.mediaId, ids));
+    const tagRows = await db
+        .select({ mediaId: schema.mediaPeople.mediaId })
+        .from(schema.mediaPeople)
+        .where(inArray(schema.mediaPeople.mediaId, ids));
+    const noteRows = await db
+        .select({ mediaId: schema.notes.mediaId })
+        .from(schema.notes)
+        .where(inArray(schema.notes.mediaId, ids));
+    const names = await listPhotoPeople(treeId, ids);
+
+    const linked = new Set(links.map((link) => link.mediaId));
+    const tagged = new Set(tagRows.map((tag) => tag.mediaId));
+    const noted = new Set(noteRows.map((note) => note.mediaId));
+
+    return rows.map((row) => ({
+        ...row,
+        tagged: (names.get(row.mediaId) ?? []).flatMap((person) =>
+            person.name ? [person.name] : [],
+        ),
+        events: links.flatMap((link) =>
+            link.mediaId === row.mediaId && link.eventType
+                ? [{ type: link.eventType, value: link.eventValue }]
+                : [],
+        ),
+        deletable: !linked.has(row.mediaId) && !tagged.has(row.mediaId) && !noted.has(row.mediaId),
+    }));
 }
 
 /**
