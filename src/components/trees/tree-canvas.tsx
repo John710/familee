@@ -736,7 +736,6 @@ function TreeCanvasInner({
                     nodesDraggable={false}
                     nodesConnectable={false}
                     elementsSelectable={false}
-                    onlyRenderVisibleElements
                     minZoom={0.2}
                     maxZoom={1.5}
                     fitView
