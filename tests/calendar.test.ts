@@ -99,6 +99,37 @@ test("escapes what a value must not carry plain", () => {
     );
 });
 
+test("turns every kind of line break in a value into the escaped one", () => {
+    const feed = buildCalendarFeed({
+        title: "Family",
+        entries: [{ uid: "x@familee", date: "1990-04-21", summary: "one\rtwo\r\nthree\nfour" }],
+        stamp: STAMP,
+    });
+
+    // A lone carriage return left in the file would end the content line for a reader.
+    assert.ok(unfold(feed).includes("SUMMARY:one\\ntwo\\nthree\\nfour"));
+    assert.equal(feed.replaceAll("\r\n", "").includes("\r"), false);
+});
+
+test("keeps a 29 February event in the years that have no 29th", () => {
+    const feed = buildCalendarFeed({
+        title: "Family",
+        entries: [
+            { uid: "leap@familee", date: "1992-02-29", summary: "Leap" },
+            { uid: "plain@familee", date: "1992-03-01", summary: "Plain" },
+        ],
+        stamp: STAMP,
+    });
+
+    const lines = unfold(feed);
+    // The last day of February: the 28th or the 29th, as the year has it.
+    assert.equal(
+        lines.filter((line) => line === "RRULE:FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=-1").length,
+        1,
+    );
+    assert.equal(lines.filter((line) => line === "RRULE:FREQ=YEARLY").length, 1);
+});
+
 test("folds a long line at 75 octets and unfolds to the same text", () => {
     // 40 Cyrillic letters are 80 octets, so the line cannot be longer than that.
     const summary = "Иванов Пётр Сергеевич и Иванова Анна Петровна";

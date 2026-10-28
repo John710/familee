@@ -7,6 +7,8 @@
  * of any month is built from the same list: an event of 1890 stands in the calendar of today.
  */
 
+import { MAX_BIRTHDAY_AGE } from "@/lib/age";
+
 /** An anniversary: it comes round on the same day every year. */
 export type Anniversary = {
     /** The same on every build, so a list keeps its rows when the month changes. */
@@ -84,6 +86,16 @@ export function buildMonth(
     const byDay = new Map<number, Anniversary[]>();
     for (const entry of anniversaries) {
         if (entry.year !== null && entry.year > year) continue;
+        // A person with no death date is living, so an old tree would "turn 176": nobody is
+        // announced who would be older than the limit. The dead keep their day without an age.
+        if (
+            entry.kind === "birthday" &&
+            entry.living !== false &&
+            entry.year !== null &&
+            year - entry.year > MAX_BIRTHDAY_AGE
+        ) {
+            continue;
+        }
         const day = dayOf(entry, month, length);
         if (day === null) continue;
         byDay.set(day, [...(byDay.get(day) ?? []), entry]);

@@ -7,7 +7,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { db, schema } from "@/db";
 import { Link } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
-import { todayIn } from "@/lib/age";
+import { isExactQualifier, todayIn } from "@/lib/age";
 import { listPersonCards } from "@/lib/people";
 import { requireUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -60,8 +60,15 @@ export default async function TreeCalendarPage({
 
     const anniversaries: Anniversary[] = [];
     for (const card of cards) {
-        // Only a birthday known to the day has a place on the grid.
-        if (!card.birthDate || card.birthPrecision !== "day") continue;
+        // Only a birthday known to the day has a place on the grid; "before 1921" or "about
+        // 12.04.1921" carries a day on paper only.
+        if (
+            !card.birthDate ||
+            card.birthPrecision !== "day" ||
+            !isExactQualifier(card.birthQualifier)
+        ) {
+            continue;
+        }
         anniversaries.push({
             key: `birth-${card.personId}`,
             monthDay: card.birthDate.slice(5),
@@ -99,6 +106,10 @@ export default async function TreeCalendarPage({
         if (!event.sortDate) continue;
         // A birth already stands on the grid as the birthday of its person.
         if (event.typeCode === "birth") continue;
+        // A person in the trash has no card, and a union whose partners are all in the trash is
+        // not returned by loadFamilies: their events would stand as "Unknown" over a hidden record.
+        if (event.personId && !nameOf.has(event.personId)) continue;
+        if (event.familyId && !partnersOf.has(event.familyId)) continue;
 
         const partners = event.familyId
             ? (partnersOf.get(event.familyId) ?? [])

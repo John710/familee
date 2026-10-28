@@ -5,18 +5,37 @@
  * people are related by blood through their nearest common ancestor: the number of generations
  * from the first one up to that ancestor (up) and from the second one (down) names the relation
  * (0 and 2 is a grandchild, 2 and 2 is a second cousin, 2 and 3 is a second cousin once removed).
- * A partner in a union is a spouse. The phrases themselves are in messages/<locale>.json under
- * kinship.* and are composed in the component that shows them.
+ * Siblings with one parent in common are half-siblings. A partner in a union is a spouse, or a
+ * former spouse when the union ended in a divorce. A step or adoptive link between a parent and a
+ * child is named as such and is not counted as blood; a step link leads to no relatives at all.
+ * The phrases themselves are in messages/<locale>.json under kinship.* and are composed in the
+ * component that shows them.
  */
 
 export type Relation =
     | { kind: "self" }
     | { kind: "spouse" }
-    | { kind: "blood"; up: number; down: number }
+    /** The partner of a union that ended in a divorce. */
+    | { kind: "exSpouse" }
+    /** A half-sibling has up 1 and down 1 like a sibling, and `half` set. */
+    | { kind: "blood"; up: number; down: number; half?: true }
     /** The spouse of a blood relative: the relative's own relation, named "...-in-law". */
-    | { kind: "inLaw"; up: number; down: number };
+    | { kind: "inLaw"; up: number; down: number }
+    /** A parent or a child that is not one by birth; the name is the one the person is called by. */
+    | { kind: "link"; link: "stepParent" | "stepChild" | "adoptiveParent" | "adoptedChild" };
 
-export type KinshipFamily = { partners: string[]; children: string[] };
+export type KinshipFamily = {
+    partners: string[];
+    children: string[];
+    /** True when the union has a divorce event: its partners are former spouses. */
+    ended?: boolean;
+    /**
+     * The links of children that are not by birth: child id, then parent id, then the relation
+     * that applies to that parent (family_children.relation, or its per-partner override). A pair
+     * that is missing is a plain parent-child link.
+     */
+    parentLinks?: Record<string, Record<string, string>>;
+};
 
 /** How far up the search goes; the database guard uses the same bound. */
 const MAX_DEPTH = 20;
@@ -46,19 +65,45 @@ export function relationsTo(
     families: KinshipFamily[],
     people: string[],
 ): Map<string, Relation> {
-    const parentsOf = new Map<string, string[]>();
+    // The parents a person is related to by blood or by adoption. A step parent is not among them.
+    const parentsOf = new Map<string, Set<string>>();
+    // What each parent-child link is, when any union says so: the kinds seen for the pair.
+    const linkKinds = new Map<string, Set<string>>();
     const spousesOf = new Map<string, string[]>();
+    // The partners of a union that has not ended.
+    const currentSpousesOf = new Map<string, Set<string>>();
     for (const family of families) {
         for (const child of family.children) {
-            parentsOf.set(child, [...(parentsOf.get(child) ?? []), ...family.partners]);
+            for (const parent of family.partners) {
+                if (parent === child) continue;
+                const kind = family.parentLinks?.[child]?.[parent] ?? "biological";
+                const key = `${child}\u0000${parent}`;
+                linkKinds.set(key, (linkKinds.get(key) ?? new Set()).add(kind));
+                if (kind === "step") continue;
+                parentsOf.set(child, (parentsOf.get(child) ?? new Set()).add(parent));
+            }
         }
         for (const partner of family.partners) {
             const others = family.partners.filter((candidate) => candidate !== partner);
             spousesOf.set(partner, [...(spousesOf.get(partner) ?? []), ...others]);
+            if (!family.ended) {
+                const current = currentSpousesOf.get(partner) ?? new Set<string>();
+                for (const other of others) current.add(other);
+                currentSpousesOf.set(partner, current);
+            }
         }
     }
+    const parentsList = new Map([...parentsOf].map(([child, set]) => [child, [...set]]));
 
-    const selfDepths = ancestorDepths(selfId, parentsOf);
+    /** "step" or "adopted" when every union that links the pair says so; null for a plain link. */
+    const nonBirthLink = (child: string, parent: string): "step" | "adopted" | null => {
+        const kinds = linkKinds.get(`${child}\u0000${parent}`);
+        if (!kinds) return null;
+        if ([...kinds].some((kind) => kind !== "step" && kind !== "adopted")) return null;
+        return kinds.has("adopted") ? "adopted" : "step";
+    };
+
+    const selfDepths = ancestorDepths(selfId, parentsList);
     const result = new Map<string, Relation>();
     for (const person of people) {
         if (person === selfId) {
@@ -66,12 +111,27 @@ export function relationsTo(
             continue;
         }
         if ((spousesOf.get(selfId) ?? []).includes(person)) {
-            result.set(person, { kind: "spouse" });
+            const current = currentSpousesOf.get(selfId)?.has(person) ?? false;
+            result.set(person, { kind: current ? "spouse" : "exSpouse" });
+            continue;
+        }
+
+        // A parent or a child by step or by adoption is named so, and is not a blood relative.
+        const parentLink = nonBirthLink(selfId, person);
+        if (parentLink) {
+            const link = parentLink === "step" ? "stepParent" : "adoptiveParent";
+            result.set(person, { kind: "link", link });
+            continue;
+        }
+        const childLink = nonBirthLink(person, selfId);
+        if (childLink) {
+            const link = childLink === "step" ? "stepChild" : "adoptedChild";
+            result.set(person, { kind: "link", link });
             continue;
         }
 
         // The common ancestor that makes the shortest path: fewest generations, then the most even.
-        const otherDepths = ancestorDepths(person, parentsOf);
+        const otherDepths = ancestorDepths(person, parentsList);
         let best: { up: number; down: number } | null = null;
         for (const [ancestor, up] of selfDepths) {
             const down = otherDepths.get(ancestor);
@@ -83,7 +143,14 @@ export function relationsTo(
                     Math.max(up, down) < Math.max(best.up, best.down));
             if (better) best = { up, down };
         }
-        if (best) result.set(person, { kind: "blood", up: best.up, down: best.down });
+        if (best) {
+            const { up, down } = best;
+            const half = up === 1 && down === 1 && isHalf(selfId, person, parentsOf);
+            result.set(
+                person,
+                half ? { kind: "blood", up, down, half: true } : { kind: "blood", up, down },
+            );
+        }
     }
 
     // The spouses of blood relatives (an aunt's husband, a son's wife): they are in-laws.
@@ -98,6 +165,18 @@ export function relationsTo(
         }
     }
     return result;
+}
+
+/**
+ * Two siblings are half-siblings when they share exactly one parent and at least one of them has
+ * another parent on record. A pair that knows only one parent each, the same one, stays siblings:
+ * nothing says the other parent differs.
+ */
+function isHalf(a: string, b: string, parentsOf: Map<string, Set<string>>): boolean {
+    const first = parentsOf.get(a) ?? new Set<string>();
+    const second = parentsOf.get(b) ?? new Set<string>();
+    const shared = [...first].filter((parent) => second.has(parent));
+    return shared.length === 1 && (first.size > 1 || second.size > 1);
 }
 
 /**

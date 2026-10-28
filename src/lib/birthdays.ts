@@ -31,6 +31,7 @@ export function birthdayInput(card: Card, slug: string) {
         name: card.fullName ?? "",
         birthDate: card.birthDate,
         birthPrecision: card.birthPrecision,
+        birthQualifier: card.birthQualifier,
         isLiving: card.isLiving,
         photoUrl: card.portraitMediaId
             ? `/api/trees/${slug}/media/${card.portraitMediaId}/thumb`

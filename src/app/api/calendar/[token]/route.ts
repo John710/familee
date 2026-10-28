@@ -6,7 +6,8 @@
  * exist: nothing about the archive is said to somebody who does not have the key.
  *
  * Birthdays and wedding days become yearly events. Only dates with a full day go in: a birthday
- * known to the month would be pinned to a day nobody recorded.
+ * known to the month would be pinned to a day nobody recorded. Birthdays are those of the living
+ * (see nextBirthday in lib/age.ts); the wedding days stay as they are.
  */
 
 import { and, eq, isNotNull } from "drizzle-orm";
@@ -14,6 +15,7 @@ import { getTranslations } from "next-intl/server";
 
 import { db, schema } from "@/db";
 import { routing } from "@/i18n/routing";
+import { nextBirthday, todayIn } from "@/lib/age";
 import { buildCalendarFeed, type CalendarEntry } from "@/lib/calendar";
 import { listPersonCards } from "@/lib/people";
 import { loadFamilies } from "@/lib/tree-view";
@@ -46,9 +48,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
     const cards = await listPersonCards(tree.id);
     const nameOf = new Map(cards.map((card) => [card.personId, card.fullName ?? ""]));
 
+    // The same rule as the bell: the living, an exact birth day, nobody older than 110. A feed
+    // that names the dead as having a birthday would be wrong on every phone that subscribes.
+    const today = todayIn();
     const entries: CalendarEntry[] = [];
     for (const card of cards) {
-        if (!card.birthDate || card.birthPrecision !== "day") continue;
+        if (!card.birthDate || !nextBirthday(card, today)) continue;
         entries.push({
             uid: `birth-${card.personId}@familee`,
             date: card.birthDate,
