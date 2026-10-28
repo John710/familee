@@ -31,17 +31,11 @@ WORKDIR /app
 
 # The manifests only: the dependency layer is rebuilt when package.json
 # or the lock file changes, not on every edit of the code.
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json ./
 
-# npm ci needs a lock file. On the very first build there is none yet, so
-# a plain install is used instead. After the first build it is worth
-# taking package-lock.json out of the container and committing it:
-#   docker compose run --rm --no-deps app cat /app/package-lock.json
-RUN if [ -f package-lock.json ]; then \
-        npm ci; \
-    else \
-        npm install --no-audit --no-fund; \
-    fi
+# The lock file is committed, so the install is exactly the pinned tree: a
+# missing lock file is an error, not a reason to resolve the versions anew.
+RUN npm ci
 
 # ─── Build ──────────────────────────────────────────────────────────
 FROM base AS builder

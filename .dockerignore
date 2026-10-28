@@ -18,6 +18,12 @@ build
 .vscode
 media
 backups
-*.ged
+# Personal material: docs/ holds the family's own GEDCOM and notes. A bare `*.ged` matches only
+# the root, so the patterns reach into every folder.
+docs
+**/*.ged
+**/*.GED
 .mcp.json
 .claude
+tools
+*.tsbuildinfo
