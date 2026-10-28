@@ -13,6 +13,7 @@ import { type AgeInfo, ageOf, todayIn, upcomingBirthdays } from "@/lib/age";
 import { BIRTHDAY_DAYS } from "@/lib/birthdays";
 import { type KinshipFamily, type Relation, relationsTo } from "@/lib/kinship";
 import { listPersonCards } from "@/lib/people";
+import { assembleFamilies } from "@/lib/tree-families";
 import { CARD_HEIGHT, CARD_WIDTH, layoutTree } from "@/lib/tree-layout";
 
 export type PersonNodeData = {
@@ -124,19 +125,8 @@ export async function loadFamilies(treeId: string): Promise<TreeFamily[]> {
         .orderBy(asc(schema.familyChildren.birthOrder));
 
     // A person in the trash is neither a partner nor a child anywhere - the join to persons is the
-    // filter. A union left without partners is not returned at all: there is nothing to draw, and
-    // when the person comes back the union is exactly as it was.
-    return familyRows
-        .map((family) => ({
-            id: family.id,
-            partners: partnerRows
-                .filter((row) => row.familyId === family.id)
-                .map((row) => row.personId),
-            children: childRows
-                .filter((row) => row.familyId === family.id)
-                .map((row) => row.personId),
-        }))
-        .filter((family) => family.partners.length > 0);
+    // filter. Which unions stay is decided in ./tree-families.ts.
+    return assembleFamilies(familyRows, partnerRows, childRows);
 }
 
 /** The size of a junction dot; the node is placed by its top-left corner. */

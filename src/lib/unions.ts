@@ -6,7 +6,7 @@
  * names come from familee.person_cards.
  */
 
-import { and, asc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, notExists, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { listEventCitations } from "@/lib/library";
@@ -32,6 +32,8 @@ export type UnionEvent = {
 export type UnionView = {
     familyId: string;
     type: string;
+    /** True for a union without partners that the person is listed in as a child. */
+    asChild: boolean;
     partner: { personId: string; name: string } | null;
     children: { personId: string; name: string; relation: string }[];
     events: UnionEvent[];
@@ -54,7 +56,7 @@ export async function listFamilyEventTypes(): Promise<
 
 /** The unions a person belongs to, with the other partner, the children and the events of each. */
 export async function listUnionsForPerson(treeId: string, personId: string): Promise<UnionView[]> {
-    const memberships = await db
+    const partnerMemberships = await db
         .select({
             familyId: schema.familyPartners.familyId,
             type: schema.families.type,
@@ -67,6 +69,42 @@ export async function listUnionsForPerson(treeId: string, personId: string): Pro
                 eq(schema.familyPartners.personId, personId),
             ),
         );
+
+    // A union the person belongs to only as a child, and which has no partner (a GEDCOM FAM with
+    // only CHIL lines): nothing finds it through a partner, yet it holds the person's siblings.
+    // A union whose partners are all in the trash counts as having none, as in the tree.
+    const parentless = await db
+        .select({
+            familyId: schema.familyChildren.familyId,
+            type: schema.families.type,
+        })
+        .from(schema.familyChildren)
+        .innerJoin(schema.families, eq(schema.families.id, schema.familyChildren.familyId))
+        .where(
+            and(
+                eq(schema.familyChildren.treeId, treeId),
+                eq(schema.familyChildren.personId, personId),
+                notExists(
+                    db
+                        .select({ one: sql`1` })
+                        .from(schema.familyPartners)
+                        .innerJoin(
+                            schema.persons,
+                            eq(schema.persons.id, schema.familyPartners.personId),
+                        )
+                        .where(
+                            and(
+                                eq(schema.familyPartners.familyId, schema.families.id),
+                                isNull(schema.persons.deletedAt),
+                            ),
+                        ),
+                ),
+            ),
+        );
+    const memberships = [
+        ...partnerMemberships.map((row) => ({ ...row, asChild: false })),
+        ...parentless.map((row) => ({ ...row, asChild: true })),
+    ];
 
     // The events of every union of this person, read in one query: a marriage belongs to the
     // union, not to a partner, so nothing would find it by the person alone.
@@ -153,6 +191,7 @@ export async function listUnionsForPerson(treeId: string, personId: string): Pro
         views.push({
             familyId: membership.familyId,
             type: membership.type,
+            asChild: membership.asChild,
             partner: partner ? { personId: partner.personId, name: partner.name ?? "" } : null,
             children: children.map((child) => ({
                 personId: child.personId,

@@ -9,7 +9,7 @@
  * of a database check is mapped to a translation key, and every change goes to the audit log.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { clearedFields, diffFields, writeAudit } from "@/lib/audit";
@@ -184,24 +184,52 @@ export async function deleteFamilyEventAction(input: {
     if (!access.ok) return access;
     if (!UUID.test(input.eventId)) return { ok: false, error: "family.notFound" };
 
-    const deleted = await db
-        .delete(schema.events)
-        .where(
-            and(
-                eq(schema.events.id, input.eventId),
-                eq(schema.events.familyId, input.familyId),
-                eq(schema.events.treeId, access.treeId),
-            ),
-        )
-        .returning({
-            id: schema.events.id,
-            typeCode: schema.events.typeCode,
-            value: schema.events.value,
-            description: schema.events.description,
-            dateOriginal: schema.events.dateOriginal,
-            placeId: schema.events.placeId,
-        });
-    const [removed] = deleted;
+    // The delete and the promotion go together: between them the union would have no primary
+    // marriage, and everything that reads the primary one would lose it.
+    const removed = await db.transaction(async (tx) => {
+        const [gone] = await tx
+            .delete(schema.events)
+            .where(
+                and(
+                    eq(schema.events.id, input.eventId),
+                    eq(schema.events.familyId, input.familyId),
+                    eq(schema.events.treeId, access.treeId),
+                ),
+            )
+            .returning({
+                id: schema.events.id,
+                typeCode: schema.events.typeCode,
+                value: schema.events.value,
+                description: schema.events.description,
+                dateOriginal: schema.events.dateOriginal,
+                placeId: schema.events.placeId,
+                isPrimary: schema.events.isPrimary,
+            });
+        if (gone?.isPrimary) {
+            // The earliest remaining event of the same type takes over; undated ones come last.
+            const [next] = await tx
+                .select({ id: schema.events.id })
+                .from(schema.events)
+                .where(
+                    and(
+                        eq(schema.events.familyId, input.familyId),
+                        eq(schema.events.typeCode, gone.typeCode),
+                    ),
+                )
+                .orderBy(
+                    sql`${schema.events.sortDate} asc nulls last`,
+                    asc(schema.events.createdAt),
+                )
+                .limit(1);
+            if (next) {
+                await tx
+                    .update(schema.events)
+                    .set({ isPrimary: true, updatedBy: access.userId, updatedAt: new Date() })
+                    .where(eq(schema.events.id, next.id));
+            }
+        }
+        return gone;
+    });
     if (!removed) return { ok: false, error: "family.notFound" };
 
     await writeAudit({

@@ -19,7 +19,7 @@ export default async function SearchPage({
     searchParams,
 }: {
     params: Promise<Params>;
-    searchParams: Promise<{ q?: string }>;
+    searchParams: Promise<{ q?: string | string[] }>;
 }) {
     const { locale, slug } = await params;
     if (!hasLocale(routing.locales, locale)) notFound();
@@ -29,8 +29,9 @@ export default async function SearchPage({
     const access = await getTreeAccess(slug, user.id);
     if (!access) notFound();
 
-    const { q = "" } = await searchParams;
-    const query = q.trim();
+    // `?q=a&q=b` arrives as an array: the first value is the question.
+    const { q: raw } = await searchParams;
+    const query = (Array.isArray(raw) ? (raw[0] ?? "") : (raw ?? "")).trim();
     const hits = await searchTree(access.treeId, query);
     const t = await getTranslations();
 

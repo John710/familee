@@ -11,12 +11,13 @@
  * familee.derive_is_living() answers "not living". Nothing else is needed.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { diffFields, writeAudit } from "@/lib/audit";
 import { loadDateWords } from "@/lib/date-words";
 import { type ParsedDate, parseFuzzyDate } from "@/lib/fuzzy-date";
+import { findPlaceInTree } from "@/lib/library";
 import { getPersonForEdit } from "@/lib/people";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
@@ -45,6 +46,8 @@ export type PersonInput = {
 };
 
 const SEXES = ["male", "female", "unknown"] as const;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function createPersonAction(
     input: Omit<PersonInput, "personId">,
@@ -93,11 +96,18 @@ async function savePerson(
     const notes = input.notes.trim() === "" ? null : input.notes.trim();
 
     // The places of the birth and the death: only places of this tree, and only with a date.
-    const birthPlaceId = await treePlace(access.treeId, input.birthPlaceId);
-    const deathPlaceId = await treePlace(access.treeId, input.deathPlaceId);
+    const birthPlaceId = await findPlaceInTree(access.treeId, input.birthPlaceId ?? null);
+    const deathPlaceId = await findPlaceInTree(access.treeId, input.deathPlaceId ?? null);
 
-    // The values before the edit, for the diff in the audit log (an update only).
-    const before = existingId === null ? null : await getPersonForEdit(access.treeId, existingId);
+    // The values before the edit, for the diff in the audit log (an update only). The card view
+    // leaves the trash out, so a null here means the person is unknown, of another tree or trashed:
+    // none of them may be edited, and none of them may be logged as a creation.
+    let before: Awaited<ReturnType<typeof getPersonForEdit>> = null;
+    if (existingId !== null) {
+        if (!UUID.test(existingId)) return { ok: false, error: "person.notFound" };
+        before = await getPersonForEdit(access.treeId, existingId);
+        if (!before) return { ok: false, error: "person.notFound" };
+    }
 
     const personId = await db.transaction(async (tx) => {
         let id: string;
@@ -130,9 +140,16 @@ async function savePerson(
             const [updated] = await tx
                 .update(schema.persons)
                 .set({ sex: input.sex, notes, updatedBy: user.id, updatedAt: new Date() })
-                .where(and(eq(schema.persons.id, id), eq(schema.persons.treeId, access.treeId)))
+                .where(
+                    and(
+                        eq(schema.persons.id, id),
+                        eq(schema.persons.treeId, access.treeId),
+                        isNull(schema.persons.deletedAt),
+                    ),
+                )
                 .returning({ id: schema.persons.id });
-            if (!updated) throw new Error("person not found in this tree");
+            // Trashed between the check above and this write: nothing has been written yet.
+            if (!updated) return null;
 
             await tx
                 .update(schema.personNames)
@@ -156,6 +173,7 @@ async function savePerson(
 
         return id;
     });
+    if (personId === null) return { ok: false, error: "person.notFound" };
 
     if (before === null) {
         await writeAudit({
@@ -269,18 +287,4 @@ async function upsertLifeEvent(
             createdBy: userId,
         });
     }
-}
-
-/** A place of this tree by its id, or null: a place of another tree is never taken. */
-async function treePlace(
-    treeId: string,
-    placeId: string | null | undefined,
-): Promise<string | null> {
-    if (!placeId) return null;
-    const [row] = await db
-        .select({ id: schema.places.id })
-        .from(schema.places)
-        .where(and(eq(schema.places.id, placeId), eq(schema.places.treeId, treeId)))
-        .limit(1);
-    return row?.id ?? null;
 }

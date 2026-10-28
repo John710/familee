@@ -11,7 +11,9 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
+import { isCheckViolation, isForeignKeyViolation } from "@/lib/db-errors";
 import { isValidLatitude, isValidLongitude, parseCoordinate } from "@/lib/geo";
+import { findPlaceInTree } from "@/lib/library";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -59,7 +61,6 @@ export type PlaceInput = {
     name: string;
     kind: string;
     parentId: string | null;
-    fullName: string;
     notes: string;
     /** A coordinate as typed: "54.1931" or "54,1931"; empty takes it away. */
     latitude: string;
@@ -74,9 +75,12 @@ export async function savePlaceAction(input: PlaceInput): Promise<LibraryResult>
     if (!(PLACE_KINDS as readonly string[]).includes(input.kind)) {
         return { ok: false, error: "validation.required" };
     }
-    if (input.parentId && (!UUID.test(input.parentId) || input.parentId === input.id)) {
-        return { ok: false, error: "validation.required" };
-    }
+    if (input.id && !UUID.test(input.id)) return { ok: false, error: "validation.required" };
+    if (input.id && input.parentId === input.id) return { ok: false, error: "place.cycle" };
+    // A parent must be a place of this tree; the trigger would refuse another one with an error
+    // that is no message for the person.
+    const parentId = input.parentId ? await findPlaceInTree(access.treeId, input.parentId) : null;
+    if (input.parentId && !parentId) return { ok: false, error: "place.notFound" };
 
     // The coordinates are optional, but a coordinate that was typed has to be a real one, or the
     // map would place the village in the sea.
@@ -89,48 +93,56 @@ export async function savePlaceAction(input: PlaceInput): Promise<LibraryResult>
         return { ok: false, error: "validation.longitudeRange" };
     }
 
+    // The full name ("village, district, region") is not a field: the places_before_write trigger
+    // builds it from the name and the parent on every write.
     const values = {
         name,
         kind: input.kind as (typeof PLACE_KINDS)[number],
-        parentId: input.parentId,
-        fullName: blank(input.fullName),
+        parentId,
         notes: blank(input.notes),
         latitude,
         longitude,
         updatedAt: new Date(),
     };
 
-    if (input.id) {
-        if (!UUID.test(input.id)) return { ok: false, error: "validation.required" };
-        const updated = await db
-            .update(schema.places)
-            .set(values)
-            .where(and(eq(schema.places.id, input.id), eq(schema.places.treeId, access.treeId)))
+    try {
+        if (input.id) {
+            const updated = await db
+                .update(schema.places)
+                .set(values)
+                .where(and(eq(schema.places.id, input.id), eq(schema.places.treeId, access.treeId)))
+                .returning({ id: schema.places.id });
+            if (updated.length === 0) return { ok: false, error: "validation.required" };
+            await writeAudit({
+                treeId: access.treeId,
+                userId: access.userId,
+                action: "update",
+                entityType: "place",
+                entityId: input.id,
+            });
+            return { ok: true, id: input.id };
+        }
+
+        const [created] = await db
+            .insert(schema.places)
+            .values({ ...values, treeId: access.treeId })
             .returning({ id: schema.places.id });
-        if (updated.length === 0) return { ok: false, error: "validation.required" };
+        if (!created) return { ok: false, error: "validation.required" };
         await writeAudit({
             treeId: access.treeId,
             userId: access.userId,
-            action: "update",
+            action: "create",
             entityType: "place",
-            entityId: input.id,
+            entityId: created.id,
         });
-        return { ok: true, id: input.id };
+        return { ok: true, id: created.id };
+    } catch (error) {
+        // The trigger is the last guard: a place moved under its own descendant, or a parent that
+        // went away between the check above and the write.
+        if (isCheckViolation(error)) return { ok: false, error: "place.cycle" };
+        if (isForeignKeyViolation(error)) return { ok: false, error: "place.notFound" };
+        throw error;
     }
-
-    const [created] = await db
-        .insert(schema.places)
-        .values({ ...values, treeId: access.treeId })
-        .returning({ id: schema.places.id });
-    if (!created) return { ok: false, error: "validation.required" };
-    await writeAudit({
-        treeId: access.treeId,
-        userId: access.userId,
-        action: "create",
-        entityType: "place",
-        entityId: created.id,
-    });
-    return { ok: true, id: created.id };
 }
 
 export async function deletePlaceAction(input: {

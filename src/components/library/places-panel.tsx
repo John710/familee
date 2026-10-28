@@ -71,7 +71,6 @@ export function PlacesPanel({
             name: String(form.get("name") ?? ""),
             kind: String(form.get("kind") ?? "other"),
             parentId: String(form.get("parentId") ?? "") || null,
-            fullName: String(form.get("fullName") ?? ""),
             notes: String(form.get("notes") ?? ""),
             latitude: String(form.get("latitude") ?? ""),
             longitude: String(form.get("longitude") ?? ""),
@@ -238,7 +237,7 @@ function PlaceForm({
                     ))}
                 </select>
             </label>
-            <label className="flex flex-col gap-1">
+            <label className="flex flex-col gap-1 sm:col-span-2">
                 <span className="text-xs">{t("place.fields.parent")}</span>
                 <select name="parentId" defaultValue={place?.parentId ?? ""} className="select">
                     <option value="">—</option>
@@ -250,10 +249,6 @@ function PlaceForm({
                             </option>
                         ))}
                 </select>
-            </label>
-            <label className="flex flex-col gap-1">
-                <span className="text-xs">{t("place.fields.fullName")}</span>
-                <input name="fullName" defaultValue={place?.fullName ?? ""} className="input" />
             </label>
             <label className="flex flex-col gap-1">
                 <span className="text-xs">{t("place.fields.latitude")}</span>

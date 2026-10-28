@@ -9,7 +9,7 @@
  * Not a server action: called from the page after the caller's access to the tree has been checked.
  */
 
-import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { todayIn } from "@/lib/age";
@@ -77,6 +77,8 @@ export async function listDataProblems(treeId: string): Promise<CheckReport> {
 
     const partnersOf = new Map<string, string[]>();
     for (const row of partnerRows) {
+        // The cards are the people outside the trash; a trashed partner is not a partner here.
+        if (!names.has(row.personId)) continue;
         partnersOf.set(row.familyId, [...(partnersOf.get(row.familyId) ?? []), row.personId]);
     }
 
@@ -126,10 +128,12 @@ export async function listDataProblems(treeId: string): Promise<CheckReport> {
             ),
         })
         .from(schema.events)
+        // A person in the trash keeps their events, but they are not part of the archive any more.
+        .innerJoin(schema.persons, eq(schema.persons.id, schema.events.personId))
         .where(
             and(
                 eq(schema.events.treeId, treeId),
-                isNotNull(schema.events.personId),
+                isNull(schema.persons.deletedAt),
                 inArray(schema.events.typeCode, ["birth", "death"]),
             ),
         )
