@@ -63,6 +63,32 @@ test("an unknown file is kept, and served as bytes to download", () => {
     assert.equal(inlineable(media.mimeType), false);
 });
 
+test("a declared type is kept for an unknown extension only when it is safe", () => {
+    // Sound, film and plain documents keep the flavour the browser named.
+    assert.equal(classifyMedia("audio/x-custom", "memo.xyz").mimeType, "audio/x-custom");
+    assert.equal(classifyMedia("video/3gpp", "clip.3gp").mimeType, "video/3gpp");
+    assert.equal(classifyMedia("text/plain; charset=utf-8", "notes.log").mimeType, "text/plain");
+    assert.equal(classifyMedia("text/csv", "table.dat").mimeType, "text/csv");
+    assert.equal(classifyMedia("application/pdf", "scan.xyz").mimeType, "application/pdf");
+});
+
+test("a declared type that can run a script is served as bytes", () => {
+    // <script src=".../original"> would run these on the archive's own origin.
+    for (const declared of [
+        "text/javascript",
+        "application/javascript",
+        "text/html",
+        "application/xhtml+xml",
+        "text/css",
+        "text/xml",
+        "image/svg+xml",
+    ]) {
+        const media = classifyMedia(declared, "upload.xyz");
+        assert.equal(media.mimeType, "application/octet-stream", declared);
+        assert.equal(inlineable(media.mimeType), false, declared);
+    }
+});
+
 test("only what a browser can show inline is marked so", () => {
     assert.equal(inlineable("image/jpeg"), true);
     assert.equal(inlineable("application/pdf"), true);

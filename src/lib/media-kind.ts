@@ -135,12 +135,11 @@ export function classifyMedia(
 
     let mimeType = known?.mimeType ?? FALLBACK_TYPE;
     if (!known && declaredType) {
-        // Only a declared type that agrees with the kind is trusted: it may name the exact flavour
-        // of an audio or a text file the table does not carry.
+        // A declared type is kept only when it agrees with the kind AND is on the allow-list: it
+        // may name the exact flavour of an audio or a text file the table does not carry, but
+        // text/javascript or text/html would run on the archive's own origin through <script src>.
         const declared = declaredType.toLowerCase().split(";")[0]?.trim() ?? "";
-        if (declared.startsWith(`${kind}/`) || kindFromMime(declared) === kind) {
-            if (declared.includes("/") && !declared.startsWith("image/")) mimeType = declared;
-        }
+        if (kindFromMime(declared) === kind && isSafeDeclared(declared)) mimeType = declared;
     }
 
     const pathExtension = extension ?? extensionForMime(mimeType);
@@ -151,6 +150,21 @@ export function classifyMedia(
         extension: pathExtension,
         processable: kind === "photo",
     };
+}
+
+/** The declared types that cannot carry a script and so may be served as the browser named them. */
+const SAFE_DECLARED = new Set([
+    "application/pdf",
+    "application/rtf",
+    "text/plain",
+    "text/csv",
+    "text/markdown",
+]);
+
+/** Sound and film are played by the media elements, which never run what they are given. */
+function isSafeDeclared(type: string): boolean {
+    if (SAFE_DECLARED.has(type)) return true;
+    return /^(audio|video)\/[a-z0-9][a-z0-9.+_-]*$/.test(type);
 }
 
 /** The extension for a known mime type, so a PDF without a name still ends in .pdf. */
