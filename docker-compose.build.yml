@@ -106,7 +106,7 @@ services:
     # tests (`test`). The application image applies the migrations itself on
     # start; this service is only psql, so nothing is installed on the host.
     tools:
-        image: postgres:alpine
+        image: postgres:18.6-alpine3.24
         profiles:
             - tools
         environment:
