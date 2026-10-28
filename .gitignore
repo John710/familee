@@ -45,7 +45,6 @@ Thumbs.db
 # developer's machine. Delete these lines to keep them in the repository.
 /.claude/
 /.mcp.json
-/.sharrowkin/
 /CLAUDE.md
 /tools/add_context7_mcp.ps1
 /tools/rollback_context7_mcp.ps1
