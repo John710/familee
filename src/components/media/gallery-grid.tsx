@@ -7,12 +7,15 @@
  * and link to their cards.
  */
 
+import { Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
+import { ConfirmDialog } from "@/components/layout/confirm-dialog";
 import { Lightbox, photoUrl } from "@/components/media/lightbox";
 import { MediaIcon } from "@/components/media/media-icon";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
+import { deleteLooseMediaAction } from "@/lib/actions/photos";
 import { formatDay } from "@/lib/day";
 
 export type GalleryPhoto = {
@@ -33,12 +36,45 @@ export type GalleryPhoto = {
     people: { personId: string; name: string }[];
     /** The events the photograph is attached to: their type and value, shown as captions. */
     events: { type: string; value: string | null }[];
+    /** Nothing points at the file, so an editor may delete it (the "outside the albums" section). */
+    deletable?: boolean;
 };
 
-export function GalleryGrid({ slug, photos }: { slug: string; photos: GalleryPhoto[] }) {
+export function GalleryGrid({
+    slug,
+    photos,
+    canEdit = false,
+}: {
+    slug: string;
+    photos: GalleryPhoto[];
+    /** Editors see the delete button of a deletable file; the server checks the role again. */
+    canEdit?: boolean;
+}) {
     const t = useTranslations();
     const locale = useLocale();
+    const router = useRouter();
     const [viewing, setViewing] = useState<number | null>(null);
+    const [deleting, setDeleting] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    async function deleteNow(mediaId: string) {
+        setDeleting(null);
+        setBusy(true);
+        setError(null);
+        try {
+            const result = await deleteLooseMediaAction({ slug, mediaId });
+            if (!result.ok) {
+                setError(t(result.error as Parameters<typeof t>[0]));
+                return;
+            }
+            router.refresh();
+        } catch {
+            setError(t("media.errors.failed"));
+        } finally {
+            setBusy(false);
+        }
+    }
 
     return (
         <>
@@ -120,10 +156,39 @@ export function GalleryGrid({ slug, photos }: { slug: string; photos: GalleryPho
                                     {event.value ? ` · ${event.value}` : ""}
                                 </span>
                             ))}
+                            {canEdit && photo.deletable && (
+                                <button
+                                    type="button"
+                                    className="btn btn-ghost btn-xs mt-1 w-fit text-error"
+                                    disabled={busy}
+                                    onClick={() => setDeleting(photo.mediaId)}
+                                >
+                                    <Trash2 className="size-3.5" />
+                                    {t("common.delete")}
+                                </button>
+                            )}
                         </div>
                     </li>
                 ))}
             </ul>
+
+            {error && (
+                <p role="alert" className="text-error text-sm">
+                    {error}
+                </p>
+            )}
+
+            <ConfirmDialog
+                open={deleting !== null}
+                title={t("media.deleteTitle")}
+                message={t("media.deleteConfirm")}
+                confirmLabel={t("common.delete")}
+                danger
+                onConfirm={() => {
+                    if (deleting) void deleteNow(deleting);
+                }}
+                onCancel={() => setDeleting(null)}
+            />
 
             {viewing !== null && photos[viewing] && (
                 <Lightbox

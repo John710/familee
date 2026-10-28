@@ -204,6 +204,58 @@ export async function purgePersonData(treeId: string, personId: string): Promise
 }
 
 /**
+ * Deletes one file that belongs to nothing: no album or event link, no tag of a person on it and
+ * no note about it. Returns the storage keys to remove from disk once the transaction has
+ * committed, "attached" when something still points at the file, or null when the file is not in
+ * this tree.
+ *
+ * The row is locked first: adding a link takes a key-share lock on it through the foreign key, so a
+ * link that is being added at this moment either lands before the check below (and the file stays)
+ * or waits until the file is gone and then fails, never silently lost to the cascade.
+ */
+export async function deleteLooseMediaData(
+    treeId: string,
+    mediaId: string,
+): Promise<{ name: string | null; keys: string[] } | "attached" | null> {
+    return db.transaction(async (tx) => {
+        const [row] = await tx
+            .select({ key: schema.media.storageKey, name: schema.media.originalFilename })
+            .from(schema.media)
+            .where(and(eq(schema.media.id, mediaId), eq(schema.media.treeId, treeId)))
+            .for("update")
+            .limit(1);
+        if (!row) return null;
+
+        const [link] = await tx
+            .select({ id: schema.mediaLinks.id })
+            .from(schema.mediaLinks)
+            .where(eq(schema.mediaLinks.mediaId, mediaId))
+            .limit(1);
+        const [tag] = await tx
+            .select({ id: schema.mediaPeople.id })
+            .from(schema.mediaPeople)
+            .where(eq(schema.mediaPeople.mediaId, mediaId))
+            .limit(1);
+        const [note] = await tx
+            .select({ id: schema.notes.id })
+            .from(schema.notes)
+            .where(eq(schema.notes.mediaId, mediaId))
+            .limit(1);
+        if (link || tag || note) return "attached" as const;
+
+        const variants = await tx
+            .select({ key: schema.mediaVariants.storageKey })
+            .from(schema.mediaVariants)
+            .where(eq(schema.mediaVariants.mediaId, mediaId));
+        await tx.delete(schema.media).where(eq(schema.media.id, mediaId));
+        return {
+            name: row.name,
+            keys: [...new Set([row.key, ...variants.map((variant) => variant.key)])],
+        };
+    });
+}
+
+/**
  * Deletes a tree: the row goes, and every table of the tree cascades with it. The photographs
  * and any other file are in the tree's own folder on the volume, so the folder goes too.
  */

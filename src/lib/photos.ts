@@ -1062,9 +1062,9 @@ export async function removePhotoLink(input: {
         return { ok: false, error: "event.notFound" };
     }
 
-    // The link goes; the file stays. The gallery of the tree still shows it as unattached, its notes
-    // and the tags of the people in it keep their point, and deleting it for good stays a separate,
-    // deliberate act (the trash of a person, or the deletion of the tree).
+    // The link goes; the file stays. The gallery of the tree lists it as unattached (see
+    // listLooseMedia, where an editor can delete it), its notes and the tags of the people in it
+    // keep their point, and deleting it for good stays a separate, deliberate act.
     const removed = await retryOnUniqueViolation(() =>
         db.transaction(async (tx) => {
             const [row] = await tx
@@ -1191,6 +1191,85 @@ export async function findMediaFile(
         filename: mediaRow.filename,
         byteSize: mediaRow.byteSize,
     };
+}
+
+/** A file that no person's album holds, as the gallery's "outside the albums" section shows it. */
+export type LooseMedia = {
+    mediaId: string;
+    kind: string;
+    mimeType: string;
+    originalFilename: string | null;
+    takenStart: string | null;
+    /** Who is in the photograph, by name (the tags). */
+    tagged: string[];
+    /** The events of unions (and of anything else that is not a person) it is attached to. */
+    events: { type: string; value: string | null }[];
+    /** True when nothing at all points at the file, so an editor may delete it. */
+    deletable: boolean;
+};
+
+/**
+ * The files of a tree that appear in no person's album: those taken off their last album (the link
+ * goes, the file stays), those uploaded and never attached, and those attached only to the event of
+ * a union, a place or a source. Nothing else lists them, so without this they would be shown
+ * nowhere and could never be cleaned up.
+ */
+export async function listLooseMedia(treeId: string): Promise<LooseMedia[]> {
+    const rows = await db
+        .select({
+            mediaId: schema.media.id,
+            kind: schema.media.kind,
+            mimeType: schema.media.mimeType,
+            originalFilename: schema.media.originalFilename,
+            takenStart: schema.media.takenStart,
+        })
+        .from(schema.media)
+        .where(
+            sql`${schema.media.treeId} = ${treeId}
+                and not exists (select 1 from familee.media_links ml
+                                 left join familee.events e on e.id = ml.event_id
+                                 where ml.media_id = ${schema.media.id}
+                                   and (ml.person_id is not null or e.person_id is not null))`,
+        )
+        .orderBy(sql`${schema.media.takenStart} desc nulls last`, desc(schema.media.createdAt));
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((row) => row.mediaId);
+    const links = await db
+        .select({
+            mediaId: schema.mediaLinks.mediaId,
+            eventType: schema.events.typeCode,
+            eventValue: schema.events.value,
+        })
+        .from(schema.mediaLinks)
+        .leftJoin(schema.events, eq(schema.events.id, schema.mediaLinks.eventId))
+        .where(inArray(schema.mediaLinks.mediaId, ids));
+    const tagRows = await db
+        .select({ mediaId: schema.mediaPeople.mediaId })
+        .from(schema.mediaPeople)
+        .where(inArray(schema.mediaPeople.mediaId, ids));
+    const noteRows = await db
+        .select({ mediaId: schema.notes.mediaId })
+        .from(schema.notes)
+        .where(inArray(schema.notes.mediaId, ids));
+    const names = await listPhotoPeople(treeId, ids);
+
+    const linked = new Set(links.map((link) => link.mediaId));
+    const tagged = new Set(tagRows.map((tag) => tag.mediaId));
+    const noted = new Set(noteRows.map((note) => note.mediaId));
+
+    return rows.map((row) => ({
+        ...row,
+        tagged: (names.get(row.mediaId) ?? []).flatMap((person) =>
+            person.name ? [person.name] : [],
+        ),
+        events: links.flatMap((link) =>
+            link.mediaId === row.mediaId && link.eventType
+                ? [{ type: link.eventType, value: link.eventValue }]
+                : [],
+        ),
+        deletable: !linked.has(row.mediaId) && !tagged.has(row.mediaId) && !noted.has(row.mediaId),
+    }));
 }
 
 /**
