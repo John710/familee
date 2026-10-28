@@ -22,6 +22,10 @@ export type LogoResult = { ok: true; logoData: string | null } | { ok: false; er
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const SIDE = 256;
 const ALLOWED = ["image/png", "image/jpeg", "image/webp"] as const;
+/** The formats sharp reports for the three types above. */
+const ACCEPTED_FORMATS = new Set(["png", "jpeg", "webp"]);
+/** The same cap as the photographs have (src/lib/photo-process.ts). */
+const MAX_PIXELS = 80_000_000;
 
 export async function setTreeLogoAction(input: {
     slug: string;
@@ -50,7 +54,15 @@ export async function setTreeLogoAction(input: {
         }
 
         try {
-            const picture = await sharp(source)
+            // The declared type is only a claim: sharp reads many more formats (GIF, SVG, TIFF),
+            // so the decoded format is checked, and the pixel cap stops a small file that
+            // unpacks into a huge picture.
+            const format = (await sharp(source, { limitInputPixels: MAX_PIXELS }).metadata())
+                .format;
+            if (!format || !ACCEPTED_FORMATS.has(format)) {
+                return { ok: false, error: "logo.invalid" };
+            }
+            const picture = await sharp(source, { limitInputPixels: MAX_PIXELS })
                 .rotate()
                 .resize(SIDE, SIDE, { fit: "cover" })
                 .webp({ quality: 85 })
