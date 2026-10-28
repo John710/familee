@@ -7,12 +7,52 @@
  * button of the dialog would move the focus to a link of the page the reader cannot see, and the
  * "Enter" after it would act on the page instead of on the dialog. The hook listens for Tab while
  * the window is open and turns the focus round - past the last control back to the first, and past
- * the first back to the last. Escape is left to the dialog, which knows what closing means.
+ * the first back to the last. Escape is left to the dialog, which knows what closing means; the
+ * dialog registers it with `useEscapeLayer`, so that with several layers open (a palette over a
+ * lightbox) one press closes only the one on top.
  *
  * The caller keeps the ref of the box that holds the controls (not of the dimmed background).
  */
 
-import { type RefObject, useEffect } from "react";
+import { type RefObject, useEffect, useRef } from "react";
+
+/**
+ * The layers that listen for Escape, the one opened last at the end. A palette over a lightbox,
+ * a confirmation over a dialog: one press must close only the layer on top, so each layer asks
+ * the stack whether it is the top before it reacts.
+ */
+const escapeLayers: symbol[] = [];
+
+/**
+ * While `open`, Escape calls `onEscape` - but only when this is the topmost layer that registered.
+ * The handler may change on every render; the layer keeps its place in the stack.
+ */
+export function useEscapeLayer(open: boolean, onEscape: () => void): void {
+    const latest = useRef(onEscape);
+    useEffect(() => {
+        latest.current = onEscape;
+    }, [onEscape]);
+
+    useEffect(() => {
+        if (!open) return;
+
+        const layer = Symbol("escape-layer");
+        escapeLayers.push(layer);
+
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key !== "Escape") return;
+            if (escapeLayers[escapeLayers.length - 1] !== layer) return;
+            latest.current();
+        };
+
+        window.addEventListener("keydown", onKey);
+        return () => {
+            window.removeEventListener("keydown", onKey);
+            const at = escapeLayers.indexOf(layer);
+            if (at !== -1) escapeLayers.splice(at, 1);
+        };
+    }, [open]);
+}
 
 /**
  * What can take the focus in a dialog; a disabled control, an element without a tab index and a

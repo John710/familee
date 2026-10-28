@@ -4,8 +4,8 @@
  * The main thing here is the "soft" translation: the file of the requested
  * language is layered on top of the default one. If a user added their own
  * messages/de.json and translated only half of the keys, the other half
- * quietly comes from Russian instead of turning into captions like
- * "person.fields.surname" on the screen.
+ * quietly comes from the default language (English, see routing.ts) instead of turning into
+ * captions like "person.fields.surname" on the screen.
  */
 
 import { hasLocale } from "next-intl";

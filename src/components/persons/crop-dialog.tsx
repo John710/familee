@@ -3,7 +3,8 @@
 /**
  * Familee - choosing the part of the main photograph that the card shows.
  *
- * A square frame lies over the picture: drag it to move, use the slider to change its size.
+ * A square frame lies over the picture: drag it or use the arrow keys to move it (Shift for a
+ * larger step), use the slider to change its size.
  * The frame is always a square in the picture's own proportions, the shape of the card. The
  * preview on the right is drawn with the same code as the card. Saving stores the crop on the
  * person's link to the photograph; "Reset" shows the whole picture again.
@@ -11,8 +12,8 @@
 
 import { useTranslations } from "next-intl";
 import {
+    type KeyboardEvent as ReactKeyboardEvent,
     type PointerEvent as ReactPointerEvent,
-    useEffect,
     useRef,
     useState,
     useTransition,
@@ -21,10 +22,14 @@ import {
 import { photoUrl } from "@/components/media/lightbox";
 import { useRouter } from "@/i18n/navigation";
 import { setPortraitCropAction } from "@/lib/actions/photos";
-import { useFocusTrap } from "@/lib/focus-trap";
+import { useEscapeLayer, useFocusTrap } from "@/lib/focus-trap";
 import { cropHeight, cropStyle, defaultCrop, maxCropWidth, type PhotoCrop } from "@/lib/photo-crop";
 
 const MIN_WIDTH = 0.1;
+
+/** How far an arrow key moves the frame, as a share of the picture; Shift takes the larger step. */
+const KEY_STEP = 0.01;
+const KEY_STEP_LARGE = 0.05;
 
 function clamp(value: number, low: number, high: number): number {
     return Math.min(Math.max(value, low), high);
@@ -97,6 +102,26 @@ export function CropDialog({
         drag.current = null;
     }
 
+    // The arrow keys move the frame by one percent of the picture, with Shift by five.
+    function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+        const step = event.shiftKey ? KEY_STEP_LARGE : KEY_STEP;
+        const move: Record<string, [number, number]> = {
+            ArrowLeft: [-step, 0],
+            ArrowRight: [step, 0],
+            ArrowUp: [0, -step],
+            ArrowDown: [0, step],
+        };
+        const delta = move[event.key];
+        if (!delta) return;
+        const [dx, dy] = delta;
+        event.preventDefault();
+        setRect((current) => ({
+            ...current,
+            x: clamp(current.x + dx, 0, 1 - current.w),
+            y: clamp(current.y + dy, 0, 1 - current.h),
+        }));
+    }
+
     function save(next: PhotoCrop | null) {
         setError(null);
         setSaved(false);
@@ -118,13 +143,7 @@ export function CropDialog({
     }
 
     // Escape closes the window, as it does everywhere else in the archive.
-    useEffect(() => {
-        const onKey = (event: KeyboardEvent) => {
-            if (event.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-    }, [onClose]);
+    useEscapeLayer(true, onClose);
 
     return (
         <div
@@ -155,13 +174,25 @@ export function CropDialog({
                                     draggable={false}
                                     className="block max-h-[45dvh] max-w-full"
                                 />
+                                {/* A two-dimensional "slider": the arrow keys move it, as a drag does. */}
                                 <div
-                                    role="presentation"
+                                    role="slider"
+                                    tabIndex={0}
+                                    aria-label={t("media.cropFrame")}
+                                    aria-orientation="horizontal"
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-valuenow={Math.round(rect.x * 100)}
+                                    aria-valuetext={t("media.cropFramePosition", {
+                                        x: Math.round(rect.x * 100),
+                                        y: Math.round(rect.y * 100),
+                                    })}
+                                    onKeyDown={onKeyDown}
                                     onPointerDown={onPointerDown}
                                     onPointerMove={onPointerMove}
                                     onPointerUp={endDrag}
                                     onPointerCancel={endDrag}
-                                    className="absolute cursor-move border-2 border-white"
+                                    className="absolute cursor-move border-2 border-white focus-visible:outline-3 focus-visible:outline-warning focus-visible:outline-offset-2"
                                     style={{
                                         left: `${rect.x * 100}%`,
                                         top: `${rect.y * 100}%`,

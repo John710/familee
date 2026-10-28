@@ -69,14 +69,21 @@ export function PlacesMap({
             // The wheel does not zoom: the page must keep scrolling under the pointer. The zoom
             // buttons and the keyboard remain.
             map = L.map(container, { scrollWheelZoom: false });
-            L.tileLayer(tileUrl, { attribution, maxZoom: 19 }).addTo(map);
+            // The tile server is a third party: the address of the archive (it can carry a tree's
+            // slug) must not travel with each tile request in the Referer header.
+            L.tileLayer(tileUrl, { attribution, maxZoom: 19, referrerPolicy: "no-referrer" }).addTo(
+                map,
+            );
 
             const points: [number, number][] = [];
             for (const place of places) {
                 const point: [number, number] = [place.latitude, place.longitude];
                 points.push(point);
+                // Elements, not strings: Leaflet reads a string as HTML, and a place name is text.
                 const label = document.createElement("span");
                 label.textContent = place.name;
+                const hover = document.createElement("span");
+                hover.textContent = place.name;
                 L.circleMarker(point, {
                     radius: 5,
                     weight: 1,
@@ -85,7 +92,8 @@ export function PlacesMap({
                     fillOpacity: 0.8,
                 })
                     .addTo(map)
-                    .bindPopup(label);
+                    .bindPopup(label)
+                    .bindTooltip(hover);
             }
 
             if (route.length > 1) {
@@ -109,6 +117,9 @@ export function PlacesMap({
                     popup.append(day);
                 }
                 L.marker(point, {
+                    // The title is the marker's name for a screen reader and for the hover.
+                    title: `${stop.order}. ${stop.placeName}`,
+                    alt: `${stop.order}. ${stop.placeName}`,
                     icon: L.divIcon({
                         className: "familee-map-stop",
                         html: `<span>${stop.order}</span>`,

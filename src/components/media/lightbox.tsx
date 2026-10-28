@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { MediaIcon } from "@/components/media/media-icon";
 import { formatDay } from "@/lib/day";
-import { useFocusTrap } from "@/lib/focus-trap";
+import { useEscapeLayer, useFocusTrap } from "@/lib/focus-trap";
 
 export type Variant = "thumb" | "medium" | "original";
 
@@ -113,9 +113,11 @@ export function Lightbox({
     const previous = () => onIndex((index - 1 + total) % total);
     const next = () => onIndex((index + 1) % total);
 
+    // Escape closes the window only when no other layer (the palette, a confirmation) lies over it.
+    useEscapeLayer(true, onClose);
+
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => {
-            if (event.key === "Escape") onClose();
             if (event.key === "ArrowLeft") onIndex((index - 1 + total) % total);
             if (event.key === "ArrowRight") onIndex((index + 1) % total);
         };
@@ -127,7 +129,7 @@ export function Lightbox({
             window.removeEventListener("keydown", onKey);
             document.body.style.overflow = overflow;
         };
-    }, [index, total, onIndex, onClose]);
+    }, [index, total, onIndex]);
 
     if (!current) return null;
 

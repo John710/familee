@@ -142,7 +142,7 @@ export function PersonForm({
                     <input
                         name="suffix"
                         defaultValue={initial.suffix ?? ""}
-                        placeholder="Jr., III"
+                        placeholder={t("person.fields.suffixPlaceholder")}
                         className="input w-full"
                     />
                 </label>
