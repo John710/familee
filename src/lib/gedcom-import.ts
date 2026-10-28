@@ -14,6 +14,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
+import { pedigreeErrorKey } from "@/lib/db-errors";
 import { cardToDuplicate, type DuplicatePerson, importJoins, yearOf } from "@/lib/duplicates";
 import { type DateWords, type ParsedDate, parseFuzzyDate } from "@/lib/fuzzy-date";
 import type { ImportPlan, PlannedPerson } from "@/lib/gedcom-plan";
@@ -341,9 +342,6 @@ function partnerRole(sex: string): "husband" | "wife" | "partner" | "unknown" {
 }
 
 function translate(error: unknown): string {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("own ancestor") || message.includes("pedigree cycle"))
-        return "errors.cycle";
-    if (message.includes("already a partner")) return "errors.duplicatePartner";
-    return "errors.generic";
+    const key = pedigreeErrorKey(error);
+    return key === "errors.cycle" || key === "errors.duplicatePartner" ? key : "errors.generic";
 }

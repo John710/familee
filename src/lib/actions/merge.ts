@@ -14,6 +14,7 @@
 import { type SQL, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
+import { mergeErrorKey } from "@/lib/db-errors";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -99,7 +100,7 @@ export async function mergePersonsAction(input: {
             dropId: input.dropId,
         });
     } catch (error) {
-        return { ok: false, error: translate(error) };
+        return { ok: false, error: mergeErrorKey(error, "person") };
     }
 
     return {
@@ -109,18 +110,6 @@ export async function mergePersonsAction(input: {
         photos: summary.photos ?? 0,
         unions: summary.unions ?? 0,
     };
-}
-
-/** The markers the function raises become a message for the reader. */
-function translate(error: unknown): string {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("merge_self")) return "duplicates.samePerson";
-    if (message.includes("merge_not_found")) return "duplicates.notFound";
-    if (message.includes("own ancestor") || message.includes("pedigree cycle")) {
-        return "errors.cycle";
-    }
-    if (message.includes("already a partner")) return "errors.duplicatePartner";
-    return "errors.generic";
 }
 
 /**
@@ -175,17 +164,9 @@ async function mergeRecord(
             dropId: input.dropId,
         });
     } catch (error) {
-        return { ok: false, error: translateRecord(error, kind) };
+        return { ok: false, error: mergeErrorKey(error, kind) };
     }
 
     const moved = Object.values(summary).reduce((sum, count) => sum + (count ?? 0), 0);
     return { ok: true, moved };
-}
-
-/** The markers of the two functions above become a message for the reader. */
-function translateRecord(error: unknown, kind: "place" | "source"): string {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("merge_self")) return "duplicates.sameRecord";
-    if (message.includes("merge_not_found")) return `${kind}.notFound`;
-    return "errors.generic";
 }

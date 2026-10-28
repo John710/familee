@@ -13,7 +13,7 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { diffFields, writeAudit } from "@/lib/audit";
-import { errorText } from "@/lib/db-errors";
+import { pedigreeErrorKey } from "@/lib/db-errors";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -213,15 +213,5 @@ function partnerRoleFor(sex: string): "husband" | "wife" | "partner" | "unknown"
 
 /** Turns the message of a database check into a translation key. */
 function translateDatabaseError(error: unknown): string {
-    const message = errorText(error);
-    if (message.includes("own ancestor") || message.includes("pedigree cycle")) {
-        return "errors.cycle";
-    }
-    if (message.includes("already a partner")) {
-        return "errors.duplicatePartner";
-    }
-    if (message.includes("belongs to another tree")) {
-        return "errors.crossTree";
-    }
-    return "errors.generic";
+    return pedigreeErrorKey(error) ?? "errors.generic";
 }
