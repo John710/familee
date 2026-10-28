@@ -94,6 +94,11 @@ export const auth = betterAuth({
         sendResetPassword: async ({ user, url }) => {
             await redis.set(resetLinkKey(user.email), url, "EX", RESET_LINK_SECONDS);
         },
+        /**
+         * A reset is how a stolen account is taken back, so it ends every session of the
+         * account, including one opened with the old password. better-auth keeps them otherwise.
+         */
+        revokeSessionsOnPasswordReset: true,
     },
 
     session: {

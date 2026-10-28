@@ -4,7 +4,9 @@
  * Familee - setting a new password from a reset link.
  *
  * The token comes from the link the administrator handed out. On success the
- * person is sent to the sign-in page; all other sessions were ended by better-auth.
+ * person is sent to the sign-in page. Every session of the account has been ended
+ * by then (revokeSessionsOnPasswordReset in src/lib/auth.ts), so whoever knew the
+ * old password is signed out too.
  */
 
 import { Check } from "lucide-react";
