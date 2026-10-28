@@ -18,6 +18,7 @@ import {
     setPhotoPeople,
     setPortraitCrop,
 } from "@/lib/photos";
+import { normalizeCrop } from "@/lib/photo-crop";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -112,16 +113,10 @@ export async function setPortraitCropAction(input: {
     const access = await editorAccess(input.slug);
     if (!access.ok) return access;
 
-    const crop = input.crop;
-    if (crop) {
-        const inside = [crop.x, crop.y, crop.w, crop.h].every(
-            (value) => Number.isFinite(value) && value >= 0 && value <= 1,
-        );
-        const fits = crop.x + crop.w <= 1.0001 && crop.y + crop.h <= 1.0001;
-        if (!inside || !fits || crop.w <= 0 || crop.h <= 0) {
-            return { ok: false, error: "media.errors.failed" };
-        }
-    }
+    // Rounded to the column's five decimals and pulled inside the picture, so the CHECK on
+    // media_links cannot refuse what the editor's floating point produced.
+    const crop = input.crop ? normalizeCrop(input.crop) : null;
+    if (input.crop && !crop) return { ok: false, error: "media.errors.failed" };
 
     const result = await setPortraitCrop({
         treeId: access.treeId,

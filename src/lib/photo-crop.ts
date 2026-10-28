@@ -40,3 +40,31 @@ export function cropStyle(crop: PhotoCrop | null, ratio: number | null): CSSProp
         top: `calc(-${crop.y} * ${scale} * ${ratio})`,
     };
 }
+
+/** The columns are numeric(6,5): five decimals, counted here as whole units to avoid float sums. */
+const UNITS = 100000;
+
+/** What the editor's rounding may overshoot by before a crop is refused: 0.0001 of the picture. */
+const TOLERANCE_UNITS = 10;
+
+/**
+ * A crop as the database will store it, or null when it cannot be one. Each value is rounded to the
+ * five decimals of the column, and the width and height are pulled back so that x + w and y + h
+ * never exceed 1 after the rounding: the CHECK of media_links is exact, while the editor's floating
+ * point is not. A crop that overshoots by more than the tolerance is refused, not trimmed.
+ */
+export function normalizeCrop(crop: PhotoCrop): PhotoCrop | null {
+    const values = [crop.x, crop.y, crop.w, crop.h];
+    if (!values.every((value) => Number.isFinite(value) && value >= 0 && value <= 1)) return null;
+
+    const x = Math.round(crop.x * UNITS);
+    const y = Math.round(crop.y * UNITS);
+    let w = Math.round(crop.w * UNITS);
+    let h = Math.round(crop.h * UNITS);
+    if (x + w > UNITS + TOLERANCE_UNITS || y + h > UNITS + TOLERANCE_UNITS) return null;
+
+    w = Math.min(w, UNITS - x);
+    h = Math.min(h, UNITS - y);
+    if (w <= 0 || h <= 0) return null;
+    return { x: x / UNITS, y: y / UNITS, w: w / UNITS, h: h / UNITS };
+}
