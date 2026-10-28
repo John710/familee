@@ -12,7 +12,7 @@ import { AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
 
-import { useFocusTrap } from "@/lib/focus-trap";
+import { useEscapeLayer, useFocusTrap } from "@/lib/focus-trap";
 
 export function ConfirmDialog({
     open,
@@ -35,22 +35,14 @@ export function ConfirmDialog({
     const t = useTranslations();
     const boxRef = useRef<HTMLDivElement>(null);
     const cancelRef = useRef<HTMLButtonElement>(null);
-    // The latest handler is read through a ref, so the focus is set once when the dialog opens.
-    const cancelLatest = useRef(onCancel);
-    useEffect(() => {
-        cancelLatest.current = onCancel;
-    }, [onCancel]);
 
     useFocusTrap(boxRef, open);
+    // Escape cancels only when no other layer lies over this dialog.
+    useEscapeLayer(open, onCancel);
 
+    // The focus goes to the cancel button once, when the dialog opens.
     useEffect(() => {
-        if (!open) return;
-        cancelRef.current?.focus();
-        const onKey = (event: KeyboardEvent) => {
-            if (event.key === "Escape") cancelLatest.current();
-        };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
+        if (open) cancelRef.current?.focus();
     }, [open]);
 
     if (!open) return null;

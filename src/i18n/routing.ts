@@ -32,8 +32,8 @@ export const routing = defineRouting({
     defaultLocale,
 
     /**
-     * "as-needed": Russian lives at /, the other languages carry a prefix
-     * (/en/tree). That way the links already shared inside the family do not
+     * "as-needed": the default language (English) lives at /, the other languages carry a
+     * prefix (/ru/tree). That way the links already shared inside the family do not
      * break when new languages are added.
      */
     localePrefix: "as-needed",

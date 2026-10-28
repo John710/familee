@@ -9,6 +9,10 @@
  * name: the matches are marked, and the canvas centres on the first one; Enter and the arrows
  * go on to the next. The browser's context menu is switched off on the canvas. Panning and
  * zooming stay on.
+ *
+ * The canvas is redrawn on every keystroke of the search, so it hands React Flow the same node
+ * objects for the cards that did not change, and the cards are memoised. The panel takes the
+ * focus when it opens and gives it back to its card on Escape.
  */
 
 import "@xyflow/react/dist/style.css";
@@ -39,13 +43,19 @@ import {
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import {
+    createContext,
+    memo,
     type KeyboardEvent as ReactKeyboardEvent,
+    type RefObject,
+    useCallback,
+    useContext,
     useEffect,
     useMemo,
     useRef,
     useState,
 } from "react";
 import { Link } from "@/i18n/navigation";
+import { useEscapeLayer } from "@/lib/focus-trap";
 import { relationPhrase, type Translator } from "@/lib/kinship-phrase";
 import { cropStyle } from "@/lib/photo-crop";
 import { focusedNodeIds } from "@/lib/tree-focus";
@@ -104,16 +114,31 @@ function edgeStroke(tone: LineTone): string {
     return "color-mix(in oklab, var(--color-base-content) 45%, transparent)";
 }
 
-/** What a card needs on the canvas: its data, its state, and how to close its panel. */
+/**
+ * What a card needs on the canvas: its data and its state. The data holds no functions, so a card
+ * whose state did not change keeps the very same object and is not drawn again.
+ */
 type PersonFlowData = PersonNodeData & {
     selected: boolean;
     highlighted: boolean;
     /** Outside the focus: the card stays on the canvas, but dimmed. */
     dimmed: boolean;
     canEdit: boolean;
-    onClose: () => void;
-    onFocus: () => void;
 };
+
+/**
+ * What the panel of a card can ask of the canvas. They travel in a context, not in the card's
+ * data: the functions are created once, so they never make a card look changed.
+ */
+type CanvasActions = {
+    close: () => void;
+    focusOn: (nodeId: string) => void;
+};
+
+const CanvasActionsContext = createContext<CanvasActions>({
+    close: () => undefined,
+    focusOn: () => undefined,
+});
 
 /** The day of a birthday as the reader sees it; the calendar date has no time, so it is kept in UTC. */
 function birthdayLabel(date: string, locale: string): string {
@@ -124,9 +149,15 @@ function birthdayLabel(date: string, locale: string): string {
     }).format(new Date(`${date}T00:00:00Z`));
 }
 
-function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
+// Memoised: a keystroke in the search bar re-renders the canvas, but only the cards whose own
+// state changed (`data` is a new object only then) are drawn again.
+const PersonCard = memo(function PersonCard({
+    id,
+    data,
+}: NodeProps<Node<PersonFlowData, "person">>) {
     const t = useTranslations();
     const locale = useLocale();
+    const cardRef = useRef<HTMLButtonElement>(null);
     const name = data.name || t("common.unknown");
     const years = useYears(data);
     const deceased = data.isLiving === false;
@@ -136,6 +167,7 @@ function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
         <div style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}>
             <Sides />
             <button
+                ref={cardRef}
                 type="button"
                 aria-label={label}
                 data-selected={data.selected ? "true" : "false"}
@@ -197,13 +229,13 @@ function PersonCard({ data }: NodeProps<Node<PersonFlowData, "person">>) {
                 </span>
             )}
             <NodeToolbar isVisible={data.selected} position={Position.Right} offset={16}>
-                <PersonPanel data={data} />
+                <PersonPanel nodeId={id} data={data} cardRef={cardRef} />
             </NodeToolbar>
         </div>
     );
-}
+});
 
-function UnionDot({ data }: NodeProps<Node<{ dimmed: boolean }, "union">>) {
+const UnionDot = memo(function UnionDot({ data }: NodeProps<Node<{ dimmed: boolean }, "union">>) {
     return (
         <div
             className={`rounded-full bg-base-content/40 transition-opacity ${data.dimmed ? "opacity-20" : ""}`}
@@ -212,9 +244,13 @@ function UnionDot({ data }: NodeProps<Node<{ dimmed: boolean }, "union">>) {
             <Sides />
         </div>
     );
-}
+});
 
 const nodeTypes = { person: PersonCard, union: UnionDot };
+
+// Constants, so React Flow gets the same object on every render.
+const FIT_VIEW = { padding: 0.2, maxZoom: 1 };
+const PRO_OPTIONS = { hideAttribution: true };
 
 /** The browser's menu is not wanted on the canvas: right-click does nothing here. */
 function preventMenu(event: { preventDefault: () => void }) {
@@ -228,19 +264,37 @@ function useRelationPhrase(data: PersonNodeData): string | null {
 }
 
 /** The panel that comes out of an open card: name, years, status and the way to the card. */
-function PersonPanel({ data }: { data: PersonFlowData }) {
+function PersonPanel({
+    nodeId,
+    data,
+    cardRef,
+}: {
+    nodeId: string;
+    data: PersonFlowData;
+    /** The card the panel came out of: the focus goes back to it when the panel is dismissed. */
+    cardRef: RefObject<HTMLButtonElement | null>;
+}) {
     const t = useTranslations();
     const years = useYears(data);
     const name = data.name || t("common.unknown");
-    const { onClose } = data;
+    const { close, focusOn } = useContext(CanvasActionsContext);
+    const panelRef = useRef<HTMLDivElement>(null);
 
+    // The panel is not modal - the canvas stays usable beside it, so Tab is not held inside - but
+    // it is a dialog, so the focus enters it when it opens (without scrolling the canvas, which
+    // the panel's position would otherwise shift) and returns to the card when it is dismissed
+    // from the keyboard.
     useEffect(() => {
-        const onKey = (event: KeyboardEvent) => {
-            if (event.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-    }, [onClose]);
+        panelRef.current?.focus({ preventScroll: true });
+    }, []);
+
+    const closeToCard = useCallback(() => {
+        close();
+        cardRef.current?.focus({ preventScroll: true });
+    }, [close, cardRef]);
+
+    // Only the topmost layer reacts (a palette over the panel closes alone).
+    useEscapeLayer(true, closeToCard);
 
     const { details } = data;
     const relation = useRelationPhrase(data);
@@ -248,8 +302,10 @@ function PersonPanel({ data }: { data: PersonFlowData }) {
     return (
         // The scrollable panel keeps the wheel for itself: scrolling it does not zoom the canvas.
         <div
+            ref={panelRef}
             role="dialog"
             aria-label={name}
+            tabIndex={-1}
             className="card card-border nowheel max-h-[70vh] w-80 overflow-y-auto bg-base-100 shadow-lg"
         >
             <div className="card-body gap-3 p-4">
@@ -342,7 +398,14 @@ function PersonPanel({ data }: { data: PersonFlowData }) {
                     <Link href={data.href} className="btn btn-primary btn-sm">
                         {t("person.openCard")}
                     </Link>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={data.onFocus}>
+                    <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                            focusOn(nodeId);
+                            cardRef.current?.focus({ preventScroll: true });
+                        }}
+                    >
                         {t("tree.view.focus.enable")}
                     </button>
                 </div>
@@ -496,7 +559,25 @@ function TreeCanvasInner({
     const [query, setQuery] = useState("");
     const [cursor, setCursor] = useState(0);
     const [focus, setFocus] = useState<{ nodeId: string; depth: number } | null>(null);
-    const close = () => setSelectedId(null);
+    // Created once: they go to the cards through a context and to React Flow as props, and a new
+    // function on every render would make every card and the whole canvas look changed.
+    const close = useCallback(() => setSelectedId(null), []);
+    const focusOn = useCallback((nodeId: string) => {
+        setFocus((current) => ({ nodeId, depth: current?.depth ?? 3 }));
+        setSelectedId(null);
+    }, []);
+    const actions = useMemo(() => ({ close, focusOn }), [close, focusOn]);
+    const onNodeClick = useCallback((_: unknown, node: Node) => {
+        if (node.type === "person") setSelectedId(node.id);
+    }, []);
+    const ariaLabelConfig = useMemo(
+        () => ({
+            "controls.zoomIn.ariaLabel": t("tree.view.zoomIn"),
+            "controls.zoomOut.ariaLabel": t("tree.view.zoomOut"),
+            "controls.fitView.ariaLabel": t("tree.view.fitView"),
+        }),
+        [t],
+    );
 
     // In the focus mode the cards outside the person's ancestors and descendants are dimmed.
     const focusKeep = useMemo(
@@ -553,47 +634,59 @@ function TreeCanvasInner({
 
     const matchSet = useMemo(() => new Set(matches), [matches]);
 
+    // The nodes React Flow draws. A node that did not change - the same source node, the same
+    // selected / matched / dimmed state - is handed back as the very object of the last pass, so
+    // a keystroke in the search bar redraws only the cards whose mark changed, not all of them.
     // The open card is raised above its neighbours, so its panel is not hidden by them.
-    const flowNodes = nodes.map((node) => {
-        const dimmed = focusKeep !== null && !focusKeep.has(node.id);
-        if (node.type === "person") {
-            return {
-                ...node,
-                zIndex: node.id === selectedId ? 1000 : 0,
-                data: {
-                    ...node.data,
-                    selected: node.id === selectedId,
-                    highlighted: matchSet.has(node.id),
-                    dimmed,
-                    canEdit,
-                    onClose: close,
-                    onFocus: () => {
-                        setFocus((current) => ({
-                            nodeId: node.id,
-                            depth: current?.depth ?? 3,
-                        }));
-                        close();
-                    },
-                },
-            };
-        }
-        return { ...node, data: { ...node.data, dimmed } };
-    }) as Node[];
+    const flowCache = useRef(new Map<string, { source: FlowNode; state: string; node: Node }>());
+    const flowNodes = useMemo(() => {
+        const last = flowCache.current;
+        const next = new Map<string, { source: FlowNode; state: string; node: Node }>();
+        const built = nodes.map((node) => {
+            const dimmed = focusKeep !== null && !focusKeep.has(node.id);
+            const selected = node.id === selectedId;
+            const highlighted = matchSet.has(node.id);
+            const state = `${selected}|${highlighted}|${dimmed}|${canEdit}`;
+            const cached = last.get(node.id);
+            if (cached && cached.source === node && cached.state === state) {
+                next.set(node.id, cached);
+                return cached.node;
+            }
+            const flow = (
+                node.type === "person"
+                    ? {
+                          ...node,
+                          zIndex: selected ? 1000 : 0,
+                          data: { ...node.data, selected, highlighted, dimmed, canEdit },
+                      }
+                    : { ...node, data: { ...node.data, dimmed } }
+            ) as Node;
+            next.set(node.id, { source: node, state, node: flow });
+            return flow;
+        });
+        flowCache.current = next;
+        return built;
+    }, [nodes, selectedId, matchSet, focusKeep, canEdit]);
 
-    const flowEdges: Edge[] = edges.map(({ tone, ...edge }) => {
-        const outside =
-            focusKeep !== null && !(focusKeep.has(edge.source) && focusKeep.has(edge.target));
-        return {
-            ...edge,
-            selectable: false,
-            focusable: false,
-            style: {
-                stroke: edgeStroke(tone),
-                strokeWidth: 1.5,
-                opacity: outside ? 0.12 : 1,
-            },
-        };
-    });
+    const flowEdges = useMemo<Edge[]>(
+        () =>
+            edges.map(({ tone, ...edge }) => {
+                const outside =
+                    focusKeep !== null &&
+                    !(focusKeep.has(edge.source) && focusKeep.has(edge.target));
+                return {
+                    ...edge,
+                    selectable: false,
+                    focusable: false,
+                    style: {
+                        stroke: edgeStroke(tone),
+                        strokeWidth: 1.5,
+                        opacity: outside ? 0.12 : 1,
+                    },
+                };
+            }),
+        [edges, focusKeep],
+    );
 
     function step(delta: number) {
         if (matches.length === 0) return;
@@ -629,34 +722,31 @@ function TreeCanvasInner({
                     onOff={() => setFocus(null)}
                 />
             )}
-            <ReactFlow
-                className="tree-canvas"
-                nodes={flowNodes}
-                edges={flowEdges}
-                nodeTypes={nodeTypes}
-                onPaneContextMenu={preventMenu}
-                onNodeContextMenu={preventMenu}
-                onEdgeContextMenu={preventMenu}
-                onNodeClick={(_, node) => {
-                    if (node.type === "person") setSelectedId(node.id);
-                }}
-                onPaneClick={close}
-                nodesDraggable={false}
-                nodesConnectable={false}
-                elementsSelectable={false}
-                minZoom={0.2}
-                maxZoom={1.5}
-                fitView
-                fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
-                proOptions={{ hideAttribution: true }}
-                ariaLabelConfig={{
-                    "controls.zoomIn.ariaLabel": t("tree.view.zoomIn"),
-                    "controls.zoomOut.ariaLabel": t("tree.view.zoomOut"),
-                    "controls.fitView.ariaLabel": t("tree.view.fitView"),
-                }}
-            >
-                <Controls showInteractive={false} />
-            </ReactFlow>
+            <CanvasActionsContext.Provider value={actions}>
+                <ReactFlow
+                    className="tree-canvas"
+                    nodes={flowNodes}
+                    edges={flowEdges}
+                    nodeTypes={nodeTypes}
+                    onPaneContextMenu={preventMenu}
+                    onNodeContextMenu={preventMenu}
+                    onEdgeContextMenu={preventMenu}
+                    onNodeClick={onNodeClick}
+                    onPaneClick={close}
+                    nodesDraggable={false}
+                    nodesConnectable={false}
+                    elementsSelectable={false}
+                    onlyRenderVisibleElements
+                    minZoom={0.2}
+                    maxZoom={1.5}
+                    fitView
+                    fitViewOptions={FIT_VIEW}
+                    proOptions={PRO_OPTIONS}
+                    ariaLabelConfig={ariaLabelConfig}
+                >
+                    <Controls showInteractive={false} />
+                </ReactFlow>
+            </CanvasActionsContext.Provider>
         </div>
     );
 }

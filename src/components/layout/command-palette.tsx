@@ -20,7 +20,7 @@ import { createPortal } from "react-dom";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { type PaletteResult, searchPaletteAction } from "@/lib/actions/palette";
 import { formatDay } from "@/lib/day";
-import { useFocusTrap } from "@/lib/focus-trap";
+import { useEscapeLayer, useFocusTrap } from "@/lib/focus-trap";
 import {
     clampSelection,
     isPaletteShortcut,
@@ -92,14 +92,11 @@ export function CommandPalette() {
         setQuery("");
         setIndex(0);
         inputRef.current?.focus();
-
-        // Escape closes wherever the focus is inside the window - on the field or on a result.
-        const onKey = (event: KeyboardEvent) => {
-            if (event.key === "Escape") setOpen(false);
-        };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
     }, [open]);
+
+    // Escape closes wherever the focus is inside the window - on the field or on a result - and
+    // only this window when it lies over another one (a lightbox).
+    useEscapeLayer(open, () => setOpen(false));
 
     // The search runs a quarter of a second after the last keystroke. Only the answer to the last
     // request is kept, so a slow one cannot overwrite a newer list.
@@ -167,11 +164,6 @@ export function CommandPalette() {
     }
 
     function onFieldKey(event: ReactKeyboardEvent<HTMLInputElement>) {
-        if (event.key === "Escape") {
-            event.preventDefault();
-            setOpen(false);
-            return;
-        }
         if (event.key === "ArrowDown") {
             event.preventDefault();
             setIndex((value) => moveSelection(value, 1, items.length));

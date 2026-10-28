@@ -3,16 +3,19 @@
 /**
  * Familee - the bell in the top bar: the birthdays of the next two weeks, across all trees.
  *
- * A dropdown like the profile menu: it closes on a click outside, on Escape and when the page
- * changes. The list is computed on the server; this part only shows it and keeps it open or shut.
+ * A disclosure, not a menu: a button that shows or hides a list of links (aria-expanded and
+ * aria-controls), with no menu roles and no arrow-key navigation - Tab walks the links. It closes
+ * on a click outside, on Escape and when the page changes. The list is computed on the server;
+ * this part only shows it and keeps it open or shut.
  */
 
 import { Bell } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { PersonThumb } from "@/components/persons/person-thumb";
 import { Link } from "@/i18n/navigation";
+import { useEscapeLayer } from "@/lib/focus-trap";
 
 export type BirthdayItem = {
     key: string;
@@ -37,6 +40,7 @@ export function BirthdayMenu({
 }) {
     const [open, setOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement>(null);
+    const listId = useId();
     const pathname = usePathname();
 
     // Going to another page closes the menu. The pathname is the trigger, not an input.
@@ -45,22 +49,18 @@ export function BirthdayMenu({
         setOpen(false);
     }, [pathname]);
 
-    // A click outside the menu, or Escape, closes it.
+    // A click outside the list closes it.
     useEffect(() => {
         if (!open) return;
         const onPointer = (event: MouseEvent) => {
             if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
         };
-        const onKey = (event: KeyboardEvent) => {
-            if (event.key === "Escape") setOpen(false);
-        };
         document.addEventListener("mousedown", onPointer);
-        document.addEventListener("keydown", onKey);
-        return () => {
-            document.removeEventListener("mousedown", onPointer);
-            document.removeEventListener("keydown", onKey);
-        };
+        return () => document.removeEventListener("mousedown", onPointer);
     }, [open]);
+
+    // So does Escape, but not when a window lies over the page (the palette): that one goes first.
+    useEscapeLayer(open, () => setOpen(false));
 
     return (
         <div ref={rootRef} className="relative">
@@ -68,8 +68,8 @@ export function BirthdayMenu({
                 type="button"
                 className="btn btn-ghost btn-sm btn-square relative"
                 aria-label={label}
-                aria-haspopup="menu"
                 aria-expanded={open}
+                aria-controls={listId}
                 onClick={() => setOpen((value) => !value)}
             >
                 <Bell className="size-4" />
@@ -81,8 +81,9 @@ export function BirthdayMenu({
             </button>
 
             {open && (
-                <div
-                    role="menu"
+                <section
+                    id={listId}
+                    aria-label={label}
                     className="card card-border absolute right-0 z-30 mt-2 w-80 bg-base-100 p-2 shadow-lg"
                 >
                     <p className="px-2 pt-1 pb-2 font-medium text-sm">{label}</p>
@@ -94,7 +95,6 @@ export function BirthdayMenu({
                                 <li key={item.key}>
                                     <Link
                                         href={item.href}
-                                        role="menuitem"
                                         className="flex items-center gap-3 rounded-field px-2 py-2 hover:bg-base-200"
                                     >
                                         <PersonThumb name={item.name} photoUrl={item.photoUrl} />
@@ -110,7 +110,7 @@ export function BirthdayMenu({
                             ))}
                         </ul>
                     )}
-                </div>
+                </section>
             )}
         </div>
     );

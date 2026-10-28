@@ -105,8 +105,9 @@ export type PaletteShortcutEvent = {
 /**
  * Whether this key event is the one that opens the window: the letter K with Ctrl or Cmd held.
  *
- * `key` carries the letter of the layout in use - on a Cyrillic keyboard Ctrl+K arrives as "л", so
- * a check on it alone leaves the shortcut to the browser, which opens its own search field - while
+ * `key` carries the letter of the layout in use - on a Cyrillic keyboard Ctrl+K arrives as the
+ * Cyrillic letter on that key, so a check on it alone leaves the shortcut to the browser, which
+ * opens its own search field - while
  * `code` names the key itself and reads "KeyK" on every layout. Ctrl+Alt is AltGr on several
  * layouts and writes a character, so it is not the shortcut.
  */
