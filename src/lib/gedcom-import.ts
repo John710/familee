@@ -6,19 +6,15 @@
  * children and marriage dates. The identifiers of the file (@I1@, @F1@) are kept in
  * gedcom_xref. When the tree already holds a person or a union with one of those
  * identifiers, the import stops: records of two files must not be merged by accident.
+ * A person of the file who is clearly somebody already in the tree (sameForImport in
+ * src/lib/duplicates.ts) is joined to that record instead of being created again.
  */
 
 import { and, eq, inArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
-import {
-    bestMatch,
-    cardToDuplicate,
-    type DuplicatePerson,
-    indexByName,
-    yearOf,
-} from "@/lib/duplicates";
+import { cardToDuplicate, type DuplicatePerson, importJoins, yearOf } from "@/lib/duplicates";
 import { type DateWords, type ParsedDate, parseFuzzyDate } from "@/lib/fuzzy-date";
 import type { ImportPlan, PlannedPerson } from "@/lib/gedcom-plan";
 import { listPersonCards } from "@/lib/people";
@@ -46,6 +42,9 @@ export async function importIntoTree(input: {
 }): Promise<ImportResult> {
     const { treeId, userId, plan, words } = input;
 
+    // The caller shows the refusals of the plan; a plan with any of them is never written.
+    if (plan.refusals.length > 0) return { ok: false, error: "gedcom.refused" };
+
     // The identifiers of the file, as the tree already knows them: a person carries the identifier
     // of his own record, and person_xrefs holds the identifiers of duplicates that were merged into
     // somebody. Either of them means the file has been here already.
@@ -66,11 +65,10 @@ export async function importIntoTree(input: {
         return { ok: false, error: "gedcom.alreadyImported" };
     }
 
-    // Who of the file is already in the tree under the same name and the same years: those are
-    // joined to the record that is there instead of being created a second time.
-    const cards = await listPersonCards(treeId);
-    const lookalikes = indexByName(cards.map(cardToDuplicate));
-    const joinedIds = new Set<string>();
+    // Who of the file is already in the tree (sameForImport: the same surname, given name and year
+    // of birth, no other patronymic): those are joined to the record that is there instead of being
+    // created a second time. The preview computes the same map from the same function.
+    const { joins } = await joinsFor(treeId, plan);
 
     const existingFamilies = await db
         .select({ xref: schema.families.gedcomXref })
@@ -98,16 +96,17 @@ export async function importIntoTree(input: {
             const personIdOf = new Map<string, string>();
 
             for (const person of plan.persons) {
-                // Somebody of the tree under the same name and the same years: the file brings the
-                // unions to him and his identifier joins the map, so nothing is created twice.
-                const match = bestMatch(planDuplicate(person), lookalikes);
-                if (match && !joinedIds.has(match.personId)) {
-                    joinedIds.add(match.personId);
-                    personIdOf.set(person.xref, match.personId);
+                // Somebody of the tree is this person: the file brings the unions to him and his
+                // identifier joins the map, so nothing is created twice. What the file knows and
+                // the record lacks is added; nothing the record already says is overwritten.
+                const existingId = joins.get(person.xref);
+                if (existingId) {
+                    personIdOf.set(person.xref, existingId);
                     await tx
                         .insert(schema.personXrefs)
-                        .values({ treeId, personId: match.personId, xref: person.xref })
+                        .values({ treeId, personId: existingId, xref: person.xref })
                         .onConflictDoNothing();
+                    events += await fillJoined(tx, treeId, existingId, userId, person, words);
                     joined += 1;
                     continue;
                 }
@@ -214,6 +213,78 @@ export async function importIntoTree(input: {
         events,
         joined,
     };
+}
+
+/**
+ * Which people of the file the import joins to people of the tree (file xref -> person id), and
+ * the names of those tree people for the preview. The tree is read as it is now, so the preview
+ * and the import a moment later agree unless somebody edits the tree in between.
+ */
+export async function joinsFor(
+    treeId: string,
+    plan: ImportPlan,
+): Promise<{ joins: Map<string, string>; names: Map<string, string> }> {
+    const cards = await listPersonCards(treeId);
+    return {
+        joins: importJoins(plan.persons.map(planDuplicate), cards.map(cardToDuplicate)),
+        names: new Map(cards.map((card) => [card.personId, card.fullName ?? ""])),
+    };
+}
+
+/**
+ * Adds to a joined person what the file knows and the record lacks: the birth or the death when
+ * the record has none (the record's own events are never replaced, the join already required the
+ * same year of birth), and the notes of the file appended to the record's notes unless they are
+ * already in them. Returns the number of events written.
+ */
+async function fillJoined(
+    tx: Tx,
+    treeId: string,
+    personId: string,
+    userId: string,
+    person: PlannedPerson,
+    words: DateWords,
+): Promise<number> {
+    const present = await tx
+        .select({ typeCode: schema.events.typeCode })
+        .from(schema.events)
+        .where(
+            and(
+                eq(schema.events.treeId, treeId),
+                eq(schema.events.personId, personId),
+                eq(schema.events.isPrimary, true),
+                inArray(schema.events.typeCode, ["birth", "death"]),
+            ),
+        );
+    const has = new Set(present.map((row) => row.typeCode));
+
+    let added = 0;
+    if (!has.has("birth")) {
+        added += await lifeEvent(tx, treeId, personId, "birth", person.birth, words);
+    }
+    if (!has.has("death")) {
+        added += await lifeEvent(tx, treeId, personId, "death", person.death, words);
+    }
+
+    const notes = person.notes.trim();
+    if (notes !== "") {
+        const [row] = await tx
+            .select({ notes: schema.persons.notes })
+            .from(schema.persons)
+            .where(and(eq(schema.persons.treeId, treeId), eq(schema.persons.id, personId)));
+        const current = row?.notes?.trim() ?? "";
+        if (!current.includes(notes)) {
+            await tx
+                .update(schema.persons)
+                .set({
+                    notes: current === "" ? notes : `${current}\n\n${notes}`,
+                    updatedBy: userId,
+                    updatedAt: new Date(),
+                })
+                .where(and(eq(schema.persons.treeId, treeId), eq(schema.persons.id, personId)));
+        }
+    }
+    return added;
 }
 
 /** A person of the file in the shape the duplicate search reads. */

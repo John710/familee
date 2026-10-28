@@ -15,7 +15,9 @@ import {
     duplicateScore,
     findDuplicates,
     groupByText,
+    importJoins,
     nameKey,
+    sameForImport,
     yearOf,
 } from "@/lib/duplicates";
 
@@ -107,4 +109,82 @@ test("reads the year out of a date as a file writes it", () => {
     assert.equal(yearOf("1921"), 1921);
     assert.equal(yearOf("about 1900"), 1900);
     assert.equal(yearOf("unknown"), null);
+});
+
+test("the import joins only on the surname, the given name and the same year of birth", () => {
+    const tree = person({ personId: "t", surname: "Ivanov", given: "Petr", birthYear: 1900 });
+
+    assert.equal(
+        sameForImport(person({ surname: "IVANOV", given: "petr", birthYear: 1900 }), tree),
+        true,
+    );
+    // A name alone is enough for the duplicates page, never for a join.
+    assert.equal(sameForImport(person({ surname: "Ivanov", given: "Petr" }), tree), false);
+    assert.equal(
+        sameForImport(
+            person({ surname: "Ivanov", given: "Petr", birthYear: 1900 }),
+            person({ surname: "Ivanov", given: "Petr" }),
+        ),
+        false,
+    );
+    assert.equal(
+        sameForImport(person({ surname: "Ivanov", given: "Petr", birthYear: 1901 }), tree),
+        false,
+    );
+    // Both parts of the name are needed: a surname with a year is not a person.
+    assert.equal(
+        sameForImport(
+            person({ surname: "Ivanov", birthYear: 1900 }),
+            person({ surname: "Ivanov", birthYear: 1900 }),
+        ),
+        false,
+    );
+});
+
+test("a patronymic or a year of death that contradicts stops the join", () => {
+    const tree = person({
+        surname: "Ivanov",
+        given: "Petr",
+        patronymic: "Sergeevich",
+        birthYear: 1900,
+        deathYear: 1970,
+    });
+
+    assert.equal(
+        sameForImport(
+            person({ surname: "Ivanov", given: "Petr", patronymic: "Ivanovich", birthYear: 1900 }),
+            tree,
+        ),
+        false,
+    );
+    // A patronymic only one side gives does not contradict anything.
+    assert.equal(
+        sameForImport(person({ surname: "Ivanov", given: "Petr", birthYear: 1900 }), tree),
+        true,
+    );
+    assert.equal(
+        sameForImport(
+            person({ surname: "Ivanov", given: "Petr", birthYear: 1900, deathYear: 1971 }),
+            tree,
+        ),
+        false,
+    );
+});
+
+test("the import joins each tree person once, and never on a guess between two", () => {
+    const tree = [
+        person({ personId: "t1", surname: "Ivanov", given: "Petr", birthYear: 1900 }),
+        person({ personId: "t2", surname: "Sidorova", given: "Anna", birthYear: 1910 }),
+        person({ personId: "t3", surname: "Sidorova", given: "Anna", birthYear: 1910 }),
+    ];
+    const file = [
+        person({ personId: "@I1@", surname: "Ivanov", given: "Petr", birthYear: 1900 }),
+        // The same person twice in the file: only the first is joined, the second is created.
+        person({ personId: "@I2@", surname: "Ivanov", given: "Petr", birthYear: 1900 }),
+        // Two people of the tree fit equally well: neither is picked.
+        person({ personId: "@I3@", surname: "Sidorova", given: "Anna", birthYear: 1910 }),
+        person({ personId: "@I4@", surname: "Petrov", given: "Ivan", birthYear: 1900 }),
+    ];
+
+    assert.deepEqual([...importJoins(file, tree)], [["@I1@", "t1"]]);
 });

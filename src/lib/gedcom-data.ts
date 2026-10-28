@@ -7,7 +7,7 @@
  * keys are not written to the file.
  */
 
-import { and, asc, eq, isNotNull, notInArray } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, notInArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import type { ExportPerson, ExportUnion, GedDate } from "@/lib/gedcom-export";
@@ -60,6 +60,21 @@ export async function loadTreeForExport(treeId: string): Promise<{
         .where(eq(schema.persons.treeId, treeId));
     const notesOf = new Map(notes.map((row) => [row.id, row.notes ?? ""]));
 
+    // person_cards has no suffix of its own (it is part of the full name), so it is read from the
+    // primary name.
+    const suffixes = await db
+        .select({ personId: schema.personNames.personId, suffix: schema.personNames.suffix })
+        .from(schema.personNames)
+        .innerJoin(schema.persons, eq(schema.persons.id, schema.personNames.personId))
+        .where(
+            and(
+                eq(schema.persons.treeId, treeId),
+                eq(schema.personNames.isPrimary, true),
+                isNotNull(schema.personNames.suffix),
+            ),
+        );
+    const suffixOf = new Map(suffixes.map((row) => [row.personId, row.suffix?.trim() ?? ""]));
+
     const xrefOf = new Map<string, string>();
     cards.forEach((card, index) => {
         xrefOf.set(card.personId, `@I${index + 1}@`);
@@ -94,6 +109,7 @@ export async function loadTreeForExport(treeId: string): Promise<{
         surname: card.surname ?? "",
         given: card.given ?? "",
         patronymic: card.patronymic ?? "",
+        suffix: suffixOf.get(card.personId) ?? "",
         sex: card.sex,
         birth: dateOf(card.birthDate, card.birthDateEnd, card.birthQualifier, card.birthPrecision),
         death: dateOf(card.deathDate, card.deathDateEnd, card.deathQualifier, card.deathPrecision),
@@ -136,9 +152,12 @@ export async function loadTreeForExport(treeId: string): Promise<{
         .where(eq(schema.familyChildren.treeId, treeId))
         .orderBy(asc(schema.familyChildren.birthOrder));
 
+    // Every marriage of a union (a couple may marry twice, or civilly and in church), the
+    // primary one first: the importer of most programs reads the first MARR as the marriage.
     const marriageRows = await db
         .select({
             familyId: schema.events.familyId,
+            description: schema.events.description,
             dateStart: schema.events.dateStart,
             dateEnd: schema.events.dateEnd,
             qualifier: schema.events.dateQualifier,
@@ -149,9 +168,13 @@ export async function loadTreeForExport(treeId: string): Promise<{
             and(
                 eq(schema.events.treeId, treeId),
                 eq(schema.events.typeCode, "marriage"),
-                eq(schema.events.isPrimary, true),
                 isNotNull(schema.events.familyId),
             ),
+        )
+        .orderBy(
+            desc(schema.events.isPrimary),
+            asc(schema.events.sortDate),
+            asc(schema.events.createdAt),
         );
 
     const xrefOfFamily = new Map<string, string>();
@@ -169,21 +192,25 @@ export async function loadTreeForExport(treeId: string): Promise<{
         const children = childRows
             .filter((row) => row.familyId === family.id && xrefOf.has(row.personId))
             .map((row) => xrefOf.get(row.personId) ?? "@I0@");
-        const marriage = marriageRows.find((row) => row.familyId === family.id);
+        const marriages = marriageRows
+            .filter((row) => row.familyId === family.id)
+            .map((row) => ({
+                date: dateOf(row.dateStart, row.dateEnd, row.qualifier, row.precision),
+                description: row.description ?? "",
+            }));
         return {
             xref: xrefOfFamily.get(family.id) ?? "@F0@",
             partners,
             children,
-            marriage: marriage
-                ? dateOf(
-                      marriage.dateStart,
-                      marriage.dateEnd,
-                      marriage.qualifier,
-                      marriage.precision,
-                  )
-                : null,
+            marriages,
         };
     });
 
-    return { persons, unions: unions.filter((union) => union.partners.length > 0) };
+    // A union of children whose parents are both unknown is still a family (a FAM record with
+    // only CHIL lines is valid GEDCOM): it keeps the siblings together. Only a union with nobody
+    // left in it - every member deleted - is not written.
+    return {
+        persons,
+        unions: unions.filter((union) => union.partners.length > 0 || union.children.length > 0),
+    };
 }

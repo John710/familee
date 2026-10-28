@@ -7,8 +7,10 @@
  * diacritics plus the years of the birth and the death: an equal name whose birth years contradict
  * each other cannot be the same person, an equal name without years can.
  *
- * Pure functions, no database and no translations: the duplicates page and the import preview both
- * read the same answer.
+ * Pure functions, no database and no translations. The duplicates page groups by duplicateScore(),
+ * a suggestion list where an equal name alone is enough; the GEDCOM import joins people only through
+ * sameForImport(), which asks for much more, because a join writes into a record that is already
+ * there.
  */
 
 /** The fields the comparison needs; a tree card and a planned person both have them. */
@@ -54,8 +56,8 @@ const SCORE_SAME_DEATH = 1;
 const SCORE_OTHER_DEATH = -1;
 
 /**
- * The name as it is compared: lower case, without accents or diacritics (so "ё" meets "е"), without
- * punctuation and with the spaces collapsed. The patronymic is left out on purpose - one record
+ * The name as it is compared: lower case, without accents or diacritics (so the Cyrillic "yo" meets
+ * "ye"), without punctuation and with the spaces collapsed. The patronymic is left out on purpose - one record
  * often carries it and the other does not.
  */
 export function nameKey(person: DuplicatePerson): string {
@@ -98,24 +100,80 @@ export function indexByName(persons: DuplicatePerson[]): Map<string, DuplicatePe
     return index;
 }
 
-/** The person of a tree who looks most like this one, or null when nobody does. */
-export function bestMatch(
-    person: DuplicatePerson,
-    index: Map<string, DuplicatePerson[]>,
-): DuplicatePerson | null {
-    const candidates = index.get(nameKey(person));
-    if (!candidates) return null;
-
-    let best: DuplicatePerson | null = null;
-    let bestScore = 0;
-    for (const candidate of candidates) {
-        const score = duplicateScore(person, candidate);
-        if (score > bestScore) {
-            best = candidate;
-            bestScore = score;
-        }
+/**
+ * Whether the GEDCOM import may take a person of the file for a person already in the tree. This
+ * is much stricter than duplicateScore(): a join writes the unions of the file onto the record that
+ * is there, and a wrong join is hard to see and harder to undo, while a person created twice only
+ * shows up on the duplicates page, where it can be merged by hand. So the surname and the given
+ * name must both be present and equal, both sides must give a year of birth and it must be the
+ * same, and a patronymic or a year of death given by both sides must not differ.
+ */
+export function sameForImport(file: DuplicatePerson, tree: DuplicatePerson): boolean {
+    const surname = normalize(file.surname ?? "");
+    const given = normalize(file.given ?? "");
+    if (surname === "" || given === "") return false;
+    if (surname !== normalize(tree.surname ?? "") || given !== normalize(tree.given ?? "")) {
+        return false;
     }
-    return best;
+
+    if (file.birthYear === null || tree.birthYear === null) return false;
+    if (file.birthYear !== tree.birthYear) return false;
+
+    const filePatronymic = normalize(file.patronymic ?? "");
+    const treePatronymic = normalize(tree.patronymic ?? "");
+    if (filePatronymic !== "" && treePatronymic !== "" && filePatronymic !== treePatronymic) {
+        return false;
+    }
+
+    if (file.deathYear !== null && tree.deathYear !== null && file.deathYear !== tree.deathYear) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Which people of the file the import joins to which people of the tree, as a map from the
+ * file's identifier (personId of the file side) to the tree's person id. A tree person is taken
+ * by one file person at most, and a file person who fits two people of the tree equally is not
+ * joined at all: the tree already holds a pair the owner has to sort out, and picking one of them
+ * would be a guess. The preview and the import both call this, so they show and do the same.
+ */
+export function importJoins(
+    filePersons: DuplicatePerson[],
+    treePersons: DuplicatePerson[],
+): Map<string, string> {
+    const byName = new Map<string, DuplicatePerson[]>();
+    for (const person of treePersons) {
+        const key = strictKey(person);
+        if (key === null) continue;
+        const list = byName.get(key);
+        if (list) list.push(person);
+        else byName.set(key, [person]);
+    }
+
+    const joins = new Map<string, string>();
+    const taken = new Set<string>();
+    for (const person of filePersons) {
+        const key = strictKey(person);
+        if (key === null) continue;
+        const candidates = (byName.get(key) ?? []).filter(
+            (candidate) => !taken.has(candidate.personId) && sameForImport(person, candidate),
+        );
+        const [only] = candidates;
+        if (candidates.length !== 1 || !only) continue;
+        taken.add(only.personId);
+        joins.set(person.personId, only.personId);
+    }
+    return joins;
+}
+
+/** The surname and the given name, both required, as sameForImport() compares them. */
+function strictKey(person: DuplicatePerson): string | null {
+    const surname = normalize(person.surname ?? "");
+    const given = normalize(person.given ?? "");
+    if (surname === "" || given === "") return null;
+    // normalize() leaves no punctuation, so "|" cannot occur inside either part.
+    return `${surname}|${given}`;
 }
 
 /**
@@ -207,7 +265,10 @@ function byBirthYear(a: DuplicatePerson, b: DuplicatePerson): number {
     return a.birthYear - b.birthYear;
 }
 
-/** Lower case, without the marks that carry accents or the Cyrillic "ё", without punctuation. */
+/**
+ * Lower case, without the marks that carry accents or turn the Cyrillic "ye" into "yo" (NFKD
+ * splits that letter into the base and a diaeresis), without punctuation.
+ */
 function normalize(value: string): string {
     return value
         .normalize("NFKD")

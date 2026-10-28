@@ -15,6 +15,19 @@ import { useState, useTransition } from "react";
 import { Link } from "@/i18n/navigation";
 import type { CommitResult, PreviewResult } from "@/lib/actions/gedcom";
 import { commitGedcomAction, previewGedcomAction } from "@/lib/actions/gedcom";
+import { GEDCOM_MAX_BYTES } from "@/lib/gedcom-text";
+
+type Fault = { xref: string; message: string };
+
+/**
+ * The key of the message for an action that threw instead of answering: the framework refuses a
+ * body over its limit before the action runs, and a dropped connection throws as well. Neither
+ * may fall through to the error page and lose the form.
+ */
+function thrownKey(error: unknown): "gedcom.tooLarge" | "errors.generic" {
+    const message = error instanceof Error ? error.message : String(error);
+    return /body|size|limit|too large|413/i.test(message) ? "gedcom.tooLarge" : "errors.generic";
+}
 
 /**
  * The file as base64, byte for byte: the server decodes it by the character set in
@@ -37,47 +50,71 @@ export function GedcomImportForm({ slug, personsHref }: { slug: string; personsH
     const [preview, setPreview] = useState<Extract<PreviewResult, { ok: true }> | null>(null);
     const [done, setDone] = useState<Extract<CommitResult, { ok: true }> | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [faults, setFaults] = useState<Fault[]>([]);
     const [pending, startTransition] = useTransition();
+
+    function fail(key: string, details: Fault[] = []) {
+        setError(t(key as Parameters<typeof t>[0]));
+        setFaults(details);
+    }
 
     async function onFile(file: File | undefined) {
         setPreview(null);
         setDone(null);
         setError(null);
+        setFaults([]);
         if (!file) {
             setText(null);
             setFileName("");
             return;
         }
         setFileName(file.name);
+        // A file over the limit is refused here: sending it would only make the server say no.
+        if (file.size > GEDCOM_MAX_BYTES) {
+            setText(null);
+            fail("gedcom.tooLarge");
+            return;
+        }
         setText(await toBase64(file));
     }
 
     function onPreview() {
         if (text === null) return;
         setError(null);
+        setFaults([]);
         setDone(null);
         startTransition(async () => {
-            const result = await previewGedcomAction({ slug, bytes: text });
-            if (!result.ok) {
+            try {
+                const result = await previewGedcomAction({ slug, bytes: text });
+                if (!result.ok) {
+                    setPreview(null);
+                    fail(result.error, result.details);
+                    return;
+                }
+                setPreview(result);
+            } catch (thrown) {
                 setPreview(null);
-                setError(t(result.error as Parameters<typeof t>[0]));
-                return;
+                fail(thrownKey(thrown));
             }
-            setPreview(result);
         });
     }
 
     function onImport() {
         if (text === null) return;
         setError(null);
+        setFaults([]);
         startTransition(async () => {
-            const result = await commitGedcomAction({ slug, bytes: text });
-            if (!result.ok) {
-                setError(t(result.error as Parameters<typeof t>[0]));
-                return;
+            try {
+                const result = await commitGedcomAction({ slug, bytes: text });
+                if (!result.ok) {
+                    fail(result.error, result.details);
+                    return;
+                }
+                setDone(result);
+                setPreview(null);
+            } catch (thrown) {
+                fail(thrownKey(thrown));
             }
-            setDone(result);
-            setPreview(null);
         });
     }
 
@@ -127,6 +164,12 @@ export function GedcomImportForm({ slug, personsHref }: { slug: string; personsH
                                 children: preview.children,
                             })}
                         </p>
+                        <p className="text-sm">
+                            {t("gedcom.joinSummary", {
+                                created: preview.created,
+                                joined: preview.joined,
+                            })}
+                        </p>
                         <p className="text-base-content/60 text-xs">
                             {t("gedcom.versionFound", { version: preview.version })}
                         </p>
@@ -150,7 +193,7 @@ export function GedcomImportForm({ slug, personsHref }: { slug: string; personsH
                                 </span>
                                 <p className="text-base-content/60 text-xs">
                                     {t("gedcom.duplicatesHint", {
-                                        count: preview.duplicates.length,
+                                        count: preview.joined,
                                     })}
                                 </p>
                                 <ul className="max-h-64 overflow-y-auto text-xs">
@@ -186,9 +229,19 @@ export function GedcomImportForm({ slug, personsHref }: { slug: string; personsH
             )}
 
             {error && (
-                <p role="alert" className="text-error text-sm">
-                    {error}
-                </p>
+                <div role="alert" className="flex flex-col gap-1 text-error text-sm">
+                    <p>{error}</p>
+                    {faults.length > 0 && (
+                        <ul className="max-h-64 overflow-y-auto text-xs">
+                            {faults.map((fault, index) => (
+                                // biome-ignore lint/suspicious/noArrayIndexKey: the faults of one answer are a fixed list, never reordered
+                                <li key={`${fault.xref}-${index}`}>
+                                    {fault.xref}: {fault.message}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
             )}
         </div>
     );

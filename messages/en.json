@@ -868,10 +868,18 @@
         "done": "Added: people {persons}, unions {families}, events {events}",
         "tooLarge": "The file is too large",
         "empty": "No people were found in the file",
-        "alreadyImported": "These people or unions are already in the tree: the repeated import was stopped",
-        "duplicates": "People who look like somebody already here",
-        "duplicatesHint": "{count, plural, one {# person of the file carries the same name and the same years as somebody in the tree: the import joins him to that record instead of adding him twice.} other {# people of the file carry the same name and the same years as somebody in the tree: the import joins them to those records instead of adding them twice.}}",
+        "alreadyImported": "This file looks already imported: the tree already has people or unions with its identifiers (@I1@, @F1@…), so the import was stopped. A different file whose identifiers are the same cannot be added to this tree yet: import it into a new tree.",
+        "refused": "The file cannot be imported as it is: fix these lines in the program that wrote it, or export it again",
+        "joinSummary": "New people: {created}; joined to people already in the tree: {joined}",
+        "duplicates": "People who are already in the tree",
+        "duplicatesHint": "{count, plural, one {# person of the file has the same surname, given name and year of birth as somebody in the tree, and no other patronymic: the import joins him to that record and adds only what it lacks.} other {# people of the file have the same surname, given name and year of birth as somebody in the tree, and no other patronymic: the import joins them to those records and adds only what they lack.}} Everybody else is added as a new person; the duplicates page can merge them later.",
         "doneJoined": "{count, plural, one {# of them joined a record already in the tree} other {# of them joined records already in the tree}}",
+        "decode": {
+            "ansi": "the file says ANSI: it was read as Windows-1251; check the names",
+            "ansel": "the file says ANSEL: some accents may come out wrong",
+            "noCharset": "the file does not name its encoding and is not UTF-8: it was read as Windows-1251; check the names",
+            "brokenUtf8": "the file says UTF-8 but holds bytes that are not: some letters may be lost"
+        },
         "plan": {
             "skippedLines": "{count} lines do not follow the GEDCOM grammar and were skipped",
             "noName": "no name in the file: the person is not imported",
@@ -883,7 +891,11 @@
             "deathDateNotRead": "death date not read: {date}",
             "deathWithoutDate": "death without a date: the person is not marked deceased",
             "unionWithoutPartners": "union without imported partners or children",
-            "marriageDateNotRead": "marriage date not read: {date}"
+            "marriageDateNotRead": "marriage date not read: {date}",
+            "duplicateXref": "this identifier is used by more than one record of the file",
+            "samePartner": "both partners of the union are the same person {person}",
+            "repeatedChild": "the child {person} is listed in the union more than once",
+            "partnerIsChild": "{person} is both a partner and a child of the union"
         }
     },
     "validation": {
