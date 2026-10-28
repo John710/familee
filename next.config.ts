@@ -126,10 +126,19 @@ const nextConfig = {
              * Photo upload goes through a Route Handler
              * (src/app/api/trees/[slug]/persons/[personId]/photos), which checks
              * the size itself. Server actions still have to accept files of
-             * some size: the default 1 MB is far too little for a scan.
+             * some size: the default 1 MB is far too little for a scan. The GEDCOM
+             * import (src/lib/actions/gedcom.ts) takes files up to 25 MB, sent as
+             * base64, a third larger: 35 MB covers that and the rest of the form.
              */
-            bodySizeLimit: "25MB" as const,
+            bodySizeLimit: "35MB" as const,
         },
+        /**
+         * The proxy (src/proxy.ts) runs on the pages, and a server action posts to
+         * its page, so the body passes through the proxy first. Next.js keeps only
+         * the first 10 MB of such a body by default and the action then fails to
+         * read it; the limit follows the one of the server actions above.
+         */
+        proxyClientMaxBodySize: "35MB" as const,
     },
 
     /** Request logs for the database and the files read better in one format. */

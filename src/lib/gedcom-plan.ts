@@ -35,6 +35,12 @@ export type ImportPlan = {
     persons: PlannedPerson[];
     unions: PlannedUnion[];
     warnings: { xref: string; message: string }[];
+    /**
+     * What makes the file impossible to import as it stands: an identifier used twice, a union
+     * whose two partners are one person, a child listed twice. The database would refuse those
+     * rows halfway through the import; the plan names them instead, and nothing is written.
+     */
+    refusals: { xref: string; message: string }[];
 };
 
 const MONTHS: Record<string, string> = {
@@ -132,6 +138,13 @@ function dateOf(event: GedLine): { date: string; phrase: string } {
     return { date: dateLine.value, phrase: child(dateLine, "PHRASE")?.value ?? "" };
 }
 
+/**
+ * A word that reads as an East Slavic patronymic: Petrovich, Petrovna, Ilyich, Ilyinichna, in
+ * Cyrillic or in Latin letters. The Latin "-ich" after an "r" is left out on purpose: Friedrich,
+ * Heinrich and Ulrich are given names, not patronymics.
+ */
+const PATRONYMIC = /(?:ич|вна|ична|vitch|vna|ichna|(?<!r)ich)$/iu;
+
 /** Splits a name into surname, given name and patronymic, with the file's own fields first. */
 function splitName(record: GedRecord): {
     surname: string;
@@ -142,28 +155,37 @@ function splitName(record: GedRecord): {
     const nameLine = child(record, "NAME");
     const givn = child(nameLine ?? record, "GIVN")?.value ?? "";
     const surn = child(nameLine ?? record, "SURN")?.value ?? "";
-    const suffix = child(nameLine ?? record, "NSFX")?.value ?? "";
+    const nsfx = child(nameLine ?? record, "NSFX")?.value ?? "";
 
     let given = givn.trim();
     let surname = surn.trim();
+    let suffix = nsfx.trim();
 
-    if (given === "" && surname === "" && nameLine) {
-        // "Given /Surname/": the surname is between the slashes (the standard).
+    // "Given /Surname/ Suffix" (the standard): each part the file gives no tag for is read from
+    // the NAME line itself, so a GIVN without a SURN still keeps the surname between the slashes.
+    if (nameLine) {
         const raw = nameLine.value;
-        const slash = /\/([^/]*)\//.exec(raw);
-        surname = (slash?.[1] ?? "").trim();
-        given = raw.replace(/\/[^/]*\/.*$/, "").trim();
+        const slash = /^([^/]*)\/([^/]*)\/(.*)$/.exec(raw);
+        if (surname === "") surname = (slash?.[2] ?? "").trim();
+        if (given === "") given = (slash ? (slash[1] ?? "") : raw).trim();
+        if (suffix === "" && slash) suffix = (slash[3] ?? "").trim();
     }
 
-    // The standard separates several given names with a comma (NAME_PIECE_GIVEN).
-    // The MyHeritage export writes the patronymic after a space instead of in a separate tag.
-    // Here the first word is the given name and the rest the patronymic. A comma-separated
-    // list of given names is kept as it is.
+    // The standard separates several given names with a comma (NAME_PIECE_GIVEN); the MyHeritage
+    // export writes the patronymic after a space instead of in a tag of its own. Only a last word
+    // that reads as a patronymic is taken for one: "John Paul" stays a given name of two words,
+    // "Petr Sergeevich" is Petr with the patronymic Sergeevich.
     const words = given.split(/\s+/).filter(Boolean);
-    const patronymic = words.length > 1 ? words.slice(1).join(" ") : "";
-    const firstName = words[0] ?? "";
-
-    return { surname, given: firstName, patronymic, suffix: suffix.trim() };
+    const last = words[words.length - 1] ?? "";
+    if (words.length > 1 && PATRONYMIC.test(last.replace(/[.,]+$/, ""))) {
+        return {
+            surname,
+            given: words.slice(0, -1).join(" "),
+            patronymic: last,
+            suffix,
+        };
+    }
+    return { surname, given: words.join(" "), patronymic: "", suffix };
 }
 
 /** Strips the markup of a free text (<DSCR><HAIR>curly</HAIR></DSCR> -> "curly"). */
@@ -186,7 +208,11 @@ export type PlanKey =
     | "deathDateNotRead"
     | "deathWithoutDate"
     | "unionWithoutPartners"
-    | "marriageDateNotRead";
+    | "marriageDateNotRead"
+    | "duplicateXref"
+    | "samePartner"
+    | "repeatedChild"
+    | "partnerIsChild";
 
 /** What the planner takes from the request: the words of the date parser and the translator. */
 export type PlanContext = {
@@ -198,8 +224,21 @@ export function planImport(text: string, ctx: PlanContext): ImportPlan {
     const file = parseGedcomFile(text);
     const records = file.records;
     const warnings: ImportPlan["warnings"] = [];
+    const refusals: ImportPlan["refusals"] = [];
     const persons: PlannedPerson[] = [];
     const unions: PlannedUnion[] = [];
+
+    // An identifier names one record of the file (GEDCOM 7.0, 1.3: "unique within the dataset").
+    const seen = new Set<string>();
+    const repeated = new Set<string>();
+    for (const record of records) {
+        if (!record.xref) continue;
+        if (seen.has(record.xref) && !repeated.has(record.xref)) {
+            repeated.add(record.xref);
+            refusals.push({ xref: record.xref, message: ctx.t("duplicateXref") });
+        }
+        seen.add(record.xref);
+    }
 
     if (file.skippedLines > 0) {
         warnings.push({
@@ -296,6 +335,32 @@ export function planImport(text: string, ctx: PlanContext): ImportPlan {
             continue;
         }
 
+        // The rows the database keys on (family and person) must not repeat, and a person cannot
+        // be a partner and a child of one union: say which line of the file is wrong.
+        if (partners.length === 2 && partners[0] === partners[1]) {
+            refusals.push({
+                xref: record.xref,
+                message: ctx.t("samePartner", { person: partners[0] ?? "" }),
+            });
+        }
+        const listed = new Set<string>();
+        for (const ref of children) {
+            if (listed.has(ref)) {
+                refusals.push({
+                    xref: record.xref,
+                    message: ctx.t("repeatedChild", { person: ref }),
+                });
+                continue;
+            }
+            listed.add(ref);
+            if (partners.includes(ref)) {
+                refusals.push({
+                    xref: record.xref,
+                    message: ctx.t("partnerIsChild", { person: ref }),
+                });
+            }
+        }
+
         let marriage = "";
         const marr = child(record, "MARR");
         if (marr) {
@@ -316,5 +381,5 @@ export function planImport(text: string, ctx: PlanContext): ImportPlan {
         unions.push({ xref: record.xref, partners, children, marriage });
     }
 
-    return { version: file.version, persons, unions, warnings };
+    return { version: file.version, persons, unions, warnings, refusals };
 }

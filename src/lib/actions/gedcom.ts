@@ -7,18 +7,22 @@
  * character set of the file (src/lib/gedcom-text.ts) and reads the records.
  * Two steps: the preview writes nothing; the import writes the same plan. Both need
  * the editor role or higher in the tree.
+ *
+ * The body of the request is the base64 text, a third larger than the file: next.config.ts
+ * lets server actions and the proxy take 35 MB, enough for a file of GEDCOM_MAX_BYTES.
  */
 
 import { getTranslations } from "next-intl/server";
 import { loadDateWords } from "@/lib/date-words";
-import { bestMatch, cardToDuplicate, indexByName } from "@/lib/duplicates";
-import { importIntoTree, planDuplicate } from "@/lib/gedcom-import";
-import { type PlanContext, type PlanKey, planImport } from "@/lib/gedcom-plan";
-import { decodeGedcomBytes } from "@/lib/gedcom-text";
-import { listPersonCards } from "@/lib/people";
+import { importIntoTree, joinsFor, planDuplicate } from "@/lib/gedcom-import";
+import { type ImportPlan, type PlanContext, type PlanKey, planImport } from "@/lib/gedcom-plan";
+import { decodeGedcomBytes, GEDCOM_MAX_BYTES } from "@/lib/gedcom-text";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
+
+/** A refusal: the key of the message, and for a file that cannot be imported, its faults. */
+type Refused = { ok: false; error: string; details?: { xref: string; message: string }[] };
 
 export type PreviewResult =
     | {
@@ -27,11 +31,15 @@ export type PreviewResult =
           persons: number;
           unions: number;
           children: number;
+          /** The people of the file the import joins to people already in the tree. */
+          joined: number;
+          /** The people of the file the import creates. */
+          created: number;
           warnings: { xref: string; message: string }[];
-          /** The people of the file who look like somebody already in the tree. */
+          /** The people of the file who are joined, with the record each one joins (first 100). */
           duplicates: { xref: string; name: string; existing: string }[];
       }
-    | { ok: false; error: string };
+    | Refused;
 
 export type CommitResult =
     | {
@@ -43,9 +51,7 @@ export type CommitResult =
           /** The people of the file who joined a record already in the tree. */
           joined: number;
       }
-    | { ok: false; error: string };
-
-const MAX_BYTES = 25 * 1024 * 1024;
+    | Refused;
 
 type Access =
     | { error: string; user?: undefined; access?: undefined }
@@ -61,13 +67,33 @@ async function accessFor(slug: string): Promise<Access> {
     return { user, access };
 }
 
-/** The file as text, with the note of the decoding; error is set when the file is refused. */
-function readFile(base64: string): { error: string | null; text: string; note: string | null } {
-    if (base64.length > Math.ceil((MAX_BYTES * 4) / 3)) {
+/** The file as text, with the translated note of the decoding; error is set when it is refused. */
+async function readFile(
+    base64: string,
+): Promise<{ error: string | null; text: string; note: string | null }> {
+    // Four characters of base64 carry three bytes; the padding may add up to two more.
+    if (typeof base64 !== "string" || base64.length > Math.ceil(GEDCOM_MAX_BYTES / 3) * 4) {
         return { error: "gedcom.tooLarge", text: "", note: null };
     }
     const decoded = decodeGedcomBytes(Buffer.from(base64, "base64"));
-    return { error: null, text: decoded.text, note: decoded.note };
+    const t = await getTranslations("gedcom.decode");
+    return {
+        error: null,
+        text: decoded.text,
+        note: decoded.note ? t(decoded.note as Parameters<typeof t>[0]) : null,
+    };
+}
+
+/** The plan of the file, or the refusal the reader sees instead. */
+async function planOf(text: string): Promise<{ plan: ImportPlan } | { refused: Refused }> {
+    const plan = planImport(text, await planContext());
+    if (plan.refusals.length > 0) {
+        return {
+            refused: { ok: false, error: "gedcom.refused", details: plan.refusals.slice(0, 50) },
+        };
+    }
+    if (plan.persons.length === 0) return { refused: { ok: false, error: "gedcom.empty" } };
+    return { plan };
 }
 
 export async function previewGedcomAction(input: {
@@ -77,31 +103,27 @@ export async function previewGedcomAction(input: {
     const check = await accessFor(input.slug);
     if (check.error !== undefined) return { ok: false, error: check.error };
 
-    const file = readFile(input.bytes);
+    const file = await readFile(input.bytes);
     if (file.error !== null) return { ok: false, error: file.error };
 
-    const plan = planImport(file.text, await planContext());
-    if (plan.persons.length === 0) return { ok: false, error: "gedcom.empty" };
+    const planned = await planOf(file.text);
+    if ("refused" in planned) return planned.refused;
+    const { plan } = planned;
 
     const children = plan.unions.reduce((total, union) => total + union.children.length, 0);
     const notes = file.note ? [{ xref: "file", message: file.note }] : [];
 
-    // Who of the file looks like somebody already in the tree. The import joins those people to the
-    // record that is there instead of creating them again, so the reader has to see them first.
-    const cards = await listPersonCards(check.access.treeId);
-    const index = indexByName(cards.map(cardToDuplicate));
-    const namesById = new Map(cards.map((card) => [card.personId, card.fullName ?? ""]));
+    // Who of the file is joined to somebody already in the tree instead of being created again.
+    // The reader has to see them before the import writes anything.
+    const { joins, names } = await joinsFor(check.access.treeId, plan);
     const duplicates: { xref: string; name: string; existing: string }[] = [];
-    const taken = new Set<string>();
     for (const person of plan.persons) {
-        const shape = planDuplicate(person);
-        const match = bestMatch(shape, index);
-        if (!match || taken.has(match.personId)) continue;
-        taken.add(match.personId);
+        const existingId = joins.get(person.xref);
+        if (!existingId) continue;
         duplicates.push({
             xref: person.xref,
-            name: shape.fullName ?? "",
-            existing: namesById.get(match.personId) ?? "",
+            name: planDuplicate(person).fullName ?? "",
+            existing: names.get(existingId) ?? "",
         });
     }
 
@@ -111,6 +133,8 @@ export async function previewGedcomAction(input: {
         persons: plan.persons.length,
         unions: plan.unions.length,
         children,
+        joined: joins.size,
+        created: plan.persons.length - joins.size,
         warnings: [...notes, ...plan.warnings].slice(0, 200),
         duplicates: duplicates.slice(0, 100),
     };
@@ -123,16 +147,16 @@ export async function commitGedcomAction(input: {
     const check = await accessFor(input.slug);
     if (check.error !== undefined) return { ok: false, error: check.error };
 
-    const file = readFile(input.bytes);
+    const file = await readFile(input.bytes);
     if (file.error !== null) return { ok: false, error: file.error };
 
-    const plan = planImport(file.text, await planContext());
-    if (plan.persons.length === 0) return { ok: false, error: "gedcom.empty" };
+    const planned = await planOf(file.text);
+    if ("refused" in planned) return planned.refused;
 
     const result = await importIntoTree({
         treeId: check.access.treeId,
         userId: check.user.id,
-        plan,
+        plan: planned.plan,
         words: await loadDateWords(),
     });
     if (!result.ok) return result;

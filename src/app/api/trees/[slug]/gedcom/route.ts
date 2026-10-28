@@ -5,6 +5,7 @@
  * tree that does not exist. The file is UTF-8 with the header GEDC / VERS 7.0.
  */
 
+import { APP_VERSION } from "@/lib/app-version";
 import { loadTreeForExport } from "@/lib/gedcom-data";
 import { writeGedcom7 } from "@/lib/gedcom-export";
 import { getCurrentUser } from "@/lib/session";
@@ -28,7 +29,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
         persons,
         unions,
         sourceName: "Familee",
-        sourceVersion: "0.1.0",
+        // The version of this build, as the footer shows it, so a file says which release wrote it.
+        sourceVersion: APP_VERSION,
     });
 
     return new Response(text, {

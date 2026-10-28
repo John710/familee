@@ -39,10 +39,43 @@ export type GedcomFile = {
 
 const LINE = /^(\d+) (?:(@[A-Za-z0-9_]+@) )?([A-Za-z0-9_]+)(?: (.*))?$/;
 
-/** The GEDC.VERS of the header, read before the lines are parsed (it decides the "@" rule). */
-function detectVersion(text: string): string {
-    const match = /^0 HEAD\s*\r?\n1 GEDC\s*\r?\n2 VERS ([^\r\n]+)/m.exec(text);
-    return match?.[1]?.trim() ?? "unknown";
+/**
+ * A raw line as the grammar reads it: without a byte-order mark and without leading white space.
+ * GEDCOM 5.5.1 lets writers indent the lines by level and asks readers to accept that, so the
+ * indent is dropped; what follows the tag is left alone, the value may start with a space.
+ */
+function cleanLine(raw: string): string {
+    return raw.replace(/^﻿/, "").replace(/^[ \t]+/, "");
+}
+
+/**
+ * The GEDC.VERS of the header, read before the lines are parsed (it decides the "@" rule). GEDC
+ * may stand anywhere among the children of HEAD (SOUR and CHAR often come first), so every line of
+ * the header is looked at; the search stops at the first record after it.
+ */
+function detectVersion(lines: string[]): string {
+    let inHead = false;
+    let inGedc = false;
+    for (const raw of lines) {
+        const match = LINE.exec(cleanLine(raw));
+        if (!match) continue;
+        const level = Number(match[1]);
+        const tag = match[3];
+        if (level === 0) {
+            if (tag !== "HEAD") break;
+            inHead = true;
+            continue;
+        }
+        if (!inHead) continue;
+        if (level === 1) {
+            inGedc = tag === "GEDC";
+            continue;
+        }
+        if (level === 2 && inGedc && tag === "VERS") {
+            return match[4]?.trim() || "unknown";
+        }
+    }
+    return "unknown";
 }
 
 /**
@@ -56,15 +89,15 @@ function unescapeValue(value: string, version: string): string {
 
 /** Reads the GEDCOM text into records with their nested lines. */
 export function parseGedcomFile(text: string): GedcomFile {
-    const version = detectVersion(text);
+    const rawLines = text.split(/\r\n|\r|\n/);
+    const version = detectVersion(rawLines);
     const roots: GedLine[] = [];
     const stack: GedLine[] = [];
-    let previous: GedLine | null = null;
     let skippedLines = 0;
 
-    for (const raw of text.split(/\r\n|\r|\n/)) {
-        const line = raw.replace(/^﻿/, "");
-        if (line === "") continue;
+    for (const raw of rawLines) {
+        const line = cleanLine(raw);
+        if (line.trim() === "") continue;
 
         const match = LINE.exec(line);
         if (!match) {
@@ -78,12 +111,15 @@ export function parseGedcomFile(text: string): GedcomFile {
         // Only one space separates the tag from the value; further spaces belong to it.
         const value = unescapeValue(valueText ?? "", version);
 
-        if (tag === "CONT" && previous) {
-            previous.value += `\n${value}`;
-            continue;
-        }
-        if (tag === "CONC" && previous) {
-            previous.value += value;
+        // CONT and CONC continue the value of their parent, the line one level up - not whatever
+        // line came last: "1 NOTE a / 2 SOUR @S1@ / 2 CONT b" continues the note, not the source.
+        if (tag === "CONT" || tag === "CONC") {
+            const parent = level > 0 && level <= stack.length ? stack[level - 1] : undefined;
+            if (!parent) {
+                skippedLines += 1;
+                continue;
+            }
+            parent.value += tag === "CONT" ? `\n${value}` : value;
             continue;
         }
 
@@ -107,7 +143,6 @@ export function parseGedcomFile(text: string): GedcomFile {
             stack[level - 1]?.children.push(node);
         }
         stack[level] = node;
-        previous = node;
     }
 
     const header = roots.find((node) => node.tag === "HEAD");

@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { DateWords } from "@/lib/fuzzy-date";
+import { parseGedcomFile } from "@/lib/gedcom";
 import { gedcomDateToInput, type ImportPlan, planImport } from "@/lib/gedcom-plan";
 
 const WORDS: DateWords = {
@@ -148,6 +149,103 @@ test("takes the name apart", () => {
         ["Anna", ""],
     );
     assert.equal(personOf(result, "@I3@")?.suffix, "Jr.");
+});
+
+test("splits off only a word that reads as a patronymic", () => {
+    const result = plan(`${HEADER}0 @I1@ INDI
+1 NAME John Paul /Smith/
+0 @I2@ INDI
+1 NAME Ольга Ильинична /Петрова/
+0 @I3@ INDI
+1 NAME Johann Friedrich /Bach/
+0 @I4@ INDI
+1 NAME Vladimir Ilyich /Ulyanov/
+0 TRLR
+`);
+
+    const names = ["@I1@", "@I2@", "@I3@", "@I4@"].map((xref) => {
+        const person = personOf(result, xref);
+        return [person?.given, person?.patronymic];
+    });
+    assert.deepEqual(names, [
+        ["John Paul", ""],
+        ["Ольга", "Ильинична"],
+        ["Johann Friedrich", ""],
+        ["Vladimir", "Ilyich"],
+    ]);
+});
+
+test("a GIVN without a SURN still takes the surname from the slashes", () => {
+    const result = plan(`${HEADER}0 @I1@ INDI
+1 NAME Ivan Petrovich /Ivanov/ Jr.
+2 GIVN Ivan Petrovich
+0 TRLR
+`);
+
+    const ivan = personOf(result, "@I1@");
+    assert.deepEqual(
+        [ivan?.surname, ivan?.given, ivan?.patronymic, ivan?.suffix],
+        ["Ivanov", "Ivan", "Petrovich", "Jr."],
+    );
+});
+
+test("reads indented lines, a GEDC after other header lines, and CONT at its own level", () => {
+    const file = parseGedcomFile(`0 HEAD
+  1 SOUR Other
+  1 CHAR UTF-8
+  1 GEDC
+    2 VERS 5.5.1
+0 @I1@ INDI
+  1 NAME Ok /Person/
+  1 NOTE first
+    2 SOUR @S1@
+      3 PAGE 12
+    2 CONT second
+    2 CONC  half
+0 TRLR
+`);
+
+    assert.equal(file.version, "5.5.1");
+    assert.equal(file.encoding, "UTF-8");
+    assert.equal(file.skippedLines, 0);
+
+    const [person] = file.records;
+    assert.equal(person?.xref, "@I1@");
+    const note = person?.children.find((line) => line.tag === "NOTE");
+    // CONT and CONC belong to the NOTE one level up, not to the PAGE line just before them.
+    assert.equal(note?.value, "first\nsecond half");
+    assert.equal(note?.children[0]?.value, "@S1@");
+    assert.equal(note?.children[0]?.children[0]?.value, "12");
+});
+
+test("refuses a file whose records or links repeat", () => {
+    const result = plan(`${HEADER}0 @I1@ INDI
+1 NAME Ivan /Ivanov/
+0 @I1@ INDI
+1 NAME Petr /Ivanov/
+0 @I2@ INDI
+1 NAME Anna /Ivanova/
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I2@
+0 @F2@ FAM
+1 HUSB @I1@
+1 CHIL @I2@
+1 CHIL @I2@
+0 @F3@ FAM
+1 WIFE @I2@
+1 CHIL @I2@
+0 TRLR
+`);
+
+    assert.deepEqual(result.refusals, [
+        { xref: "@I1@", message: "duplicateXref" },
+        { xref: "@F1@", message: "samePartner(person=@I2@)" },
+        { xref: "@F2@", message: "repeatedChild(person=@I2@)" },
+        { xref: "@F3@", message: "partnerIsChild(person=@I2@)" },
+    ]);
+    // A file without such faults has none.
+    assert.deepEqual(plan(`${HEADER}0 @I1@ INDI\n1 NAME Ok /Person/\n0 TRLR\n`).refusals, []);
 });
 
 test("refuses a person the file gives no name", () => {
