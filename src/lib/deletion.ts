@@ -96,7 +96,8 @@ export async function restorePersonData(treeId: string, personId: string): Promi
  * null when the person is not in the trash of this tree.
  *
  * A union is removed when the person was its last partner or child; a union with other members
- * stays. A photograph stays while any other person, event or union still links to it.
+ * stays. A photograph stays while any other person, event or union still links to it, another
+ * person is tagged on it, or a note is written about it.
  */
 export async function purgePersonData(treeId: string, personId: string): Promise<string[] | null> {
     return db.transaction(async (tx) => {
@@ -166,11 +167,24 @@ export async function purgePersonData(treeId: string, personId: string): Promise
 
         // A photograph nobody links to any more goes with its variants; its keys go to the caller.
         if (candidateIds.length === 0) return [];
+        // Still in use means an album or event link, a tag of another person on the photograph, or
+        // a note written about the file; only a photograph with none of the three goes.
         const stillLinked = await tx
             .selectDistinct({ mediaId: schema.mediaLinks.mediaId })
             .from(schema.mediaLinks)
             .where(inArray(schema.mediaLinks.mediaId, candidateIds));
-        const linkedIds = new Set(stillLinked.map((row) => row.mediaId));
+        const stillTagged = await tx
+            .selectDistinct({ mediaId: schema.mediaPeople.mediaId })
+            .from(schema.mediaPeople)
+            .where(inArray(schema.mediaPeople.mediaId, candidateIds));
+        const stillNoted = await tx
+            .selectDistinct({ mediaId: schema.notes.mediaId })
+            .from(schema.notes)
+            .where(inArray(schema.notes.mediaId, candidateIds));
+        const linkedIds = new Set<string>();
+        for (const row of [...stillLinked, ...stillTagged, ...stillNoted]) {
+            if (row.mediaId) linkedIds.add(row.mediaId);
+        }
         const orphanIds = candidateIds.filter((id) => !linkedIds.has(id));
         if (orphanIds.length === 0) return [];
 
