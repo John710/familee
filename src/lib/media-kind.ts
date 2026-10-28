@@ -105,6 +105,29 @@ export function extensionOf(filename: string | null | undefined): string | null 
     return EXTENSION.test(extension) ? extension : null;
 }
 
+/** The longest original file name the archive remembers (the limit of most file systems). */
+export const MAX_FILENAME_LENGTH = 255;
+
+/**
+ * A file name cut to the length the archive keeps, with its extension intact so the name still
+ * says what the file is. The name is only a label (the bytes are stored under a random key), so a
+ * cut costs nothing but the tail of an absurdly long title.
+ */
+export function capFilename(
+    filename: string | null | undefined,
+    max: number = MAX_FILENAME_LENGTH,
+): string | null {
+    if (!filename) return null;
+    if (filename.length <= max) return filename;
+
+    const extension = extensionOf(filename);
+    const tail = extension ? `.${filename.slice(filename.lastIndexOf(".") + 1)}` : "";
+    // Never cut between the two halves of a surrogate pair: that leaves a broken character.
+    let head = filename.slice(0, Math.max(1, max - tail.length));
+    if (/[\ud800-\udbff]$/.test(head)) head = head.slice(0, -1);
+    return `${head}${tail}`;
+}
+
 /**
  * The kind a declared mime type alone names, for a file whose extension is unknown. A picture the
  * pipeline cannot read (a GIF, an SVG) is a document here, so it is stored and linked rather than

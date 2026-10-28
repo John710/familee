@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { classifyMedia, extensionOf, inlineable } from "@/lib/media-kind";
+import { capFilename, classifyMedia, extensionOf, inlineable } from "@/lib/media-kind";
 
 test("reads the extension of a file name, and gives up on a missing one", () => {
     assert.equal(extensionOf("Scan.PDF"), "pdf");
@@ -87,6 +87,23 @@ test("a declared type that can run a script is served as bytes", () => {
         assert.equal(media.mimeType, "application/octet-stream", declared);
         assert.equal(inlineable(media.mimeType), false, declared);
     }
+});
+
+test("a long file name is cut but keeps its extension", () => {
+    assert.equal(capFilename("scan.pdf"), "scan.pdf");
+    assert.equal(capFilename(null), null);
+    assert.equal(capFilename(""), null);
+
+    const long = `${"a".repeat(400)}.JPEG`;
+    const cut = capFilename(long);
+    assert.equal(cut?.length, 255);
+    assert.ok(cut?.endsWith(".JPEG"));
+
+    // No extension: the head alone is cut.
+    assert.equal(capFilename("b".repeat(300))?.length, 255);
+    // A cut that would split a surrogate pair drops the half character.
+    const emoji = capFilename("😀".repeat(10), 5);
+    assert.equal(emoji, "😀😀");
 });
 
 test("only what a browser can show inline is marked so", () => {
