@@ -85,7 +85,9 @@ export const persons = familee.table(
         unique("persons_gedcom_xref_key").on(t.treeId, t.gedcomXref),
         index("persons_tree_id_idx").on(t.treeId),
         index("persons_tree_sort_idx").on(t.treeId, t.sortOrder.asc().nullsLast()),
-        index("persons_trash_idx").on(t.treeId, t.deletedAt).where(sql`deleted_at is not null`),
+        index("persons_trash_idx")
+            .on(t.treeId, t.deletedAt.desc())
+            .where(sql`deleted_at is not null`),
     ],
 );
 

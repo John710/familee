@@ -107,6 +107,13 @@ export const media = familee.table(
         ),
         index("media_tree_idx").on(t.treeId, t.createdAt.desc()),
         index("media_place_idx").on(t.placeId),
+        /** The search over the title, the description and the file name (migration 0018). */
+        index("media_title_trgm_idx").using("gin", t.title.op("gin_trgm_ops")),
+        index("media_description_trgm_idx").using("gin", t.description.op("gin_trgm_ops")),
+        index("media_original_filename_trgm_idx").using(
+            "gin",
+            t.originalFilename.op("gin_trgm_ops"),
+        ),
         /** The composite key the tags of media_people point at (migration 0014). */
         unique("media_tree_id_id_key").on(t.treeId, t.id),
     ],
@@ -210,6 +217,11 @@ export const mediaLinks = familee.table(
         index("media_links_person_idx").on(t.personId, t.sortOrder),
         index("media_links_family_idx").on(t.familyId),
         index("media_links_event_idx").on(t.eventId),
+        /** The merges and the cascades of a deleted place or source read them (migration 0019). */
+        index("media_links_place_idx").on(t.placeId).where(sql`place_id is not null`),
+        index("media_links_source_idx").on(t.sourceId).where(sql`source_id is not null`),
+        /** The search over the captions (migration 0018). */
+        index("media_links_caption_trgm_idx").using("gin", t.caption.op("gin_trgm_ops")),
 
         /** One main photo per person and one link of a file to a person. */
         uniqueIndex("media_links_person_primary_key")
@@ -247,14 +259,17 @@ export const mediaPeople = familee.table(
             .defaultNow(),
     },
     (t) => [
-        /** The identifiers never cross trees. */
+        /**
+         * The identifiers never cross trees. The SQL leaves the two keys unnamed, so the names are
+         * the ones Postgres chooses.
+         */
         foreignKey({
-            name: "media_people_media_fk",
+            name: "media_people_tree_id_media_id_fkey",
             columns: [t.treeId, t.mediaId],
             foreignColumns: [media.treeId, media.id],
         }).onDelete("cascade"),
         foreignKey({
-            name: "media_people_person_fk",
+            name: "media_people_tree_id_person_id_fkey",
             columns: [t.treeId, t.personId],
             foreignColumns: [persons.treeId, persons.id],
         }).onDelete("cascade"),

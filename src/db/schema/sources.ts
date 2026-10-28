@@ -71,6 +71,9 @@ export const sources = familee.table(
     (t) => [
         unique("sources_gedcom_xref_key").on(t.treeId, t.gedcomXref),
         index("sources_tree_idx").on(t.treeId),
+        /** The search over the title and the author (migration 0018). */
+        index("sources_title_trgm_idx").using("gin", t.title.op("gin_trgm_ops")),
+        index("sources_author_trgm_idx").using("gin", t.author.op("gin_trgm_ops")),
     ],
 );
 
@@ -116,6 +119,8 @@ export const citations = familee.table(
         index("citations_source_idx").on(t.sourceId),
         index("citations_person_idx").on(t.personId),
         index("citations_event_idx").on(t.eventId),
+        /** The merges and the cascade of a deleted union read it (migration 0019). */
+        index("citations_family_idx").on(t.familyId).where(sql`family_id is not null`),
     ],
 );
 
