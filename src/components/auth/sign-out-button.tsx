@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Familee - the button that signs the person out of this device
+ *
+ * It ends the session on the server, then leads to the sign-in page. It sits in the profile menu.
+ */
+
 import { LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useTransition } from "react";

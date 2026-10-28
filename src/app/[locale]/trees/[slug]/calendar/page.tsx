@@ -1,3 +1,12 @@
+/**
+ * Familee - the calendar of a tree, month by month
+ *
+ * The birthdays and the dated events of the tree laid out on a month grid, with arrows to the other
+ * months. An anniversary stands on its day of every year from the year it happened, so the calendar
+ * of 1920 shows what a family of 1920 knew. The subscription address for phone calendars is on the
+ * tree page, and the feed itself is src/app/api/calendar.
+ */
+
 import { and, eq, isNotNull } from "drizzle-orm";
 import { Cake, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { notFound } from "next/navigation";

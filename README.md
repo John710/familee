@@ -11,10 +11,12 @@ events in their lives, the places they lived, the documents they came from and t
 The tree is drawn as cards with a picture and a name. A click on a card opens it, and you can edit
 it right there.
 
-It runs on your own server. Everything stays in your database and your photo storage, nothing is
-sent anywhere. The program uses the Postgres and Redis containers that are already running on your
-server and does not start its own. You choose how to reach it: by the server's IP address and a
-port, which is the default, or behind Traefik over HTTPS with a domain of your own.
+It runs on your own server. Your records stay in your database and your photographs in your photo
+storage. Two things do reach the internet, the map tiles and the check for a new release; both are
+described under "Server requirements". The program uses the Postgres and Redis containers that are
+already running on your server and does not start its own. You choose how to reach it: by the
+server's IP address and a port, which is the default, or behind Traefik over HTTPS with a domain of
+your own.
 
 The interface is in English by default and in Russian at `/ru`.
 
@@ -25,16 +27,16 @@ The interface is in English by default and in Russian at `/ru`.
   are: "about 1901" or "between 1915 and 1918". A family links partners and children, and the
   program will not let someone become their own ancestor.
 - **Possible duplicates.** The archive looks for people who carry the same name (whatever the case or
-  the accents) and the same years of birth and death, and shows them on a page of the tree. It never
+  the accents) and shows them on a page of the tree. A pair whose years of birth differ is not
+  listed, and neither is one whose years of death differ, unless the years of birth agree. It never
   merges anything by itself: you keep the record that is right, and the names, events, notes,
   photographs and unions of the others move onto it.
 - **A check of the data.** The archive gathers the records that look impossible - a death before a
   birth, a child born before a parent or after the mother's death, a mother or a father of an
   impossible age, a life longer than a hundred and ten years, a date that has not happened, a
-  marriage
-  before a partner was born, two births on one person - and shows them on a page of the tree with a
-  link to each card. Nothing is changed there: the page only points at the records that deserve a
-  second look.
+  marriage before a partner was born, two births or two deaths on one person - and shows them on a
+  page of the tree with a link to each card. Nothing is changed there: the page only points at the
+  records that deserve a second look.
 - **The tree.** Cards with a photo and the years, drawn from top to bottom. A click opens a panel
   with the timeline, the notes and the photo album. Focus mode shows only the ancestors and
   descendants of one person. If you choose yourself in the tree, every card shows how it is related
@@ -47,32 +49,40 @@ The interface is in English by default and in Russian at `/ru`.
   as well as chosen, and a whole batch goes in at once. Not only photographs: a document, a
   recording, a film or any other file goes into the same album and under the same event, the gallery
   gathers the tree's documents, recordings and films in one list, and the viewing window plays a
-  recording, shows a PDF or offers the file to download.
+  recording, shows a PDF or offers the file to download. A file that no person's album holds is
+  listed in the gallery's "Outside the albums" section, and an editor can delete one that nothing
+  uses.
 - **Library.** Places, arranged inside each other (a city inside a region, a cemetery inside a
   city). Sources, such as a census page or a letter, and the citations that point from a person or
   an event to a source. Stories and notes. A search across all of it.
 - **A map of the places.** Give a place its latitude and longitude and it appears on the map of the
   tree; choose a person and the map draws the road their life walked, from the first located event
   to the last, with the stops numbered and listed below in their days. The tiles come from
-  OpenStreetMap unless you name your own server in the settings.
+  OpenStreetMap unless the `MAP_TILE_URL` setting names your own tile server (see "Settings").
 - **Birthdays.** The birthdays of the next two weeks from all your trees: in the bell in the top bar,
-  on the home page, on the tree page, and on the members and people pages.
-- **GEDCOM.** You can import a GEDCOM file of any version; the program reads the version from the
-  file itself. You see a preview first and confirm before anything is written. A person of the file
-  who already has the same name and years in the tree is joined to their record instead of being
-  added a second time - the preview shows which ones. A whole tree can be exported as GEDCOM 7.0.
+  on the home page, on the tree page, and on the members and people pages. Only living people are
+  counted, only those whose birth day is known exactly, and nobody older than 110.
+- **GEDCOM.** You can import a GEDCOM file of up to 25 MB; the program reads its version from the
+  header (5.5, 5.5.1 or 7.0). You see a preview first and confirm before anything is written. A
+  person of the file is joined to a person already in the tree only when the surname, the given name
+  and the year of birth agree and no patronymic or year of death contradicts them. Everyone else is
+  added as a new person, and the duplicates page can merge the two. The preview shows which
+  people are joined. A whole tree can be exported as GEDCOM 7.0, including the unions that have
+  children but no partner.
 - **Calendar.** The birthdays and the wedding days of a tree go out as an iCalendar feed. The
   address is on the tree page (it carries the tree's own key, so keep it to yourself); a calendar
   app on a phone subscribes to it beside everything else. Only dates with a full day are in the
-  feed: an event known to the month would land on a day nobody recorded.
+  feed: an event known to the month would land on a day nobody recorded. The birthdays are those of
+  the living, as in the bell. An administrator can give the feed a new address; the old one stops
+  working.
 - **Access.** Each tree has its own members with roles: owner, administrator, co-author or viewer.
-  Members come in through invitation links, and an administrator can hand out a password reset.
-  The owner and administrators can see the change history and the devices each person is signed in
-  on. An owner can delete a tree; an editor can move a person to the trash.
+  Members come in through invitation links, and an administrator can hand out a password reset link
+  (see "Accounts and access"). The owner and administrators can see the change history. An owner can
+  delete a tree; an editor can move a person to the trash.
 - **Trash.** Moving a person out of the tree puts them in its trash instead of destroying anything:
   the names, the events, the notes, the photographs and the unions stay, and the tree simply stops
-  showing them. Anybody can be brought back at any time. The owner and the administrators can also
-  delete them for good, and only then do the files go.
+  showing them. An editor can bring anybody back at any time. The owner and the administrators can
+  also delete them for good, and only then do the files go.
 
 ## Screenshots
 
@@ -100,8 +110,16 @@ in Redis. The look is Tailwind CSS with daisyUI. Translations use next-intl. The
   as `DATA_NETWORK`. The application joins that network and connects to them by name.
 - Optional: Traefik, if you want HTTPS on a domain. Without it the archive is reached by IP address.
 - Optional: a way out to `api.github.com`, so that the footer can announce a newer release. The
-  container asks for it in the background, once every six hours at most; without a way out the footer
-  shows its version and nothing else, and nothing else about the archive changes.
+  server asks for it, once every six hours at most; without a way out the footer shows its version
+  and nothing else, and nothing else about the archive changes.
+- Optional: a way out to a tile server, so that the map has its streets. The map is drawn in the
+  browser of the person who opens it, and that browser loads the tiles from OpenStreetMap by default,
+  without a `Referer` header. Name your own tile server in `MAP_TILE_URL` to keep these requests
+  inside your network (see "Settings"). Without a way out the map still opens, with the markers and
+  the roads on an empty background.
+
+Apart from these two requests, the archive sends nothing to anyone: the family's records, photographs
+and sign-in data are never sent outside the server.
 
 ## First run
 
@@ -200,6 +218,11 @@ administrator cannot change another administrator or the owner, and nobody can c
 access there. Each person sees the devices they are signed in on in their profile and can sign any
 of them out.
 
+An administrator can hand out a password reset link to a member of their tree. The link can be
+issued only when the administrator outranks that person in every tree the person belongs to, and it
+is shown once. Using it ends every session the account has, so whoever knew the old password is
+signed out everywhere.
+
 `BETTER_AUTH_URL` must be the address your browser uses, with the port, for example
 `http://192.168.0.10:3000` or `https://archive.example.com`. Otherwise the sign-in requests are
 refused.
@@ -209,6 +232,26 @@ refused.
 `APP_TIME_ZONE` is a time zone name such as `Europe/Berlin`. The default is `Asia/Vladivostok`. It sets
 the time zone of the container, so every time on the screen is shown in it. The birthdays of the next
 two weeks are also counted from the day in this zone.
+
+## Settings
+
+Besides the settings named in the steps above, these variables in `.env` change the archive. Leave
+one out and it takes the default given here.
+
+- `APP_TIME_ZONE` - the time zone, see "Time zone" above.
+- `TRUSTED_PROXIES` - the proxies in front of the archive, as addresses or CIDR ranges separated by
+  commas. Empty in the address-and-port mode; in the Traefik mode, the subnet of `TRAEFIK_NETWORK`.
+- `MAP_TILE_URL` - the tile server the map asks for its streets, with `{z}`, `{x}` and `{y}` filled in
+  by the map. The default is OpenStreetMap, `https://tile.openstreetmap.org/{z}/{x}/{y}.png`. Its usage
+  policy asks a busy site to name a tile server of its own, and this is the setting for it.
+- `MAP_ATTRIBUTION` - the line of credit in the corner of the map. The default is
+  `© OpenStreetMap contributors`; change it together with `MAP_TILE_URL`.
+- `MEDIA_ROOT` - the folder in the container where the photographs and files are kept. The default is
+  `/data/media`, which is the `familee_media` volume of the compose files.
+- `MEDIA_MAX_UPLOAD_MB` - the size limit of one uploaded file, in megabytes. The default is 25. The
+  limit of a GEDCOM file is fixed at 25 MB and does not follow this setting.
+- `DATABASE_POOL_MAX` - how many connections one application container opens to Postgres. The default
+  is 10. The database is shared with other applications, so the pool stays modest.
 
 ## Database changes
 
@@ -244,6 +287,22 @@ file names when the image is built, so there is nothing else to change.
 
 You do not have to translate the whole file at once. A key that is missing or empty falls back to
 English, so a half-translated language still works.
+
+## Versions
+
+Familee follows [Semantic Versioning](https://semver.org). While the major number is 0, the version is
+0.MINOR.PATCH:
+
+- a fix is a PATCH release;
+- a new feature or a change of behaviour is a MINOR release;
+- a change that needs manual work on the data or the configuration is a MINOR release too, and the
+  release notes say what to do.
+
+Each version is a tag `vX.Y.Z`. The tag publishes the image `ghcr.io/john710/familee:X.Y.Z` (with the
+tags `X.Y` and `latest`) and a GitHub release titled "Familee X.Y.Z". The notes of the release group
+the commits by their type: features, improvements, bug fixes, documentation, build and release, and
+other. The image is scanned for known vulnerabilities with Trivy. The scan only reports them; a
+finding does not stop the release.
 
 ## License
 

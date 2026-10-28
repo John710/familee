@@ -1,3 +1,12 @@
+/**
+ * Familee - the members of a tree and the settings that go with them
+ *
+ * The members with their roles and the invitations still waiting. An administrator can invite
+ * people and hand out a password reset link (only where the rule of rank allows it). The tree's
+ * logo, its GEDCOM export and import sit here too, and the owner also finds the form that deletes
+ * the tree.
+ */
+
 import { eq } from "drizzle-orm";
 import {
     BookOpen,

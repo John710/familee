@@ -1,3 +1,11 @@
+/**
+ * Familee - the page of the people who look like one person entered twice
+ *
+ * For editors and above. It groups the people of the tree by their name and years (the rules are in
+ * src/lib/duplicates.ts) and shows each group with its cards. Nothing is merged here by itself: a
+ * merge is an edit the editor makes on purpose.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";

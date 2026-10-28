@@ -1,3 +1,10 @@
+/**
+ * Familee - the sign-in page
+ *
+ * A person who is already signed in is sent on to the page they asked for, if it is a path of this
+ * archive (the `next` parameter is checked by lib/safe-path.ts). Anybody else gets the form.
+ */
+
 import { notFound, redirect } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";

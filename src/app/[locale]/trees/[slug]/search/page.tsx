@@ -1,3 +1,11 @@
+/**
+ * Familee - the search of a tree
+ *
+ * Looks for the words of the query (the q parameter) among the people, the files and photographs,
+ * the places, the sources, the notes and the events of the tree, and lists each hit with a link to
+ * where it is.
+ */
+
 import { Search } from "lucide-react";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";

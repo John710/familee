@@ -1,3 +1,12 @@
+/**
+ * Familee - the profile of the signed-in person
+ *
+ * The name, the user name and the picture on top; the devices the account is signed in on, each of
+ * which can be signed out; the choice of which card in each tree is the person themselves; and, for
+ * an administrator of the archive, the button that creates the demo tree. The page never shows a
+ * session token: the device list carries only the id of the row.
+ */
+
 import { and, desc, eq, gt } from "drizzle-orm";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";

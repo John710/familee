@@ -1,3 +1,10 @@
+/**
+ * Familee - the places of a tree
+ *
+ * The places of the library, arranged inside each other (a city inside a region). Every member
+ * reads them; editors add and change them in the panel.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";

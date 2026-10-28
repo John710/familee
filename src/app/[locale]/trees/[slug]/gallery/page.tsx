@@ -1,3 +1,11 @@
+/**
+ * Familee - the gallery of the whole tree
+ *
+ * An album card for each person who has a main photograph, the documents, recordings and films of
+ * the tree in one list, and the "Outside the albums" section for the files that no person's album
+ * holds. An editor sees the delete button there, and it works only for a file that nothing uses.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";

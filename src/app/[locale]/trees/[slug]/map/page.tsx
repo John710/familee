@@ -1,3 +1,11 @@
+/**
+ * Familee - the map of the places of a tree
+ *
+ * Draws the places that have coordinates. A person can be chosen to draw the road of their life:
+ * the located events in order, with the stops numbered and listed below with their dates, and the
+ * length of the route. The tiles come from the server named by MAP_TILE_URL.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";

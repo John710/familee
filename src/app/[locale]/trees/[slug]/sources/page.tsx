@@ -1,3 +1,10 @@
+/**
+ * Familee - the sources of a tree
+ *
+ * The library of sources, such as a census page or a letter. Every member reads them; editors add
+ * and change them in the panel.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";

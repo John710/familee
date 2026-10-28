@@ -1,3 +1,11 @@
+/**
+ * Familee - the page of one person, for editing
+ *
+ * Renders the body of the person's page in edit mode, with the forms in place of the details
+ * (components/persons/person-page-body.tsx). Only editors get it; anybody else is sent back to the
+ * reading page.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";

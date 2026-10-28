@@ -1,3 +1,12 @@
+/**
+ * Familee - the body of a person's page, for reading and for editing
+ *
+ * One component serves both routes: the reading page (persons/[id]) and the editing page
+ * (persons/[id]/edit). It loads the person, the photographs with the people tagged in them, the
+ * family, the events, the notes, the citations and the relations. A member without the right to
+ * write who asks for the edit mode is sent to the reading page.
+ */
+
 import { and, eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";

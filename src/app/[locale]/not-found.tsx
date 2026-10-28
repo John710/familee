@@ -1,3 +1,9 @@
+/**
+ * Familee - the page for an address that does not exist, shown inside a locale
+ *
+ * A short 404 with a link back to the home page.
+ */
+
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 

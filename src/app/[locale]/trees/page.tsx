@@ -1,3 +1,10 @@
+/**
+ * Familee - the list of the trees of the signed-in person
+ *
+ * Each tree links to its members page. Beside the list is the form that creates a new tree; the
+ * person who creates it becomes its owner.
+ */
+
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";

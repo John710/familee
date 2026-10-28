@@ -1,3 +1,13 @@
+/**
+ * Familee - the page an invitation link opens
+ *
+ * A link that is unknown, used, revoked or expired gets a notice and nothing else. A valid one
+ * offers to accept it: straight away for a person signed in with the invited address (another
+ * address is told it does not match), with an account created here for a new address, and with a
+ * sign-in first when the address already has an account. The link is looked up by the hash of its
+ * token.
+ */
+
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
