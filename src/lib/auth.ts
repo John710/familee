@@ -18,6 +18,7 @@ import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { username } from "better-auth/plugins";
+import { eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { redis } from "@/lib/redis";
@@ -27,6 +28,7 @@ import {
     SIGN_IN_WINDOW_SECONDS,
     signInAllowed,
     signInAttemptsKey,
+    signInCounterName,
     signInFailed,
     signInIdentifier,
 } from "@/lib/sign-in-guard";
@@ -45,7 +47,37 @@ export function resetLinkKey(email: string): string {
  * Sign-in attempts are counted per account, not per address: the address a request comes
  * from can be forged when the archive is reached without a proxy, the account name cannot.
  * Ten failed attempts within fifteen minutes stop the next ones until the window passes.
+ *
+ * The Redis key of the account a sign-in request names. A user name is looked up and counted
+ * under the account's e-mail address, so /sign-in/email and /sign-in/username share a counter;
+ * the username plugin compares names in lower case, and so does the lookup.
  */
+async function signInCounterKey(path: string, body: unknown): Promise<string | null> {
+    const identifier = signInIdentifier(path, body);
+    if (!identifier) return null;
+
+    let accountEmail: string | null = null;
+    if (path === "/sign-in/username") {
+        const [row] = await db
+            .select({ email: schema.users.email })
+            .from(schema.users)
+            .where(eq(schema.users.username, identifier.toLowerCase()))
+            .limit(1);
+        accountEmail = row?.email ?? null;
+    }
+    return signInAttemptsKey(signInCounterName(identifier, accountEmail));
+}
+
+/**
+ * Takes one place in the counter and returns the count it reached. The increment and the expiry
+ * go as one atomic transaction (as in secondary-storage.ts): a key left without an expiry would
+ * count forever. `expire ... NX` keeps the window set by the first attempt.
+ */
+async function reserveSignInAttempt(key: string): Promise<number> {
+    const replies = await redis.multi().incr(key).expire(key, SIGN_IN_WINDOW_SECONDS, "NX").exec();
+    const value = replies?.[0]?.[1];
+    return typeof value === "number" ? value : Number(value ?? 0);
+}
 
 /**
  * The proxies in front of the archive, from TRUSTED_PROXIES (comma-separated addresses or
@@ -126,19 +158,19 @@ export const auth = betterAuth({
     },
 
     /**
-     * The counter of an account holds its failed attempts. Before the endpoint runs, an account
-     * that has reached the limit is refused; after it, a refusal is counted and a success clears
-     * the counter. Counting every attempt, as the first version did, locked a family out after ten
+     * The counter of an account holds its attempts. Before the endpoint runs, the attempt reserves
+     * its place atomically and is refused past the limit, so parallel requests cannot all pass one
+     * reading of the counter. After it, a success clears the counter and a refusal keeps its
+     * place. Keeping successes counted, as the first version did, locked a family out after ten
      * ordinary sign-ins in a quarter of an hour.
      */
     hooks: {
         before: createAuthMiddleware(async (ctx) => {
             if (!isSignInPath(ctx.path)) return;
-            const identifier = signInIdentifier(ctx.path, ctx.body);
-            if (!identifier) return;
+            const key = await signInCounterKey(ctx.path, ctx.body);
+            if (!key) return;
 
-            const attempts = Number(await redis.get(signInAttemptsKey(identifier))) || 0;
-            if (!signInAllowed(attempts)) {
+            if (!signInAllowed(await reserveSignInAttempt(key))) {
                 throw new APIError("TOO_MANY_REQUESTS", {
                     message: "Too many sign-in attempts. Try again in a few minutes.",
                 });
@@ -146,16 +178,9 @@ export const auth = betterAuth({
         }),
         after: createAuthMiddleware(async (ctx) => {
             if (!isSignInPath(ctx.path)) return;
-            const identifier = signInIdentifier(ctx.path, ctx.body);
-            if (!identifier) return;
-
-            const key = signInAttemptsKey(identifier);
-            if (!signInFailed(ctx.context.returned)) {
-                await redis.del(key);
-                return;
-            }
-            const attempts = await redis.incr(key);
-            if (attempts === 1) await redis.expire(key, SIGN_IN_WINDOW_SECONDS);
+            if (signInFailed(ctx.context.returned)) return;
+            const key = await signInCounterKey(ctx.path, ctx.body);
+            if (key) await redis.del(key);
         }),
     },
 
