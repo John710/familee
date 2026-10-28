@@ -13,6 +13,7 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { diffFields, writeAudit } from "@/lib/audit";
+import { errorText } from "@/lib/db-errors";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -20,6 +21,8 @@ import { getTreeAccess } from "@/lib/tree-access";
 export type UnionResult<T extends object = object> =
     | ({ ok: true } & T)
     | { ok: false; error: string };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const UNION_TYPES = ["marriage", "partnership", "civil_union", "single_parent", "unknown"] as const;
 const RELATIONS = [
@@ -132,6 +135,10 @@ export async function addChildAction(input: {
     if (!(RELATIONS as readonly string[]).includes(input.relation)) {
         return { ok: false, error: "validation.required" };
     }
+    // A malformed identifier would reach Postgres as an invalid uuid and come back as a 500.
+    if (!UUID.test(input.familyId) || !UUID.test(input.childId)) {
+        return { ok: false, error: "person.notFound" };
+    }
 
     const [family] = await db
         .select({ id: schema.families.id })
@@ -206,7 +213,7 @@ function partnerRoleFor(sex: string): "husband" | "wife" | "partner" | "unknown"
 
 /** Turns the message of a database check into a translation key. */
 function translateDatabaseError(error: unknown): string {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorText(error);
     if (message.includes("own ancestor") || message.includes("pedigree cycle")) {
         return "errors.cycle";
     }

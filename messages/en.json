@@ -323,6 +323,7 @@
         "deleteWarning": "The union will be deleted. The people and their events remain.",
         "none": "No unions yet",
         "noPartner": "No partner (single parent)",
+        "parentsUnknown": "Parents unknown (a union recording only the children)",
         "noChildren": "No children yet",
         "chooseChild": "Choose a person as a child",
         "events": "Events of this union",
@@ -371,6 +372,7 @@
         "removeTitle": "Remove this place?",
         "removeConfirm": "The place is removed; events that used it keep their dates and lose the place.",
         "notFound": "That place is not in this tree",
+        "cycle": "A place cannot be part of itself or of one of its own parts",
         "fields": {
             "name": "Name",
             "kind": "Kind",

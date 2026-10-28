@@ -42,6 +42,8 @@ export type UnionEvent = EventFormRow & { citations: EventCitationRow[] };
 export type UnionItem = {
     familyId: string;
     type: string;
+    /** True for a union without partners that the person is listed in as a child. */
+    asChild: boolean;
     partner: { personId: string; name: string } | null;
     children: { personId: string; name: string; relation: string }[];
     events: UnionEvent[];
@@ -197,7 +199,11 @@ export function FamilyPanel({
                                 <div className="flex items-center gap-2 font-medium">
                                     <Heart className="size-4 text-primary" />
                                     <span>
-                                        {union.partner ? union.partner.name : t("family.noPartner")}
+                                        {union.partner
+                                            ? union.partner.name
+                                            : union.asChild
+                                              ? t("family.parentsUnknown")
+                                              : t("family.noPartner")}
                                     </span>
                                     <span className="text-base-content/60 text-xs">
                                         · {t(`enums.family_type.${union.type as UnionType}`)}

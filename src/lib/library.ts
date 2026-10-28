@@ -5,7 +5,19 @@
  * been checked. Every query is limited to one tree.
  */
 
-import { and, asc, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
+import {
+    type AnyColumn,
+    and,
+    asc,
+    desc,
+    eq,
+    ilike,
+    inArray,
+    isNotNull,
+    not,
+    or,
+    sql,
+} from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { groupByText } from "@/lib/duplicates";
@@ -326,6 +338,15 @@ export async function listPersonNotes(treeId: string, personId: string) {
         .orderBy(desc(schema.notes.updatedAt));
 }
 
+/**
+ * True when the person the column points to is in the trash. A null column is not (the row belongs
+ * to no person), so "not inTrash" keeps the notes, events and photographs that are tied to nobody.
+ * The person page of a trashed person answers 404, so a hit that leads there must not be listed.
+ */
+function inTrash(personId: AnyColumn) {
+    return sql`exists (select 1 from ${schema.persons} where ${schema.persons.id} = ${personId} and ${schema.persons.deletedAt} is not null)`;
+}
+
 export type SearchHit = {
     kind: "person" | "place" | "source" | "note" | "event" | "photo";
     id: string;
@@ -400,6 +421,7 @@ export async function searchTree(treeId: string, query: string): Promise<SearchH
         .where(
             and(
                 eq(schema.notes.treeId, treeId),
+                not(inTrash(schema.notes.personId)),
                 or(ilike(schema.notes.title, pattern), ilike(schema.notes.body, pattern)),
             ),
         )
@@ -417,6 +439,7 @@ export async function searchTree(treeId: string, query: string): Promise<SearchH
         .where(
             and(
                 eq(schema.events.treeId, treeId),
+                not(inTrash(schema.events.personId)),
                 or(ilike(schema.events.value, pattern), ilike(schema.events.description, pattern)),
             ),
         )
@@ -441,6 +464,8 @@ export async function searchTree(treeId: string, query: string): Promise<SearchH
         .where(
             and(
                 eq(schema.media.treeId, treeId),
+                not(inTrash(schema.mediaLinks.personId)),
+                not(inTrash(schema.events.personId)),
                 or(
                     ilike(schema.media.title, pattern),
                     ilike(schema.media.description, pattern),
