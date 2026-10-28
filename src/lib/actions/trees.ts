@@ -7,7 +7,7 @@
  * the tree (src/lib/tree-access.ts). Nothing here trusts the browser about rights.
  */
 
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { writeAudit } from "@/lib/audit";
@@ -16,7 +16,7 @@ import { createInvitationToken, INVITATION_DAYS } from "@/lib/invitation-token";
 import { atLeast, INVITABLE_ROLES, type InvitableRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
-import { normalizeEmail, validateName, validateSlug } from "@/lib/validation";
+import { isReservedSlug, normalizeEmail, validateName, validateSlug } from "@/lib/validation";
 
 export type TreeResult<T extends object = object> =
     | ({ ok: true } & T)
@@ -35,6 +35,7 @@ export async function createTreeAction(input: {
 
     const slug = validateSlug(input.slug);
     if (!slug) return { ok: false, error: "tree.invalidSlug" };
+    if (isReservedSlug(slug)) return { ok: false, error: "tree.slugReserved" };
 
     try {
         const treeId = await db.transaction(async (tx) => {
@@ -150,6 +151,37 @@ export async function createInvitationAction(input: {
         url: `${base}/invite/${token}`,
         expiresAt: expiresAt.toISOString(),
     };
+}
+
+/**
+ * Gives the calendar feed of a tree a new address. The old one is the key to the feed, every
+ * member sees it and a removed member keeps it, so an administrator retires it this way. The new
+ * token is made the way 0011_tree_calendar_token.sql makes the first one; the audit row records
+ * the change but not the token, which would hand the feed to whoever reads the history.
+ */
+export async function rotateCalendarTokenAction(input: { slug: string }): Promise<TreeResult> {
+    const user = await getCurrentUser();
+    if (!user) return { ok: false, error: "auth.needSignIn" };
+
+    const access = await getTreeAccess(input.slug, user.id);
+    if (!access || !atLeast(access.role, "admin")) {
+        return { ok: false, error: "auth.noPermission" };
+    }
+
+    await db
+        .update(schema.trees)
+        .set({ calendarToken: sql`gen_random_uuid()` })
+        .where(eq(schema.trees.id, access.treeId));
+
+    await writeAudit({
+        treeId: access.treeId,
+        userId: user.id,
+        action: "update",
+        entityType: "calendar_feed",
+        entityId: access.treeId,
+    });
+
+    return { ok: true };
 }
 
 /** Cancels a pending invitation. Accepted ones cannot be cancelled. */

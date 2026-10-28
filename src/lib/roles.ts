@@ -48,3 +48,28 @@ export function canManageMember(viewer: MemberRole, target: MemberRole, isSelf: 
 export function canResetPassword(viewer: MemberRole, target: MemberRole): boolean {
     return viewer === "owner" || (atLeast(viewer, "admin") && !atLeast(target, "admin"));
 }
+
+/** One membership of an account: a tree and the role the account has in it. */
+export type Membership = { treeId: string; role: MemberRole };
+
+/** What decides whether an account may be reset: its global role and all its memberships. */
+export type AccountStanding = { globalRole: string; memberships: readonly Membership[] };
+
+/**
+ * Whether `issuer` may hand a reset link for `target`'s account. The link takes over the whole
+ * account, not one membership, so the rank rule must hold in every tree the target belongs to:
+ * otherwise anyone could create a tree, invite the owner of another tree as a viewer and, once
+ * they accept, reset them from there. The issuer must be a member of each of those trees and
+ * outrank the target there, and a global administrator is reset only by another one.
+ */
+export function canResetAccount(issuer: AccountStanding, target: AccountStanding): boolean {
+    if (target.globalRole === "admin" && issuer.globalRole !== "admin") return false;
+    // A reset link is issued from a tree, so an account outside every tree is never reached.
+    if (target.memberships.length === 0) return false;
+
+    const issuerRoles = new Map(issuer.memberships.map((entry) => [entry.treeId, entry.role]));
+    return target.memberships.every((entry) => {
+        const issuerRole = issuerRoles.get(entry.treeId);
+        return issuerRole !== undefined && canResetPassword(issuerRole, entry.role);
+    });
+}

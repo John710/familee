@@ -6,9 +6,10 @@
  * "use server" modules means the browser cannot call them directly.
  */
 
-import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
+import type { AccountStanding, Membership } from "@/lib/roles";
 
 /** Pending invitations of a tree: not accepted, not revoked, not expired. */
 export async function listPendingInvitations(treeId: string) {
@@ -60,6 +61,37 @@ export async function listTreesForUser(userId: string) {
         .innerJoin(schema.trees, eq(schema.trees.id, schema.treeMembers.treeId))
         .where(eq(schema.treeMembers.userId, userId))
         .orderBy(schema.trees.title);
+}
+
+/**
+ * The global role and every membership of each account, for canResetAccount(): a reset link
+ * reaches the whole account, so both the members page and the reset action weigh all its trees.
+ * An account that does not exist is missing from the map.
+ */
+export async function listAccountStandings(
+    userIds: readonly string[],
+): Promise<Map<string, AccountStanding>> {
+    const standings = new Map<string, { globalRole: string; memberships: Membership[] }>();
+    if (userIds.length === 0) return standings;
+
+    const users = await db
+        .select({ id: schema.users.id, role: schema.users.role })
+        .from(schema.users)
+        .where(inArray(schema.users.id, [...userIds]));
+    for (const row of users) standings.set(row.id, { globalRole: row.role, memberships: [] });
+
+    const memberships = await db
+        .select({
+            userId: schema.treeMembers.userId,
+            treeId: schema.treeMembers.treeId,
+            role: schema.treeMembers.role,
+        })
+        .from(schema.treeMembers)
+        .where(inArray(schema.treeMembers.userId, [...userIds]));
+    for (const row of memberships) {
+        standings.get(row.userId)?.memberships.push({ treeId: row.treeId, role: row.role });
+    }
+    return standings;
 }
 
 /** The invitation as seen by the invitee: the tree, the role, the state. */

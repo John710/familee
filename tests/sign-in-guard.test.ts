@@ -1,8 +1,10 @@
 /**
  * Familee - which attempt counts against which account
  *
- * A successful sign-in must not count, a failure must; the counter of a user name must not be
- * moved by an e-mail address sent in the same body. These rules are pure, so they are tested here.
+ * A successful sign-in must not stay counted, a failure must; every attempt is judged by the count
+ * its own reservation produced; the counter of a user name must not be moved by an e-mail address
+ * sent in the same body, and a user name shares the counter of its account's e-mail address.
+ * These rules are pure, so they are tested here.
  */
 
 import assert from "node:assert/strict";
@@ -13,6 +15,7 @@ import {
     SIGN_IN_ATTEMPTS,
     signInAllowed,
     signInAttemptsKey,
+    signInCounterName,
     signInFailed,
     signInIdentifier,
 } from "@/lib/sign-in-guard";
@@ -51,14 +54,34 @@ test("a refusal counts, a session does not", () => {
     assert.equal(signInFailed("session"), false);
 });
 
-test("the limit is ten failed attempts, and the key ignores case and spaces", () => {
-    for (let attempts = 0; attempts < SIGN_IN_ATTEMPTS; attempts += 1) {
-        assert.equal(signInAllowed(attempts), true, String(attempts));
+test("the limit is ten reserved attempts, and the key ignores case and spaces", () => {
+    // Each attempt is judged by the count its own reservation produced: 1 for the first.
+    for (let reserved = 1; reserved <= SIGN_IN_ATTEMPTS; reserved += 1) {
+        assert.equal(signInAllowed(reserved), true, String(reserved));
     }
-    assert.equal(signInAllowed(SIGN_IN_ATTEMPTS), false);
     assert.equal(signInAllowed(SIGN_IN_ATTEMPTS + 1), false);
+    assert.equal(signInAllowed(SIGN_IN_ATTEMPTS + 2), false);
     assert.equal(
         signInAttemptsKey("  Anna@Example.ORG "),
         "familee:signin-attempts:anna@example.org",
+    );
+});
+
+test("parallel attempts cannot all pass one reading of the counter", () => {
+    // Twenty requests sent at once each take their own place with one atomic increment, so
+    // they see 1..20 and only the first ten reach the password check.
+    const counts = Array.from({ length: 20 }, (_, index) => index + 1);
+    assert.equal(counts.filter((count) => signInAllowed(count)).length, SIGN_IN_ATTEMPTS);
+});
+
+test("a user name and an e-mail address of one account share one counter", () => {
+    const byEmail = signInAttemptsKey(signInCounterName("Anna@Example.org", null));
+    const byName = signInAttemptsKey(signInCounterName("anna", "anna@example.org"));
+    assert.equal(byName, byEmail);
+
+    // A name no account has is still counted, under its own key.
+    assert.equal(
+        signInAttemptsKey(signInCounterName("Nobody", null)),
+        "familee:signin-attempts:nobody",
     );
 });

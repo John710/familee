@@ -38,3 +38,14 @@ export function validateSlug(raw: string): string | null {
     const slug = raw.trim().toLowerCase();
     return SLUG_PATTERN.test(slug) ? slug : null;
 }
+
+/**
+ * The slug of the demo tree. db/seed.sql deletes the tree with this slug and creates it anew, so
+ * a tree of a person's own under it would be wiped by the next "create the demo tree".
+ */
+export const DEMO_SLUG = "demo";
+
+/** Whether a (validated) slug is kept for the archive itself and cannot name a person's tree. */
+export function isReservedSlug(slug: string): boolean {
+    return slug === DEMO_SLUG;
+}
