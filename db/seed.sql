@@ -27,7 +27,9 @@
 
 begin;
 
-delete from familee.trees where slug = 'demo';
+-- Only the seed's own tree, by its fixed id: a tree some member made under the slug 'demo' is never
+-- deleted. Such a tree makes the insert below fail on the slug, and the whole seed rolls back.
+delete from familee.trees where id = '11111111-1111-4111-8111-111111111111';
 
 -- Helpers for the identifiers of this seed only: they live in the session and are
 -- gone when it ends. Each kind of object has its own block of identifiers.
