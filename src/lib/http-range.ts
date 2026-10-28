@@ -42,20 +42,24 @@ export function parseByteRange(header: string | null, size: number): RangeResult
 
     if (startText === "") {
         // A suffix: the last N bytes.
-        const suffix = Number(endText);
-        if (!Number.isInteger(suffix) || suffix <= 0) return { kind: "unsatisfiable" };
+        const suffix = number(endText);
+        if (suffix <= 0) return { kind: "unsatisfiable" };
         return { kind: "range", start: Math.max(0, size - suffix), end: size - 1 };
     }
 
-    const start = Number(startText);
-    if (!Number.isInteger(start) || start < 0) return { kind: "full" };
+    const start = number(startText);
+    // A range whose end is before its start is not valid syntax (RFC 9110, 14.1.2) and is ignored
+    // like any other broken header, not refused.
+    if (endText !== "" && number(endText) < start) return { kind: "full" };
     if (start >= size) return { kind: "unsatisfiable" };
 
     if (endText === "") return { kind: "range", start, end: size - 1 };
+    return { kind: "range", start, end: Math.min(number(endText), size - 1) };
+}
 
-    const end = Number(endText);
-    if (!Number.isInteger(end) || end < start) return { kind: "unsatisfiable" };
-    return { kind: "range", start, end: Math.min(end, size - 1) };
+/** The digits as a number, held at the largest integer JavaScript counts exactly. */
+function number(digits: string): number {
+    return Math.min(Number(digits), Number.MAX_SAFE_INTEGER);
 }
 
 /** The Content-Range answer for a range: "bytes start-end/size". */
