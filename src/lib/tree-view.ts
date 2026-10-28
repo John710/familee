@@ -118,15 +118,30 @@ export async function loadFamilies(treeId: string): Promise<TreeFamily[]> {
         .select({
             familyId: schema.familyChildren.familyId,
             personId: schema.familyChildren.personId,
+            relation: schema.familyChildren.relation,
+            relationByPartner: schema.familyChildren.relationByPartner,
         })
         .from(schema.familyChildren)
         .innerJoin(schema.persons, eq(schema.persons.id, schema.familyChildren.personId))
         .where(and(eq(schema.familyChildren.treeId, treeId), isNull(schema.persons.deletedAt)))
         .orderBy(asc(schema.familyChildren.birthOrder));
 
+    // A union with a divorce event has ended: its partners are former spouses for the kinship.
+    const divorceRows = await db
+        .selectDistinct({ familyId: schema.events.familyId })
+        .from(schema.events)
+        .where(
+            and(
+                eq(schema.events.treeId, treeId),
+                eq(schema.events.typeCode, "divorce"),
+                isNotNull(schema.events.familyId),
+            ),
+        );
+    const endedIds = divorceRows.flatMap((row) => (row.familyId ? [row.familyId] : []));
+
     // A person in the trash is neither a partner nor a child anywhere - the join to persons is the
     // filter. Which unions stay is decided in ./tree-families.ts.
-    return assembleFamilies(familyRows, partnerRows, childRows);
+    return assembleFamilies(familyRows, partnerRows, childRows, endedIds);
 }
 
 /** The size of a junction dot; the node is placed by its top-left corner. */
@@ -147,6 +162,7 @@ export async function loadTreeView(
                 name: card.fullName ?? "",
                 birthDate: card.birthDate,
                 birthPrecision: card.birthPrecision,
+                birthQualifier: card.birthQualifier,
                 isLiving: card.isLiving,
             })),
             today,
@@ -295,12 +311,14 @@ export async function loadTreeView(
                         date: card.birthDate,
                         precision: card.birthPrecision,
                         year: card.birthYear,
+                        qualifier: card.birthQualifier,
                     },
                     card.deathDate
                         ? {
                               date: card.deathDate,
                               precision: card.deathPrecision,
                               year: card.deathYear,
+                              qualifier: card.deathQualifier,
                           }
                         : null,
                     today,
