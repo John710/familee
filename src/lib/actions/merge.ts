@@ -3,18 +3,17 @@
 /**
  * Familee - merging two records of the same person
  *
- * The work itself is done by familee.merge_persons() (migration 0013): one transaction that moves
- * the names, the events, the citations, the notes, the photographs and the unions onto the survivor
- * and removes the record that is left empty. What is here is the role check, the reading of the
- * answer and the note in the audit log.
+ * The work itself is done by familee.merge_persons() (migrations 0013, 0017, 0019): one transaction
+ * that moves the names, the events, the citations, the notes, the photographs and the unions onto
+ * the survivor and removes the record that is left empty. What is here is the role check, the
+ * reading of the answer and the note in the audit log, written in the same transaction as the merge.
  *
  * Editors and above, like every other change of the tree.
  */
 
-import { sql } from "drizzle-orm";
+import { type SQL, sql } from "drizzle-orm";
 
-import { db } from "@/db";
-import { writeAudit } from "@/lib/audit";
+import { db, schema } from "@/db";
 import { atLeast, type MemberRole } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
 import { getTreeAccess } from "@/lib/tree-access";
@@ -41,6 +40,36 @@ type MergeSummary = {
 
 export type RecordMergeResult = { ok: true; moved: number } | { ok: false; error: string };
 
+/**
+ * Runs one merge function and writes its line in the history in one transaction: a merge is never
+ * left without its audit row, and an audit row never stands for a merge that rolled back.
+ * writeAudit() (src/lib/audit.ts) writes through the pool, not a transaction, so the row is
+ * inserted here with the same columns.
+ */
+async function runMerge(
+    call: SQL,
+    entry: { treeId: string; userId: string; entityType: string; keepId: string; dropId: string },
+): Promise<MergeSummary> {
+    return db.transaction(async (tx) => {
+        const rows = await tx.execute(
+            sql`select ${call}(
+                    ${entry.treeId}::uuid, ${entry.keepId}::uuid, ${entry.dropId}::uuid
+                ) as merged`,
+        );
+
+        await tx.insert(schema.auditLog).values({
+            treeId: entry.treeId,
+            userId: entry.userId,
+            action: "merge",
+            entityType: entry.entityType,
+            entityId: entry.keepId,
+            changes: { merged: { from: entry.dropId, to: entry.keepId } },
+        });
+
+        return (rows[0]?.merged ?? {}) as MergeSummary;
+    });
+}
+
 export async function mergePersonsAction(input: {
     slug: string;
     /** The record that stays. */
@@ -62,24 +91,16 @@ export async function mergePersonsAction(input: {
 
     let summary: MergeSummary;
     try {
-        const rows = await db.execute(
-            sql`select familee.merge_persons(
-                    ${access.treeId}::uuid, ${input.keepId}::uuid, ${input.dropId}::uuid
-                ) as merged`,
-        );
-        summary = (rows[0]?.merged ?? {}) as MergeSummary;
+        summary = await runMerge(sql`familee.merge_persons`, {
+            treeId: access.treeId,
+            userId: user.id,
+            entityType: "person",
+            keepId: input.keepId,
+            dropId: input.dropId,
+        });
     } catch (error) {
         return { ok: false, error: translate(error) };
     }
-
-    await writeAudit({
-        treeId: access.treeId,
-        userId: user.id,
-        action: "merge",
-        entityType: "person",
-        entityId: input.keepId,
-        changes: { merged: { from: input.dropId, to: input.keepId } },
-    });
 
     return {
         ok: true,
@@ -106,9 +127,9 @@ function translate(error: unknown): string {
  * Merging two places, or two sources.
  *
  * The same shape as a person: one call per record that goes, the work done by the database function
- * (migration 0015) in one transaction. A place carries its events, its media and its notes with it
- * and its children become children of the survivor; a source carries its citations. Both are checked
- * against the tree and both leave a line in the history.
+ * (migrations 0015, 0019) in one transaction. A place carries its events, its media and its notes
+ * with it and its children become children of the survivor; a source carries its citations. Both
+ * are checked against the tree and both leave a line in the history.
  */
 export async function mergePlacesAction(input: {
     slug: string;
@@ -146,24 +167,16 @@ async function mergeRecord(
     try {
         // The function name is one of two fixed strings, so nothing of the caller reaches the query.
         const call = kind === "place" ? sql`familee.merge_places` : sql`familee.merge_sources`;
-        const rows = await db.execute(
-            sql`select ${call}(
-                    ${access.treeId}::uuid, ${input.keepId}::uuid, ${input.dropId}::uuid
-                ) as merged`,
-        );
-        summary = (rows[0]?.merged ?? {}) as MergeSummary;
+        summary = await runMerge(call, {
+            treeId: access.treeId,
+            userId: user.id,
+            entityType: kind === "place" ? "place" : "source",
+            keepId: input.keepId,
+            dropId: input.dropId,
+        });
     } catch (error) {
         return { ok: false, error: translateRecord(error, kind) };
     }
-
-    await writeAudit({
-        treeId: access.treeId,
-        userId: user.id,
-        action: "merge",
-        entityType: kind === "place" ? "place" : "source",
-        entityId: input.keepId,
-        changes: { merged: { from: input.dropId, to: input.keepId } },
-    });
 
     const moved = Object.values(summary).reduce((sum, count) => sum + (count ?? 0), 0);
     return { ok: true, moved };

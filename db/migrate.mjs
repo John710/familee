@@ -54,6 +54,53 @@ async function appliedVersions(client) {
     return new Set(rows.map((row) => row.version));
 }
 
+/** How often the first connection is tried, and how long to wait between two tries. */
+const connectAttempts = 5;
+const connectDelayMs = 2000;
+
+/**
+ * The first connection, tried a few times. The application and Postgres often start together (a
+ * reboot of the host), and a refused connection would otherwise end the container, which then
+ * restarts in a loop until Postgres is up. Anything that is still failing after the last try is
+ * thrown as it is.
+ */
+async function connect(client) {
+    for (let attempt = 1; ; attempt += 1) {
+        try {
+            await client`select 1`;
+            return;
+        } catch (error) {
+            if (attempt >= connectAttempts) throw error;
+            const reason = error instanceof Error ? error.message : String(error);
+            console.error(
+                `migrate: no connection yet (${reason}), try ${attempt} of ${connectAttempts}`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, connectDelayMs));
+        }
+    }
+}
+
+/**
+ * The details Postgres sends with an error, as far as there are any: the line of the file the
+ * position points at is easier to find than an offset into it.
+ */
+function describe(error, text) {
+    if (!(error instanceof Error)) return [String(error)];
+    const lines = [error.message];
+    if (error.detail) lines.push(`detail: ${error.detail}`);
+    if (error.hint) lines.push(`hint: ${error.hint}`);
+    if (error.where) lines.push(`where: ${error.where}`);
+    if (error.position) {
+        const offset = Number(error.position);
+        const line =
+            text && Number.isInteger(offset)
+                ? `, line ${text.slice(0, offset - 1).split("\n").length}`
+                : "";
+        lines.push(`position: ${error.position}${line}`);
+    }
+    return lines;
+}
+
 const sql = postgres(url, {
     max: 1,
     idle_timeout: 5,
@@ -62,8 +109,10 @@ const sql = postgres(url, {
 });
 
 let current = null;
+let currentText = null;
 
 try {
+    await connect(sql);
     await sql`select pg_advisory_lock(${lockKey})`;
 
     const applied = await appliedVersions(sql);
@@ -75,10 +124,12 @@ try {
 
         console.log(`-> ${file}`);
         current = file;
+        currentText = readFileSync(path.join(migrationsDir, file), "utf8");
         /* .simple() sends the file as one simple query: a migration holds
            several statements and opens and closes its own transaction. */
-        await sql.unsafe(readFileSync(path.join(migrationsDir, file), "utf8")).simple();
+        await sql.unsafe(currentText).simple();
         current = null;
+        currentText = null;
         count += 1;
     }
 
@@ -89,7 +140,7 @@ try {
     );
 } catch (error) {
     console.error(`migrate: ${current ? `failed on ${current}` : "failed"}`);
-    console.error(error instanceof Error ? error.message : String(error));
+    for (const line of describe(error, currentText)) console.error(line);
     process.exitCode = 1;
 } finally {
     await sql.end({ timeout: 5 });

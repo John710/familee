@@ -71,6 +71,8 @@ export const places = familee.table(
         index("places_tree_id_idx").on(t.treeId),
         index("places_parent_id_idx").on(t.parentId),
         index("places_name_trgm_idx").using("gin", t.name.op("gin_trgm_ops")),
+        /** The search over the full name (migration 0018). */
+        index("places_full_name_trgm_idx").using("gin", t.fullName.op("gin_trgm_ops")),
     ],
 );
 

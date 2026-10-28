@@ -32,9 +32,12 @@ export const personXrefs = familee.table(
             .defaultNow(),
     },
     (t) => [
-        /** The point of the composite foreign key: identifiers never cross trees. */
+        /**
+         * The point of the composite foreign key: identifiers never cross trees. The SQL leaves it
+         * unnamed, so the name is the one Postgres chooses.
+         */
         foreignKey({
-            name: "person_xrefs_person_fk",
+            name: "person_xrefs_tree_id_person_id_fkey",
             columns: [t.treeId, t.personId],
             foreignColumns: [persons.treeId, persons.id],
         }).onDelete("cascade"),

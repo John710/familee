@@ -28,6 +28,15 @@ declare
     v_place_child uuid;
     v_source_keep uuid;
     v_source_drop uuid;
+    v_chain_a uuid;
+    v_chain_b uuid;
+    v_chain_c uuid;
+    v_rel_keep uuid;
+    v_rel_drop uuid;
+    v_rel_child uuid;
+    v_name_keep uuid;
+    v_name_drop uuid;
+    v_name_primary uuid;
 begin
     -- 1. The demo tree is present and complete.
     select id into v_tree from familee.trees where slug = 'demo';
@@ -268,6 +277,142 @@ begin
 
     if (select gedcom_xref from familee.sources where id = v_source_keep) <> '@SMOKE-SRC-KEEP@' then
         raise exception 'smoke: the survivor lost its own identifier in the file';
+    end if;
+
+    -- 12. A source merge where only the record that goes has an identifier in the file: the
+    --     survivor takes it, and the unique index does not stop the merge (migration 0019).
+    insert into familee.sources (tree_id, title)
+    values (v_tree, 'Smoke Source Bare')
+    returning id into v_source_keep;
+
+    insert into familee.sources (tree_id, title, gedcom_xref)
+    values (v_tree, 'Smoke Source Bare', '@SMOKE-SRC-ONLY@')
+    returning id into v_source_drop;
+
+    perform familee.merge_sources(v_tree, v_source_keep, v_source_drop);
+
+    if (select gedcom_xref from familee.sources where id = v_source_keep)
+       is distinct from '@SMOKE-SRC-ONLY@' then
+        raise exception 'smoke: the survivor did not take the identifier of the merged source';
+    end if;
+
+    -- 13. A chain of merges, A into B and then B into C: C answers to the identifiers of both
+    --     records that went, the earlier one included (migration 0019).
+    insert into familee.persons (tree_id, gedcom_xref)
+    values (v_tree, '@SMOKE-CHAIN-A@')
+    returning id into v_chain_a;
+
+    insert into familee.persons (tree_id, gedcom_xref)
+    values (v_tree, '@SMOKE-CHAIN-B@')
+    returning id into v_chain_b;
+
+    insert into familee.persons (tree_id, gedcom_xref)
+    values (v_tree, '@SMOKE-CHAIN-C@')
+    returning id into v_chain_c;
+
+    perform familee.merge_persons(v_tree, v_chain_b, v_chain_a);
+    perform familee.merge_persons(v_tree, v_chain_c, v_chain_b);
+
+    if (select count(*) from familee.person_xrefs
+         where person_id = v_chain_c
+           and xref in ('@SMOKE-CHAIN-A@', '@SMOKE-CHAIN-B@')) <> 2 then
+        raise exception 'smoke: a chain of merges lost an earlier identifier';
+    end if;
+
+    -- 14. The relation of a child towards one parent ("adopted by this one") follows that parent
+    --     into the survivor instead of being erased (migration 0019).
+    insert into familee.persons (tree_id) values (v_tree) returning id into v_rel_keep;
+    insert into familee.persons (tree_id) values (v_tree) returning id into v_rel_drop;
+    insert into familee.persons (tree_id) values (v_tree) returning id into v_rel_child;
+
+    insert into familee.families (tree_id, type, status)
+    values (v_tree, 'marriage', 'unknown')
+    returning id into v_family;
+
+    insert into familee.family_partners (tree_id, family_id, person_id, role, sort_order)
+    values (v_tree, v_family, v_rel_drop, 'unknown', 0);
+
+    insert into familee.family_children (tree_id, family_id, person_id, relation, relation_by_partner)
+    values (v_tree, v_family, v_rel_child, 'biological',
+            jsonb_build_object(v_rel_drop::text, 'adopted'));
+
+    perform familee.merge_persons(v_tree, v_rel_keep, v_rel_drop);
+
+    if (select relation_by_partner ->> v_rel_keep::text
+          from familee.family_children
+         where family_id = v_family and person_id = v_rel_child)
+       is distinct from 'adopted' then
+        raise exception 'smoke: the relation towards the merged parent was lost';
+    end if;
+
+    if exists (select 1 from familee.family_children
+                where family_id = v_family
+                  and person_id = v_rel_child
+                  and relation_by_partner ? v_rel_drop::text) then
+        raise exception 'smoke: the relation still names the merged parent';
+    end if;
+
+    -- 15. Names: a primary name identical to the survivor's is not kept twice, a name that differs
+    --     only in the suffix stays, and the survivor's primary name stays primary (migration 0019).
+    insert into familee.persons (tree_id) values (v_tree) returning id into v_name_keep;
+    insert into familee.persons (tree_id) values (v_tree) returning id into v_name_drop;
+
+    insert into familee.person_names (person_id, type, is_primary, given, surname)
+    values (v_name_keep, 'birth', true, 'Same', 'Smoke')
+    returning id into v_name_primary;
+
+    insert into familee.person_names (person_id, type, is_primary, given, surname)
+    values (v_name_drop, 'birth', true, 'Same', 'Smoke');
+
+    insert into familee.person_names (person_id, type, is_primary, given, surname, suffix)
+    values (v_name_drop, 'birth', false, 'Same', 'Smoke', 'Jr.');
+
+    perform familee.merge_persons(v_tree, v_name_keep, v_name_drop);
+
+    if (select count(*) from familee.person_names
+         where person_id = v_name_keep
+           and given = 'Same' and surname = 'Smoke' and suffix is null) <> 1 then
+        raise exception 'smoke: an identical primary name was kept twice';
+    end if;
+
+    if not exists (select 1 from familee.person_names
+                    where person_id = v_name_keep and suffix = 'Jr.') then
+        raise exception 'smoke: a name that differs only in the suffix was deleted';
+    end if;
+
+    if not exists (select 1 from familee.person_names
+                    where id = v_name_primary and is_primary) then
+        raise exception 'smoke: the survivor lost its primary name';
+    end if;
+
+    -- 16. A place merge where the survivor sits two levels under the place that goes: the survivor
+    --     is lifted to the parent of that place, and the place between them becomes its child
+    --     (migration 0019).
+    insert into familee.places (tree_id, name)
+    values (v_tree, 'Smoke Region')
+    returning id into v_place_drop;
+
+    insert into familee.places (tree_id, name, parent_id)
+    values (v_tree, 'Smoke District', v_place_drop)
+    returning id into v_place_child;
+
+    insert into familee.places (tree_id, name, parent_id)
+    values (v_tree, 'Smoke Region', v_place_child)
+    returning id into v_place_keep;
+
+    perform familee.merge_places(v_tree, v_place_keep, v_place_drop);
+
+    if exists (select 1 from familee.places where id = v_place_drop) then
+        raise exception 'smoke: the merged place is still in the tree';
+    end if;
+
+    if (select parent_id from familee.places where id = v_place_keep) is not null then
+        raise exception 'smoke: the survivor was not lifted out from under the merged place';
+    end if;
+
+    if not exists (select 1 from familee.places
+                    where id = v_place_child and parent_id = v_place_keep) then
+        raise exception 'smoke: the place between the two did not become a child of the survivor';
     end if;
 
     raise notice 'smoke: all checks passed (persons=%, kinship=%/%)',

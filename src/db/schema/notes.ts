@@ -68,6 +68,18 @@ export const notes = familee.table(
         ),
         index("notes_tree_idx").on(t.treeId, t.createdAt.desc()),
         index("notes_person_idx").on(t.personId),
+        /**
+         * The other targets, for the merges and the cascades of a delete (migration 0019). Partial:
+         * a note has one target at most, so each column is mostly empty.
+         */
+        index("notes_family_idx").on(t.familyId).where(sql`family_id is not null`),
+        index("notes_event_idx").on(t.eventId).where(sql`event_id is not null`),
+        index("notes_place_idx").on(t.placeId).where(sql`place_id is not null`),
+        index("notes_source_idx").on(t.sourceId).where(sql`source_id is not null`),
+        index("notes_media_idx").on(t.mediaId).where(sql`media_id is not null`),
+        /** The search over the title and the text (migration 0018). */
+        index("notes_title_trgm_idx").using("gin", t.title.op("gin_trgm_ops")),
+        index("notes_body_trgm_idx").using("gin", t.body.op("gin_trgm_ops")),
     ],
 );
 

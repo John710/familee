@@ -163,6 +163,9 @@ export const events = familee.table(
         index("events_family_type_idx").on(t.familyId, t.typeCode),
         index("events_tree_sort_date_idx").on(t.treeId, t.sortDate.asc().nullsLast()),
         index("events_place_idx").on(t.placeId),
+        /** The search over the value and the description (migration 0018). */
+        index("events_value_trgm_idx").using("gin", t.value.op("gin_trgm_ops")),
+        index("events_description_trgm_idx").using("gin", t.description.op("gin_trgm_ops")),
 
         /** At most one primary event of each type. */
         uniqueIndex("events_person_primary_key")
