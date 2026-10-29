@@ -15,10 +15,10 @@
 # (SKIP_MIGRATIONS=1 skips it). The compose files keep a psql-based tools
 # service under the tools profile for the demo seed and the smoke tests.
 
-ARG NODE_IMAGE=node:26-alpine
-
 # ─── Shared base ────────────────────────────────────────────────────
-FROM ${NODE_IMAGE} AS base
+# The image is named in FROM itself, not through an ARG: Dependabot reads only a literal FROM
+# (.github/dependabot.yml) and proposes the next Node release here.
+FROM node:26-alpine AS base
 
 # libc6-compat is required by native modules (sharp) on musl systems.
 RUN apk add --no-cache libc6-compat

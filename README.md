@@ -304,6 +304,11 @@ the commits by their type: features, improvements, bug fixes, documentation, bui
 other. The image is scanned for known vulnerabilities with Trivy. The scan only reports them; a
 finding does not stop the release.
 
+Dependabot proposes updates once a week (`.github/dependabot.yml`): the npm packages (minor and
+patch updates in one pull request), the GitHub Actions, the Node base image of the Dockerfile and
+the Postgres image of the tools service. Every proposal runs the tests; an accepted one goes into
+the next release.
+
 ## License
 
 Familee is released under the [MIT License](LICENSE). You may use, copy, change, fork and redistribute

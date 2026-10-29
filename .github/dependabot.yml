@@ -1,0 +1,51 @@
+# The weekly proposals of Dependabot, set up as in Finapp: one pull request per update, the minor
+# and patch updates of npm in one group, and a commit prefix the release notes can group
+# (scripts/release-notes.mjs puts chore under "Build and release").
+#
+# Every proposal runs the test job of docker.yml (it runs on every pull request). Dependabot pins
+# exactly what package.json pins exactly, so the rule "latest versions, pinned exactly" holds. The
+# pull requests are not merged on GitHub: the commit of a merge would carry Dependabot as its author,
+# and Familee has one author. The change is taken into a commit of its own on main, checked on the
+# server and pushed; Dependabot then closes its pull request by itself.
+
+version: 2
+
+updates:
+    - package-ecosystem: github-actions
+      directory: /
+      schedule:
+          interval: weekly
+      commit-message:
+          prefix: "chore(ci)"
+
+    - package-ecosystem: npm
+      directory: /
+      schedule:
+          interval: weekly
+      commit-message:
+          prefix: "chore(deps)"
+      groups:
+          minor-patch:
+              update-types:
+                  - minor
+                  - patch
+
+    # The base image of the Dockerfile (node:26-alpine).
+    - package-ecosystem: docker
+      directory: /
+      schedule:
+          interval: weekly
+      commit-message:
+          prefix: "chore(deps)"
+
+    # The Postgres image of the tools service. The application image is ours and moves with each
+    # release (the release skill writes its tag), and familee:local is built, never pulled.
+    - package-ecosystem: docker-compose
+      directory: /
+      schedule:
+          interval: weekly
+      commit-message:
+          prefix: "chore(deps)"
+      ignore:
+          - dependency-name: "ghcr.io/john710/familee"
+          - dependency-name: "familee"
